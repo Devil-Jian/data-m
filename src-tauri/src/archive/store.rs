@@ -431,9 +431,8 @@ mod tests {
         assert_eq!(first.sha256, second.sha256);
         assert!(blob_path(&root, &first.sha256).is_file());
 
-        let shard = blob_path(&root, &first.sha256)
-            .parent()
-            .expect("blob shard");
+        let blob = blob_path(&root, &first.sha256);
+        let shard = blob.parent().expect("blob shard");
         let blob_count = fs::read_dir(shard)
             .expect("read blob shard")
             .filter_map(Result::ok)
