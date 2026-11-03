@@ -44,6 +44,9 @@ jobs:
       - name: Check Rust formatting
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
 
+      - name: Run focused ArchiveStore contract test
+        run: cargo test --manifest-path src-tauri/Cargo.toml archive::store::tests::opens_archive_and_keeps_archive_id_stable -- --exact
+
       - name: Run Rust tests
         run: cargo test --manifest-path src-tauri/Cargo.toml --all-targets
 
