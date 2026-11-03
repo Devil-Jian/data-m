@@ -299,7 +299,7 @@ fn promote_staged_blob(
 
     match fs::rename(staging_path, destination) {
         Ok(()) => Ok(()),
-        Err(error) if destination.exists() => {
+        Err(_error) if destination.exists() => {
             verify_blob(destination, expected_sha256, expected_size)?;
             fs::remove_file(staging_path)?;
             Ok(())
@@ -308,13 +308,9 @@ fn promote_staged_blob(
     }
 }
 
-fn verify_blob(
-    path: &Path,
-    expected_sha256: &str,
-    expected_size: u64,
-) -> Result<(), ArchiveError> {
-    let metadata = fs::metadata(path)
-        .map_err(|_| ArchiveError::CorruptBlob(expected_sha256.to_owned()))?;
+fn verify_blob(path: &Path, expected_sha256: &str, expected_size: u64) -> Result<(), ArchiveError> {
+    let metadata =
+        fs::metadata(path).map_err(|_| ArchiveError::CorruptBlob(expected_sha256.to_owned()))?;
     if !metadata.is_file() || metadata.len() != expected_size {
         return Err(ArchiveError::CorruptBlob(expected_sha256.to_owned()));
     }
