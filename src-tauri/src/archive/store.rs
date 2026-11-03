@@ -176,11 +176,12 @@ impl ArchiveStore {
             .lock()
             .map_err(|_| ArchiveError::LockPoisoned)?;
         let mut statement = connection.prepare(
-            "SELECT data_id, display_id, blob_sha256, original_filename,
-                    file_extension, category, file_size, created_at
-             FROM data_records
-             WHERE deleted_at IS NULL
-             ORDER BY created_at DESC, data_id DESC",
+            "SELECT d.data_id, d.display_id, d.blob_sha256, d.original_filename,
+                    d.file_extension, d.category, b.file_size, d.created_at
+             FROM data_records AS d
+             JOIN blobs AS b ON b.sha256 = d.blob_sha256
+             WHERE d.deleted_at IS NULL
+             ORDER BY d.created_at DESC, d.data_id DESC",
         )?;
 
         let rows = statement.query_map([], |row| {
@@ -297,9 +298,14 @@ fn promote_staged_blob(
         return Ok(());
     }
 
-    match fs::rename(staging_path, destination) {
-        Ok(()) => Ok(()),
-        Err(_error) if destination.exists() => {
+    // An atomic hard-link creation must fail when the content address already exists.
+    // Unlike rename, this cannot replace an immutable Blob on Unix or Windows.
+    match fs::hard_link(staging_path, destination) {
+        Ok(()) => {
+            fs::remove_file(staging_path)?;
+            Ok(())
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
             verify_blob(destination, expected_sha256, expected_size)?;
             fs::remove_file(staging_path)?;
             Ok(())
