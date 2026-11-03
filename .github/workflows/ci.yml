@@ -13,6 +13,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: archive-foundation-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   windows:
     name: Windows build and tests
