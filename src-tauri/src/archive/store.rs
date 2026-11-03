@@ -258,10 +258,7 @@ impl Drop for StagingGuard {
     }
 }
 
-fn stage_and_hash(
-    source: &mut File,
-    staging_path: &Path,
-) -> Result<(String, u64), ArchiveError> {
+fn stage_and_hash(source: &mut File, staging_path: &Path) -> Result<(String, u64), ArchiveError> {
     let mut staging = OpenOptions::new()
         .write(true)
         .create_new(true)
