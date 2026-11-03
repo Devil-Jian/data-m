@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
     use super::ArchiveStore;
+    use rusqlite::Connection;
     use std::{
         fs,
         path::{Path, PathBuf},
@@ -157,5 +158,29 @@ mod tests {
 
         assert!(store.import_file(&source).is_err());
         assert_eq!(store.list_data_records().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn database_insert_failure_does_not_create_a_data_record() {
+        let temp = TempDir::new().expect("temporary directory");
+        let (root, store) = open_test_store(&temp);
+        let source = temp.path().join("triggered.txt");
+        fs::write(&source, b"transactional data").unwrap();
+
+        let connection = Connection::open(root.join("database").join("archive.db"))
+            .expect("open archive database");
+        connection
+            .execute_batch(
+                "CREATE TRIGGER reject_data_records
+                 BEFORE INSERT ON data_records
+                 BEGIN
+                     SELECT RAISE(ABORT, 'forced test failure');
+                 END;",
+            )
+            .expect("install test trigger");
+        drop(connection);
+
+        assert!(store.import_file(&source).is_err());
+        assert!(store.list_data_records().unwrap().is_empty());
     }
 }
