@@ -7,7 +7,7 @@ use std::{
 };
 
 use chrono::{SecondsFormat, Utc};
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
