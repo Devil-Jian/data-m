@@ -9,7 +9,8 @@ fn main() {
 
     if !icon_path.exists() {
         fs::create_dir_all(&icon_dir).expect("failed to create Tauri icon directory");
-        fs::write(&icon_path, default_windows_icon()).expect("failed to generate default Windows icon");
+        fs::write(&icon_path, default_windows_icon())
+            .expect("failed to generate default Windows icon");
     }
 
     tauri_build::build();
