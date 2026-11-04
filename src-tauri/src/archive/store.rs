@@ -1,5 +1,5 @@
 use std::{
-    fs::{self, File, OpenOptions},
+    fs::{self, File, Metadata, OpenOptions},
     io::{Read, Write},
     path::{Path, PathBuf},
     sync::Mutex,
@@ -90,12 +90,14 @@ impl ArchiveStore {
             .to_ascii_lowercase();
 
         let mut source_file = File::open(source_path)?;
+        let source_snapshot = source_file.metadata()?;
         let staging_path = self
             .root
             .join("staging")
             .join(format!("{}.part", Uuid::now_v7()));
         let _staging_guard = StagingGuard::new(staging_path.clone());
         let (sha256, file_size) = stage_and_hash(&mut source_file, &staging_path)?;
+        ensure_source_unchanged(source_path, &source_snapshot, file_size)?;
         let database_file_size =
             i64::try_from(file_size).map_err(|_| ArchiveError::FileTooLarge)?;
 
@@ -284,6 +286,29 @@ fn stage_and_hash(source: &mut File, staging_path: &Path) -> Result<(String, u64
     staging.flush()?;
     staging.sync_all()?;
     Ok((hex::encode(hasher.finalize()), file_size))
+}
+
+fn ensure_source_unchanged(
+    source_path: &Path,
+    before: &Metadata,
+    copied_size: u64,
+) -> Result<(), ArchiveError> {
+    let after = fs::metadata(source_path).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::NotFound {
+            ArchiveError::SourceChanged(source_path.to_path_buf())
+        } else {
+            ArchiveError::Io(error)
+        }
+    })?;
+
+    if !after.is_file()
+        || before.len() != copied_size
+        || after.len() != copied_size
+        || before.modified()? != after.modified()?
+    {
+        return Err(ArchiveError::SourceChanged(source_path.to_path_buf()));
+    }
+    Ok(())
 }
 
 fn promote_staged_blob(
