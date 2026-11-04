@@ -236,25 +236,29 @@ pub async fn import_paper_folder(
 }
 
 #[tauri::command]
-pub fn check_paper_archive(
+pub async fn check_paper_archive(
     paper_id: String,
     state: State<'_, AppState>,
 ) -> Result<crate::archive::workflow::ArchiveCheck, String> {
-    state
-        .store()?
-        .check_paper(&paper_id)
-        .map_err(|err| err.to_string())
+    let store = state.store()?;
+    tauri::async_runtime::spawn_blocking(move || {
+        store.check_paper(&paper_id).map_err(|err| err.to_string())
+    })
+    .await
+    .map_err(|err| format!("归档检查任务结束异常：{err}"))?
 }
 
 #[tauri::command]
-pub fn finalize_paper_archive(
+pub async fn finalize_paper_archive(
     paper_id: String,
     state: State<'_, AppState>,
 ) -> Result<Paper, String> {
-    state
-        .store()?
-        .finalize_paper(&paper_id)
-        .map_err(|err| err.to_string())
+    let store = state.store()?;
+    tauri::async_runtime::spawn_blocking(move || {
+        store.finalize_paper(&paper_id).map_err(|err| err.to_string())
+    })
+    .await
+    .map_err(|err| format!("归档任务结束异常：{err}"))?
 }
 
 #[tauri::command]
