@@ -28,6 +28,7 @@ const successMessage = ref("");
 const errorMessage = ref("");
 const showNewPaper = ref(false);
 const showNewItem = ref(false);
+const showAllFiles = ref(false);
 const newTitle = ref("");
 const newDoi = ref("");
 const newItemType = ref<"figure" | "panel" | "table">("figure");
@@ -48,6 +49,11 @@ const figureItems = computed(() => items.value.filter(i => i.item_type === "figu
 const orderedItems = computed(() => topItems.value.flatMap(item => [
   item, ...items.value.filter(child => child.parent_id === item.item_id),
 ]));
+const globalMatches = computed(() => allData.value.filter(data =>
+  [data.original_filename, data.display_id, data.sha256]
+    .some(value => value.toLowerCase().includes(resourceSearch.value.toLowerCase())),
+));
+const globalPreviewRecords = computed(() => globalMatches.value.slice(0, 200));
 const availableData = computed(() => allData.value.filter(
   data => !resources.value.some(r => r.item_id === selectedItemId.value && r.data_id === data.data_id),
 ));
@@ -105,6 +111,7 @@ async function refreshPaperContents(paperId: string) {
 async function selectPaper(paperId: string) {
   if (selectedPaperId.value !== paperId) {
     selectedPaperId.value = paperId;
+    showAllFiles.value = false;
     selectedItemId.value = null;
     selectedDataId.value = null;
     dataDetails.value = null;
@@ -310,6 +317,35 @@ async function importItemFiles() {
     busy.value = false;
   }
 }
+async function importGlobalFiles() {
+  if (busy.value || !ready.value) return;
+  const chosen = await open({ multiple: true, title: "导入到全局数据资源库" });
+  if (!chosen) return;
+  const paths = typeof chosen === "string" ? [chosen] : chosen;
+  busy.value = true;
+  clearFeedback();
+  const failures: string[] = [];
+  let lastDataId: string | null = null;
+  try {
+    for (const path of paths) {
+      try {
+        const data = await invoke<DataRecord>("import_data_file", { path });
+        lastDataId = data.data_id;
+      } catch (error) {
+        failures.push(`${path}: ${String(error)}`);
+      }
+    }
+    await refreshData();
+    if (lastDataId) {
+      await selectData(lastDataId);
+      successMessage.value = "文件已经入库，可直接检查元数据，也可以在论文图表中关联这些文件。";
+    }
+    if (failures.length) errorMessage.value = `${failures.length} 个文件导入失败：\\n${failures.join("\\n")}`;
+  } finally {
+    busy.value = false;
+  }
+}
+
 async function selectData(dataId: string) {
   selectedDataId.value = dataId;
   dataDetails.value = null;
@@ -465,7 +501,12 @@ onBeforeUnmount(() => { releasePreview(); });
       <aside class="resources-pane">
         <div class="resource-header">
           <div><p class="eyebrow">PAPER ASSETS</p><h2>论文资源库</h2></div>
-          <button class="icon-button" title="创建 Figure / Panel / Table" :disabled="!currentPaper" @click="showNewItem = !showNewItem">＋</button>
+          <div class="resource-header-actions">
+            <button class="small-button" @click="showAllFiles = !showAllFiles">
+              {{ showAllFiles ? "返回论文目录" : "全部文件" }}
+            </button>
+            <button class="icon-button" title="创建 Figure / Panel / Table" :disabled="!currentPaper" @click="showNewItem = !showNewItem">＋</button>
+          </div>
         </div>
         <p class="resource-intro">每篇论文独立归档图表与原始数据；点击正文已绑定的图像即可跳转到对应条目。</p>
         <div v-if="showNewItem && currentPaper" class="inline-form item-form">
@@ -489,7 +530,31 @@ onBeforeUnmount(() => { releasePreview(); });
           </div>
         </div>
 
-        <div v-if="!currentPaper" class="small-empty">请先从左侧选择论文。</div>
+        <div v-if="showAllFiles" class="global-library">
+          <div class="global-actions">
+            <span>全局已归档文件：{{ globalMatches.length }}</span>
+            <button class="small-button" :disabled="busy" @click="importGlobalFiles">＋ 导入文件</button>
+          </div>
+          <input v-model="resourceSearch" class="search-input resources-search" placeholder="按文件名、Data ID 或哈希检索" aria-label="全局文件检索" />
+          <div class="global-scroll">
+            <button
+              v-for="data in globalPreviewRecords"
+              :key="data.data_id"
+              class="resource-file global-file"
+              :class="{ active: selectedDataId === data.data_id }"
+              @click="selectData(data.data_id)"
+            >
+              <span class="file-icon">{{ data.category === "image" ? "▧" : data.category === "spreadsheet" ? "▤" : "◫" }}</span>
+              <span class="file-copy">
+                <strong>{{ data.original_filename }}</strong>
+                <small>{{ formatBytes(data.file_size) }} · {{ briefId(data.display_id) }}</small>
+              </span>
+            </button>
+            <p v-if="globalMatches.length > 200" class="no-files">已显示前 200 条，请使用搜索定位其他文件。</p>
+            <p v-if="!globalMatches.length" class="no-files">暂无文件，可以直接从此处导入，随后关联到论文图表。</p>
+          </div>
+        </div>
+        <div v-else-if="!currentPaper" class="small-empty">请先从左侧选择论文，或点击“全部文件”查看已有资源。</div>
         <template v-else>
           <input v-model="resourceSearch" class="search-input resources-search" placeholder="筛选文件名称" aria-label="筛选原始资源" />
           <div class="resource-tree">
@@ -544,6 +609,7 @@ onBeforeUnmount(() => { releasePreview(); });
             </div>
           </div>
 
+        </template>
           <div class="file-details">
             <div class="details-title">
               <p class="eyebrow">RESOURCE INSPECTOR</p>
@@ -568,7 +634,6 @@ onBeforeUnmount(() => { releasePreview(); });
             </template>
             <p v-else class="no-details">点击右侧原始文件，可查看完整元数据和引用位置。</p>
           </div>
-        </template>
       </aside>
     </main>
     <footer v-if="!ready" class="footer">本地 SQLite · 文件 SHA-256 校验 · 不依赖互联网</footer>
@@ -637,6 +702,11 @@ h2 { margin: 0; font-size: 17px; font-weight: 720; }
 .feedback button { border: none; background: transparent; font-size: 14px; color: inherit; }
 .resources-pane { display: flex; flex-direction: column; min-height: 0; background: #fff; border-left: 1px solid #dfe6ee; }
 .resource-header { flex: 0 0 auto; padding-bottom: 8px; }
+.resource-header-actions { display: flex; align-items: center; gap: 9px; }
+.global-library { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.global-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 19px 12px; color: #768da2; font-size: 11px; }
+.global-scroll { flex: 1; overflow-y: auto; min-height: 0; padding: 7px 13px 20px; }
+.global-file { width: calc(100% - 10px); }
 .resource-intro { margin: 0 19px 17px; color: #8798aa; font-size: 11px; line-height: 1.8; }
 .resources-search { margin-bottom: 7px; }
 .resource-tree { flex: 1; min-height: 100px; overflow-y: auto; padding: 10px 13px 25px; }
