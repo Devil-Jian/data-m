@@ -743,6 +743,7 @@ impl ArchiveStore {
             params![revision, now, paper_id],
         )?;
         tx.commit()?;
+        drop(connection);
         self.get_paper(paper_id)
     }
 
