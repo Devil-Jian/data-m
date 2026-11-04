@@ -220,7 +220,8 @@ fn classify(relative: &str, size: u64) -> ScanEntry {
             item.kind = "table".to_owned();
             item.figure_number = Some(table_number);
             if stem.to_ascii_lowercase().starts_with("table") {
-                item.issue = Some("旧式 tableN 编号可能指独立 Table 或 Figure 统计数据，请确认".to_owned());
+                item.issue =
+                    Some("旧式 tableN 编号可能指独立 Table 或 Figure 统计数据，请确认".to_owned());
             }
         } else {
             item.issue = Some("统计表文件名未标明 Figure-Panel 或独立 Table 编号".to_owned());
@@ -301,7 +302,10 @@ pub fn scan_paper_folder(root: impl AsRef<Path>) -> Result<FolderScan, ArchiveEr
         if entry.role == "composite" {
             if let Some(number) = entry.figure_number {
                 if !seen_composites.insert(number) {
-                    warnings.push(format!("{}：Figure {number} 存在多个最终组合图，请确认", entry.relative_path));
+                    warnings.push(format!(
+                        "{}：Figure {number} 存在多个最终组合图，请确认",
+                        entry.relative_path
+                    ));
                 }
             }
         }
