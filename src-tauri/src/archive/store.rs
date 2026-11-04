@@ -17,7 +17,8 @@ use super::{
 };
 
 const COPY_BUFFER_SIZE: usize = 1024 * 1024;
-const SCHEMA_VERSION: i64 = 2;
+const SCHEMA_VERSION: i64 = 3;
+const WORKFLOW_MIGRATION: &str = include_str!("../../migrations/0003_archive_workflow.sql");
 const PAPER_MIGRATION: &str = include_str!("../../migrations/0002_paper_workspace.sql");
 const INITIAL_MIGRATION: &str = include_str!("../../migrations/0001_initial.sql");
 
@@ -51,8 +52,13 @@ impl ArchiveStore {
             0 => {
                 Self::initialize_schema(&mut connection)?;
                 Self::migrate_papers(&mut connection)?;
+                Self::migrate_workflow(&mut connection)?;
             }
-            1 => Self::migrate_papers(&mut connection)?,
+            1 => {
+                Self::migrate_papers(&mut connection)?;
+                Self::migrate_workflow(&mut connection)?;
+            }
+            2 => Self::migrate_workflow(&mut connection)?,
             SCHEMA_VERSION => {}
             unsupported => return Err(ArchiveError::UnsupportedSchema(unsupported)),
         }
@@ -230,6 +236,17 @@ impl ArchiveStore {
             schema_version,
             data_dir: self.root.to_string_lossy().into_owned(),
         })
+    }
+
+    fn migrate_workflow(connection: &mut Connection) -> Result<(), ArchiveError> {
+        let transaction = connection.transaction()?;
+        transaction.execute_batch(WORKFLOW_MIGRATION)?;
+        transaction.execute(
+            "UPDATE archive_meta SET schema_version = 3, updated_at = ?1 WHERE singleton = 1",
+            params![utc_timestamp()],
+        )?;
+        transaction.commit()?;
+        Ok(())
     }
 
     fn migrate_papers(connection: &mut Connection) -> Result<(), ArchiveError> {
@@ -436,7 +453,7 @@ mod tests {
         assert!(root.join("database").join("archive.db").is_file());
         assert!(root.join("blobs").join("sha256").is_dir());
         assert!(root.join("staging").is_dir());
-        assert_eq!(first_info.schema_version, 2);
+        assert_eq!(first_info.schema_version, 3);
 
         drop(first);
 
