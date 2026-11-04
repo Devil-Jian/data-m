@@ -647,18 +647,48 @@ impl ArchiveStore {
             });
         }
         drop(connection);
-        // Validate referenced physical Blob integrity at finalize time.
+        // Verify original bytes, not merely file existence; do not silently archive corrupted data.
+        let mut checksums = BTreeMap::<String, u64>::new();
         for resource in &resources {
+            checksums.insert(resource.sha256.clone(), resource.file_size);
+        }
+        for resource in &others {
+            checksums.insert(resource.sha256.clone(), resource.file_size);
+        }
+        if let Some(manuscript_sha) = &paper.manuscript_sha256 {
+            let connection = self
+                .connection
+                .lock()
+                .map_err(|_| ArchiveError::LockPoisoned)?;
+            let size: Option<i64> = connection
+                .query_row(
+                    "SELECT file_size FROM blobs WHERE sha256 = ?1",
+                    params![manuscript_sha],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            if let Some(size) = size {
+                if size >= 0 {
+                    checksums.insert(manuscript_sha.clone(), size as u64);
+                }
+            } else {
+                issues.push(ArchiveIssue {
+                    severity: "error".into(),
+                    message: "论文正文关联的 Blob 元数据丢失".into(),
+                });
+            }
+        }
+        for (sha, file_size) in checksums {
             let path = self
                 .root
                 .join("blobs")
                 .join("sha256")
-                .join(&resource.sha256[..2])
-                .join(&resource.sha256);
-            if !path.is_file() {
+                .join(&sha[..2])
+                .join(&sha);
+            if let Err(reason) = super::store::verify_blob(&path, &sha, file_size) {
                 issues.push(ArchiveIssue {
                     severity: "error".into(),
-                    message: format!("文件丢失：{}", resource.original_filename),
+                    message: format!("文件 SHA-256 完整性校验失败：{} ({reason})", &sha[..12]),
                 });
             }
         }
