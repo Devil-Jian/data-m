@@ -57,7 +57,9 @@ impl AppState {
         if !default_location_available(&default_dir) {
             let message = "默认 D 盘不可用。请选择一个本地数据目录进行初始化。".to_owned();
             *state.startup_error.lock().expect("startup lock") = Some(message);
-        } else if let Err(message) = state.initialize(Some(default_dir.to_string_lossy().into_owned())) {
+        } else if let Err(message) =
+            state.initialize(Some(default_dir.to_string_lossy().into_owned()))
+        {
             *state.startup_error.lock().expect("startup lock") = Some(message);
         }
         state
@@ -144,6 +146,7 @@ fn validate_local_archive_dir(path: &Path) -> Result<(), String> {
 
     #[cfg(windows)]
     {
+        use std::os::windows::ffi::OsStrExt;
         use std::path::{Component, Prefix};
         let disk = match path.components().next() {
             Some(Component::Prefix(prefix)) => match prefix.kind() {
@@ -167,6 +170,7 @@ fn validate_local_archive_dir(path: &Path) -> Result<(), String> {
 }
 
 #[cfg(windows)]
+#[link(name = "kernel32")]
 unsafe extern "system" {
     #[link_name = "GetDriveTypeW"]
     fn get_drive_type_w(root: *const u16) -> u32;
