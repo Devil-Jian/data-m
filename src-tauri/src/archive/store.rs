@@ -389,10 +389,11 @@ fn utc_timestamp() -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::ArchiveStore;
+    use super::{ArchiveStore, COPY_BUFFER_SIZE, ensure_source_unchanged, hash_file};
     use rusqlite::Connection;
     use std::{
         fs,
+        io::Write,
         path::{Path, PathBuf},
     };
     use tempfile::TempDir;
@@ -568,7 +569,53 @@ mod tests {
             .expect("install test trigger");
         drop(connection);
 
+        let (sha, _) = hash_file(&source).unwrap();
         assert!(store.import_file(&source).is_err());
         assert!(store.list_data_records().unwrap().is_empty());
+        assert!(blob_path(&root, &sha).is_file(), "orphan Blob must remain for safe reconciliation");
     }
+
+    #[test]
+    fn files_larger_than_copy_buffer_are_imported_completely() {
+        let temp = TempDir::new().expect("temporary directory");
+        let (root, store) = open_test_store(&temp);
+        let source = temp.path().join("large.raw");
+        let mut file = fs::File::create(&source).unwrap();
+        let chunk = vec![0xA5_u8; COPY_BUFFER_SIZE];
+        for _ in 0..4 {
+            file.write_all(&chunk).unwrap();
+        }
+        file.sync_all().unwrap();
+        drop(file);
+
+        let record = store.import_file(&source).expect("large file import");
+        let (original_hash, original_len) = hash_file(&source).unwrap();
+        let (blob_hash, blob_len) = hash_file(&blob_path(&root, &record.sha256)).unwrap();
+
+        assert_eq!(record.file_size, 4 * COPY_BUFFER_SIZE as u64);
+        assert_eq!(record.sha256, original_hash);
+        assert_eq!(blob_hash, original_hash);
+        assert_eq!(blob_len, original_len);
+    }
+
+    #[test]
+    fn missing_source_after_streaming_is_detected() {
+        let temp = TempDir::new().unwrap();
+        let source = temp.path().join("removed.raw");
+        fs::write(&source, b"original").unwrap();
+        let snapshot = fs::metadata(&source).unwrap();
+        fs::remove_file(&source).unwrap();
+        assert!(ensure_source_unchanged(&source, &snapshot, snapshot.len()).is_err());
+    }
+
+    #[test]
+    fn changed_source_size_after_streaming_is_detected() {
+        let temp = TempDir::new().unwrap();
+        let source = temp.path().join("modified.raw");
+        fs::write(&source, b"original").unwrap();
+        let snapshot = fs::metadata(&source).unwrap();
+        fs::write(&source, b"modified content").unwrap();
+        assert!(ensure_source_unchanged(&source, &snapshot, snapshot.len()).is_err());
+    }
+
 }
