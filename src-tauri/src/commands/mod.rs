@@ -69,10 +69,7 @@ pub fn list_papers(state: State<'_, AppState>) -> Result<Vec<Paper>, String> {
 }
 
 #[tauri::command]
-pub fn get_paper(
-    paper_id: String,
-    state: State<'_, AppState>,
-) -> Result<Paper, String> {
+pub fn get_paper(paper_id: String, state: State<'_, AppState>) -> Result<Paper, String> {
     state
         .store()?
         .get_paper(&paper_id)
@@ -201,10 +198,7 @@ pub async fn read_data_image(
 }
 
 #[tauri::command]
-pub fn reveal_data_file(
-    data_id: String,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
+pub fn reveal_data_file(data_id: String, state: State<'_, AppState>) -> Result<(), String> {
     state
         .store()?
         .reveal_data_file(&data_id)

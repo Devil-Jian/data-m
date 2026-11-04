@@ -147,7 +147,8 @@ impl ArchiveStore {
                 resource_count: row.get(9)?,
             })
         })?;
-        rows.collect::<Result<Vec<_>, _>>().map_err(ArchiveError::from)
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(ArchiveError::from)
     }
 
     pub fn get_paper(&self, paper_id: &str) -> Result<Paper, ArchiveError> {
@@ -284,7 +285,8 @@ impl ArchiveStore {
                 anchor_index: row.get(12)?,
             })
         })?;
-        rows.collect::<Result<Vec<_>, _>>().map_err(ArchiveError::from)
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(ArchiveError::from)
     }
 
     pub fn set_item_anchor(
@@ -298,7 +300,9 @@ impl ArchiveStore {
                 anchor.page.is_some_and(|page| page > 0)
                     && [anchor.x, anchor.y, anchor.w, anchor.h]
                         .into_iter()
-                        .all(|value| value.is_some_and(|n| n.is_finite() && (0.0..=1.0).contains(&n)))
+                        .all(|value| {
+                            value.is_some_and(|n| n.is_finite() && (0.0..=1.0).contains(&n))
+                        })
                     && anchor.w.unwrap_or(0.0) > 0.005
                     && anchor.h.unwrap_or(0.0) > 0.005
                     && anchor.x.unwrap_or(0.0) + anchor.w.unwrap_or(0.0) <= 1.001
@@ -320,8 +324,16 @@ impl ArchiveStore {
              anchor_h = ?6, anchor_index = ?7, updated_at = ?8
              WHERE item_id = ?9 AND paper_id = ?10",
             params![
-                anchor.kind, anchor.page, anchor.x, anchor.y, anchor.w, anchor.h, anchor.index,
-                utc_now(), item_id, paper_id
+                anchor.kind,
+                anchor.page,
+                anchor.x,
+                anchor.y,
+                anchor.w,
+                anchor.h,
+                anchor.index,
+                utc_now(),
+                item_id,
+                paper_id
             ],
         )?;
         if changed != 1 {
@@ -377,10 +389,7 @@ impl ArchiveStore {
         Ok(saved_id)
     }
 
-    pub fn list_paper_resources(
-        &self,
-        paper_id: &str,
-    ) -> Result<Vec<PaperResource>, ArchiveError> {
+    pub fn list_paper_resources(&self, paper_id: &str) -> Result<Vec<PaperResource>, ArchiveError> {
         let connection = self
             .connection
             .lock()
@@ -410,7 +419,8 @@ impl ArchiveStore {
                 created_at: row.get(9)?,
             })
         })?;
-        rows.collect::<Result<Vec<_>, _>>().map_err(ArchiveError::from)
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(ArchiveError::from)
     }
 
     pub fn get_data_details(&self, data_id: &str) -> Result<DataDetails, ArchiveError> {
@@ -515,11 +525,14 @@ impl ArchiveStore {
                 max_size / 1024 / 1024
             )));
         }
-        let path = self.root.join("blobs").join("sha256").join(&sha[..2]).join(sha);
+        let path = self
+            .root
+            .join("blobs")
+            .join("sha256")
+            .join(&sha[..2])
+            .join(sha);
         let bytes = fs::read(&path)?;
-        if bytes.len() as i64 != expected_size
-            || hex::encode(Sha256::digest(&bytes)) != sha
-        {
+        if bytes.len() as i64 != expected_size || hex::encode(Sha256::digest(&bytes)) != sha {
             return Err(ArchiveError::CorruptBlob(sha.to_owned()));
         }
         Ok(bytes)
@@ -566,16 +579,20 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let root = temp.path().join("archive");
         let store = ArchiveStore::open(&root).unwrap();
-        let paper = store.create_paper("模拟论文 A", Some("10.1000/example")).unwrap();
+        let paper = store
+            .create_paper("模拟论文 A", Some("10.1000/example"))
+            .unwrap();
         let figure = store
             .create_paper_item(&paper.paper_id, "figure", "Figure 1", None)
             .unwrap();
         let panel = store
             .create_paper_item(&paper.paper_id, "panel", "Figure 1A", Some(&figure.item_id))
             .unwrap();
-        assert!(store
-            .create_paper_item(&paper.paper_id, "panel", "invalid", None)
-            .is_err());
+        assert!(
+            store
+                .create_paper_item(&paper.paper_id, "panel", "invalid", None)
+                .is_err()
+        );
         let input = temp.path().join("image.png");
         fs::write(&input, b"mock image bytes").unwrap();
         let data = store.import_file(&input).unwrap();
@@ -586,12 +603,22 @@ mod tests {
             .attach_data_to_item(&paper.paper_id, &panel.item_id, &data.data_id)
             .unwrap();
         assert_eq!(a, b);
-        assert_eq!(store.list_paper_resources(&paper.paper_id).unwrap().len(), 1);
+        assert_eq!(
+            store.list_paper_resources(&paper.paper_id).unwrap().len(),
+            1
+        );
         drop(store);
         let reopened = ArchiveStore::open(root).unwrap();
         assert_eq!(reopened.list_papers().unwrap().len(), 1);
         assert_eq!(reopened.list_paper_items(&paper.paper_id).unwrap().len(), 2);
-        assert_eq!(reopened.get_data_details(&data.data_id).unwrap().usages.len(), 1);
+        assert_eq!(
+            reopened
+                .get_data_details(&data.data_id)
+                .unwrap()
+                .usages
+                .len(),
+            1
+        );
     }
 
     #[test]
@@ -620,13 +647,18 @@ mod tests {
         );
         let mut invalid = anchor;
         invalid.w = Some(2.0);
-        assert!(store
-            .set_item_anchor(&paper.paper_id, &figure.item_id, invalid)
-            .is_err());
+        assert!(
+            store
+                .set_item_anchor(&paper.paper_id, &figure.item_id, invalid)
+                .is_err()
+        );
         let pdf = temp.path().join("manuscript.pdf");
         fs::write(&pdf, b"%PDF-1.7 fake for test").unwrap();
         store.attach_manuscript(&paper.paper_id, &pdf).unwrap();
-        assert_eq!(store.read_paper_document(&paper.paper_id).unwrap(), fs::read(pdf).unwrap());
+        assert_eq!(
+            store.read_paper_document(&paper.paper_id).unwrap(),
+            fs::read(pdf).unwrap()
+        );
     }
 
     #[test]
@@ -645,7 +677,10 @@ mod tests {
                 .attach_data_to_item(&paper.paper_id, &table.item_id, &data.data_id)
                 .unwrap();
         }
-        assert_eq!(store.get_data_details(&data.data_id).unwrap().usages.len(), 2);
+        assert_eq!(
+            store.get_data_details(&data.data_id).unwrap().usages.len(),
+            2
+        );
     }
 
     #[test]
@@ -695,11 +730,13 @@ mod tests {
         let reopened = ArchiveStore::open(&root).unwrap();
         assert_eq!(reopened.archive_info().unwrap().schema_version, 2);
         assert_eq!(reopened.archive_info().unwrap().archive_id, archive_id);
-        assert!(reopened
-            .list_data_records()
-            .unwrap()
-            .iter()
-            .any(|record| record.data_id == data_id));
+        assert!(
+            reopened
+                .list_data_records()
+                .unwrap()
+                .iter()
+                .any(|record| record.data_id == data_id)
+        );
         let paper = reopened.create_paper("new paper", None).unwrap();
         assert!(paper.manuscript_sha256.is_none());
     }
