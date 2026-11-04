@@ -1,6 +1,6 @@
 use std::{
     fs,
-    path::{Component, Path, PathBuf},
+    path::{Component, Path},
     process::Command,
 };
 
@@ -559,7 +559,6 @@ impl ArchiveStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
     use tempfile::TempDir;
 
     #[test]
@@ -653,30 +652,55 @@ mod tests {
     fn migrating_v1_preserves_existing_file_references() {
         let temp = TempDir::new().unwrap();
         let root = temp.path().join("archive");
-        let store = ArchiveStore::open(&root).unwrap();
-        let input = temp.path().join("unchanged.txt");
-        fs::write(&input, b"preserved").unwrap();
-        let data = store.import_file(&input).unwrap();
-        drop(store);
-        let db = root.join("database").join("archive.db");
-        let connection = rusqlite::Connection::open(&db).unwrap();
-        // Recreate a v1 layout on disk to test the production migration.
-        connection.execute_batch(
-            "DROP INDEX idx_paper_items_anchor;
-             DROP INDEX idx_papers_created;
-             PRAGMA foreign_keys = OFF;",
-        ).unwrap();
-        // SQLite cannot DROP COLUMN on a referenced table without rebuilding it;
-        // emulate a v1 version marker for the migration integrity precondition.
-        // The real migration is tested independently in the separate SQL fixture.
-        connection.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        fs::create_dir_all(root.join("database")).unwrap();
+        let database = root.join("database").join("archive.db");
+        let connection = rusqlite::Connection::open(&database).unwrap();
+        connection
+            .execute_batch(include_str!("../../migrations/0001_initial.sql"))
+            .unwrap();
+        let archive_id = Uuid::now_v7().to_string();
+        let data_id = Uuid::now_v7().to_string();
+        let content = b"preserved original bytes";
+        let sha = hex::encode(Sha256::digest(content));
+        let relative = format!("blobs/sha256/{}/{}", &sha[..2], sha);
+        connection
+            .execute(
+                "INSERT INTO archive_meta
+                 (singleton, archive_id, schema_version, created_at, updated_at)
+                 VALUES (1, ?1, 1, 'old', 'old')",
+                params![archive_id],
+            )
+            .unwrap();
+        connection
+            .execute(
+                "INSERT INTO blobs (sha256, file_size, relative_path, created_at)
+                 VALUES (?1, ?2, ?3, 'old')",
+                params![sha, content.len() as i64, relative],
+            )
+            .unwrap();
+        connection
+            .execute(
+                "INSERT INTO data_records
+                 (data_id, display_id, blob_sha256, original_filename,
+                  file_extension, category, created_at)
+                 VALUES (?1, ?2, ?3, 'unchanged.txt', 'txt', 'document', 'old')",
+                params![data_id, format!("RD-{data_id}"), sha],
+            )
+            .unwrap();
         drop(connection);
+        let destination = root.join(&relative);
+        fs::create_dir_all(destination.parent().unwrap()).unwrap();
+        fs::write(destination, content).unwrap();
+
         let reopened = ArchiveStore::open(&root).unwrap();
         assert_eq!(reopened.archive_info().unwrap().schema_version, 2);
+        assert_eq!(reopened.archive_info().unwrap().archive_id, archive_id);
         assert!(reopened
             .list_data_records()
             .unwrap()
             .iter()
-            .any(|record| record.data_id == data.data_id));
+            .any(|record| record.data_id == data_id));
+        let paper = reopened.create_paper("new paper", None).unwrap();
+        assert!(paper.manuscript_sha256.is_none());
     }
 }
