@@ -212,9 +212,12 @@ pub async fn scan_paper_folder(
 ) -> Result<crate::archive::workflow::FolderScan, String> {
     let store = state.store()?;
     tauri::async_runtime::spawn_blocking(move || {
-        store.scan_folder(std::path::Path::new(&path)).map_err(|err| format!("扫描论文文件夹失败：{err}"))
+        store
+            .scan_folder(std::path::Path::new(&path))
+            .map_err(|err| format!("扫描论文文件夹失败：{err}"))
     })
-    .await.map_err(|err| format!("扫描任务意外结束：{err}"))?
+    .await
+    .map_err(|err| format!("扫描任务意外结束：{err}"))?
 }
 
 #[tauri::command]
@@ -224,9 +227,12 @@ pub async fn import_paper_folder(
 ) -> Result<crate::archive::workflow::ImportResult, String> {
     let store = state.store()?;
     tauri::async_runtime::spawn_blocking(move || {
-        store.import_folder(std::path::Path::new(&path)).map_err(|err| format!("导入整篇论文失败：{err}"))
+        store
+            .import_folder(std::path::Path::new(&path))
+            .map_err(|err| format!("导入整篇论文失败：{err}"))
     })
-    .await.map_err(|err| format!("导入任务意外结束：{err}"))?
+    .await
+    .map_err(|err| format!("导入任务意外结束：{err}"))?
 }
 
 #[tauri::command]
@@ -234,7 +240,10 @@ pub fn check_paper_archive(
     paper_id: String,
     state: State<'_, AppState>,
 ) -> Result<crate::archive::workflow::ArchiveCheck, String> {
-    state.store()?.check_paper(&paper_id).map_err(|err| err.to_string())
+    state
+        .store()?
+        .check_paper(&paper_id)
+        .map_err(|err| err.to_string())
 }
 
 #[tauri::command]
@@ -242,7 +251,10 @@ pub fn finalize_paper_archive(
     paper_id: String,
     state: State<'_, AppState>,
 ) -> Result<Paper, String> {
-    state.store()?.finalize_paper(&paper_id).map_err(|err| err.to_string())
+    state
+        .store()?
+        .finalize_paper(&paper_id)
+        .map_err(|err| err.to_string())
 }
 
 #[tauri::command]
@@ -250,7 +262,10 @@ pub fn revise_archived_paper(
     paper_id: String,
     state: State<'_, AppState>,
 ) -> Result<Paper, String> {
-    state.store()?.start_paper_revision(&paper_id).map_err(|err| err.to_string())
+    state
+        .store()?
+        .start_paper_revision(&paper_id)
+        .map_err(|err| err.to_string())
 }
 
 #[tauri::command]
@@ -258,7 +273,10 @@ pub fn list_other_resources(
     paper_id: String,
     state: State<'_, AppState>,
 ) -> Result<Vec<crate::archive::workflow::OtherResource>, String> {
-    state.store()?.list_other_resources(&paper_id).map_err(|err| err.to_string())
+    state
+        .store()?
+        .list_other_resources(&paper_id)
+        .map_err(|err| err.to_string())
 }
 
 #[tauri::command]
@@ -269,7 +287,9 @@ pub fn update_resource_classification(
     role: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    state.store()?.update_resource(&paper_id, &reference_id, &target_item_id, &role)
+    state
+        .store()?
+        .update_resource(&paper_id, &reference_id, &target_item_id, &role)
         .map_err(|err| err.to_string())
 }
 
@@ -281,6 +301,8 @@ pub fn classify_other_resource(
     role: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    state.store()?.move_other_to_item(&paper_id, &data_id, &target_item_id, &role)
+    state
+        .store()?
+        .move_other_to_item(&paper_id, &data_id, &target_item_id, &role)
         .map_err(|err| err.to_string())
 }
