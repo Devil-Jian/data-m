@@ -1,5 +1,6 @@
 pub mod error;
 pub mod models;
+pub mod papers;
 pub mod store;
 
 pub use error::ArchiveError;
