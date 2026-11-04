@@ -8,6 +8,9 @@ pub enum ArchiveError {
     #[error("SQLite operation failed: {0}")]
     Database(#[from] rusqlite::Error),
 
+    #[error("invalid input: {0}")]
+    InvalidInput(String),
+
     #[error("source file does not exist: {0}")]
     SourceNotFound(PathBuf),
 
