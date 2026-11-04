@@ -24,6 +24,14 @@ pub fn run() {
             commands::get_data_details,
             commands::read_paper_document,
             commands::read_data_image,
+            commands::scan_paper_folder,
+            commands::import_paper_folder,
+            commands::check_paper_archive,
+            commands::finalize_paper_archive,
+            commands::revise_archived_paper,
+            commands::list_other_resources,
+            commands::update_resource_classification,
+            commands::classify_other_resource,
             commands::reveal_data_file
         ])
         .run(tauri::generate_context!())
