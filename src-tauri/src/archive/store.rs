@@ -572,7 +572,10 @@ mod tests {
         let (sha, _) = hash_file(&source).unwrap();
         assert!(store.import_file(&source).is_err());
         assert!(store.list_data_records().unwrap().is_empty());
-        assert!(blob_path(&root, &sha).is_file(), "orphan Blob must remain for safe reconciliation");
+        assert!(
+            blob_path(&root, &sha).is_file(),
+            "orphan Blob must remain for safe reconciliation"
+        );
     }
 
     #[test]
@@ -617,5 +620,4 @@ mod tests {
         fs::write(&source, b"modified content").unwrap();
         assert!(ensure_source_unchanged(&source, &snapshot, snapshot.len()).is_err());
     }
-
 }
