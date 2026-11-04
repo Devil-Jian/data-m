@@ -1,6 +1,6 @@
 [package]
 name = "paper-archive"
-version = "0.1.0"
+version = "0.2.0"
 description = "Local research paper and raw data archive"
 authors = ["Devil-Jian"]
 edition = "2024"
