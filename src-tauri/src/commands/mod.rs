@@ -255,7 +255,9 @@ pub async fn finalize_paper_archive(
 ) -> Result<Paper, String> {
     let store = state.store()?;
     tauri::async_runtime::spawn_blocking(move || {
-        store.finalize_paper(&paper_id).map_err(|err| err.to_string())
+        store
+            .finalize_paper(&paper_id)
+            .map_err(|err| err.to_string())
     })
     .await
     .map_err(|err| format!("归档任务结束异常：{err}"))?
