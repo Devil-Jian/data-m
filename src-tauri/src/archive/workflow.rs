@@ -1,15 +1,14 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
-    path::{Path, PathBuf},
+    path::Path,
 };
 
 use chrono::{SecondsFormat, Utc};
 use rusqlite::{OptionalExtension, params};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
-use super::papers::{Paper, PaperItem, PaperResource};
+use super::papers::Paper;
 use super::{ArchiveError, ArchiveStore};
 
 const MAX_FOLDER_FILES: usize = 20_000;
@@ -349,9 +348,9 @@ impl ArchiveStore {
         }
         // The initial import always creates a *draft*. An interrupted import remains editable.
         let paper = self.create_paper(&scan.paper_title, None)?;
-        let mut figure_ids = BTreeMap::new();
-        let mut panel_ids = BTreeMap::new();
-        let mut table_ids = BTreeMap::new();
+        let mut figure_ids: BTreeMap<u32, String> = BTreeMap::new();
+        let mut panel_ids: BTreeMap<(u32, String), String> = BTreeMap::new();
+        let mut table_ids: BTreeMap<u32, String> = BTreeMap::new();
         let mut failed = Vec::new();
         let mut imported = 0usize;
 
@@ -772,6 +771,7 @@ impl ArchiveStore {
 mod tests {
     use super::*;
     use tempfile::TempDir;
+    use uuid::Uuid;
 
     #[test]
     fn recognizes_standard_and_legacy_filename_formats() {
