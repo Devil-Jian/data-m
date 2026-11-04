@@ -705,15 +705,19 @@ impl ArchiveStore {
         if !check.can_archive {
             return Err(invalid("归档检查存在必须处理的错误"));
         }
-        let paper = self.get_paper(paper_id)?;
+        let mut paper = self.get_paper(paper_id)?;
         let items = self.list_paper_items(paper_id)?;
         let resources = self.list_paper_resources(paper_id)?;
         let others = self.list_other_resources(paper_id)?;
+        let now = Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true);
+        paper.archive_status = "archived".to_owned();
+        paper.archive_revision += 1;
+        paper.archived_at = Some(now.clone());
+        paper.updated_at = now.clone();
         let snapshot = serde_json::json!({
             "paper":paper,"items":items,"resources":resources,"others":others
         })
         .to_string();
-        let now = Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true);
         let mut connection = self
             .connection
             .lock()
