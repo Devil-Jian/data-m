@@ -372,7 +372,7 @@ fn promote_staged_blob(
     }
 }
 
-fn verify_blob(path: &Path, expected_sha256: &str, expected_size: u64) -> Result<(), ArchiveError> {
+pub(super) fn verify_blob(path: &Path, expected_sha256: &str, expected_size: u64) -> Result<(), ArchiveError> {
     let metadata =
         fs::metadata(path).map_err(|_| ArchiveError::CorruptBlob(expected_sha256.to_owned()))?;
     if !metadata.is_file() || metadata.len() != expected_size {
