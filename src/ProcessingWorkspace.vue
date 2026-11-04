@@ -47,6 +47,9 @@ function noticeError(err:unknown){error.value=String(err); success.value="";}
 function resetNotice(){error.value="";success.value="";}
 function size(bytes:number){return bytes<1024?bytes+" B":bytes<1048576?(bytes/1024).toFixed(1)+" KB":(bytes/1048576).toFixed(2)+" MB";}
 
+async function refreshFiles() {
+  dataRecords.value=await invoke<DataRecord[]>("list_data_records");
+}
 async function loadPapers(){
   papers.value=await invoke<Paper[]>("list_papers");
   if(selectedPaperId.value && !papers.value.some(p=>p.paper_id===selectedPaperId.value)){
@@ -87,11 +90,48 @@ async function importFolder(){
   try{
     const outcome=await invoke<ImportResult>("import_paper_folder",{path:scan.value.folder});
     scan.value=null;
-    await loadPapers();
+    await Promise.all([loadPapers(),refreshFiles()]);
     await choosePaper(outcome.paper.paper_id);
     success.value="已导入 "+outcome.imported+" 个文件，进入待归档处理工作台。";
     if(outcome.failed.length)error.value="部分文件未成功导入：\n"+outcome.failed.join("\n");
   }catch(e){noticeError(e);}finally{busy.value=false;}
+}
+
+async function attachManuscript(){
+  if(!selectedPaperId.value||busy.value)return;
+  const path=await open({
+    multiple:false,
+    title:"选择论文 PDF / DOCX 正文",
+    filters:[{name:"论文正文",extensions:["pdf","docx"]}],
+  });
+  if(typeof path!=="string")return;
+  busy.value=true;resetNotice();
+  try{
+    await invoke<Paper>("attach_paper_manuscript",{paperId:selectedPaperId.value,path});
+    await Promise.all([loadPapers(),refreshFiles()]);
+    await loadContents();
+    success.value="论文正文已补充，可以继续完成归档检查。";
+  }catch(e){noticeError(e);}finally{busy.value=false;}
+}
+async function importFilesToItem(){
+  if(!selectedPaperId.value||!selectedItemId.value||busy.value)return;
+  const chosen=await open({multiple:true,title:"选择此图表对应的原始文件"});
+  if(!chosen)return;
+  const paths=typeof chosen==="string"?[chosen]:chosen;
+  const paperId=selectedPaperId.value,itemId=selectedItemId.value;
+  const failed:string[]=[];
+  busy.value=true;resetNotice();
+  try{
+    for(const path of paths){
+      try{
+        const record=await invoke<DataRecord>("import_data_file",{path});
+        await invoke("link_data_to_item",{paperId,itemId,dataId:record.data_id});
+      }catch(e){failed.push(path+"："+String(e));}
+    }
+    await refreshFiles();await loadContents();
+    success.value="已处理 "+(paths.length-failed.length)+" 个原始文件。";
+    if(failed.length)error.value=failed.join("\n");
+  }finally{busy.value=false;}
 }
 async function saveClassification(reference:PaperResource){
   const draft=classification.value[reference.reference_id];
@@ -222,7 +262,7 @@ onMounted(async()=>{
           <div><span class="eyebrow">ARCHIVE PREPARATION</span><h2>{{ currentPaper.title }}</h2>
             <p>{{ currentPaper.archive_status==="revising"?"正在编辑修订草稿":"待归档" }} · 数据不重复复制，修改仅作用于引用关系</p>
           </div>
-          <div class="actions"><button :disabled="busy" @click="runCheck">重新检查</button><button class="primary" :disabled="busy||!check?.can_archive" @click="finalize">完成归档</button></div>
+          <div class="actions"><button :disabled="busy" @click="attachManuscript">{{ currentPaper.manuscript_sha256?"替换正文":"补充 PDF / DOCX" }}</button><button :disabled="busy" @click="runCheck">重新检查</button><button class="primary" :disabled="busy||!check?.can_archive" @click="finalize">完成归档</button></div>
         </div>
         <div class="processing-main">
           <section class="mapping-panel">
@@ -241,6 +281,7 @@ onMounted(async()=>{
               <strong>{{ item.label }}</strong><span>{{ resources.filter(r=>r.item_id===item.item_id).length }} 个资源</span>
             </button>
             <div v-if="selectedItemId" class="inline-actions">
+              <button :disabled="busy" @click="importFilesToItem">＋ 导入此图表文件</button>
               <button @click="bindingItemId=bindingItemId===selectedItemId?null:selectedItemId">
                 {{ bindingItemId?"取消绑定":"在文章中绑定位置" }}
               </button>
