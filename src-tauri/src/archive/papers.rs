@@ -27,6 +27,9 @@ pub struct Paper {
     pub updated_at: String,
     pub item_count: i64,
     pub resource_count: i64,
+    pub archive_status: String,
+    pub archive_revision: i64,
+    pub archived_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,6 +72,8 @@ pub struct PaperResource {
     pub file_size: u64,
     pub sha256: String,
     pub created_at: String,
+    pub resource_role: String,
+    pub source_relative_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -130,7 +135,8 @@ impl ArchiveStore {
                     (SELECT COUNT(*) FROM paper_items i WHERE i.paper_id = p.paper_id),
                     (SELECT COUNT(*) FROM data_references r
                      JOIN paper_items i ON i.item_id = r.item_id
-                     WHERE i.paper_id = p.paper_id)
+                     WHERE i.paper_id = p.paper_id),
+                    p.archive_status, p.archive_revision, p.archived_at
              FROM papers p ORDER BY p.created_at DESC, p.paper_id DESC",
         )?;
         let rows = query.query_map([], |row| {
@@ -145,6 +151,9 @@ impl ArchiveStore {
                 updated_at: row.get(7)?,
                 item_count: row.get(8)?,
                 resource_count: row.get(9)?,
+                archive_status: row.get(10)?,
+                archive_revision: row.get(11)?,
+                archived_at: row.get(12)?,
             })
         })?;
         rows.collect::<Result<Vec<_>, _>>()
@@ -163,7 +172,7 @@ impl ArchiveStore {
         paper_id: &str,
         source: impl AsRef<Path>,
     ) -> Result<Paper, ArchiveError> {
-        self.get_paper(paper_id)?;
+        self.ensure_paper_editable(paper_id)?;
         let file_path = source.as_ref();
         let extension = file_path
             .extension()
@@ -208,7 +217,7 @@ impl ArchiveStore {
         if !matches!(item_type, "figure" | "panel" | "table") {
             return Err(ArchiveError::InvalidInput("图表类型无效".to_owned()));
         }
-        self.get_paper(paper_id)?;
+        self.ensure_paper_editable(paper_id)?;
         if item_type == "panel" {
             let parent = parent_id
                 .ok_or_else(|| ArchiveError::InvalidInput("Panel 必须归属于 Figure".to_owned()))?;
@@ -295,6 +304,7 @@ impl ArchiveStore {
         item_id: &str,
         anchor: ItemAnchor,
     ) -> Result<(), ArchiveError> {
+        self.ensure_paper_editable(paper_id)?;
         let valid = match anchor.kind.as_str() {
             "pdf" => {
                 anchor.page.is_some_and(|page| page > 0)
@@ -348,6 +358,7 @@ impl ArchiveStore {
         item_id: &str,
         data_id: &str,
     ) -> Result<String, ArchiveError> {
+        self.ensure_paper_editable(paper_id)?;
         let mut connection = self
             .connection
             .lock()
@@ -396,7 +407,8 @@ impl ArchiveStore {
             .map_err(|_| ArchiveError::LockPoisoned)?;
         let mut query = connection.prepare(
             "SELECT r.reference_id, i.item_id, i.label, d.data_id, d.display_id,
-                    d.original_filename, d.category, b.file_size, b.sha256, d.created_at
+                    d.original_filename, d.category, b.file_size, b.sha256, d.created_at,
+                    r.resource_role, r.source_relative_path
              FROM data_references r
              JOIN paper_items i ON r.item_id = i.item_id
              JOIN data_records d ON r.data_id = d.data_id
@@ -417,6 +429,8 @@ impl ArchiveStore {
                 file_size: size as u64,
                 sha256: row.get(8)?,
                 created_at: row.get(9)?,
+                resource_role: row.get(10)?,
+                source_relative_path: row.get(11)?,
             })
         })?;
         rows.collect::<Result<Vec<_>, _>>()
@@ -728,7 +742,7 @@ mod tests {
         fs::write(destination, content).unwrap();
 
         let reopened = ArchiveStore::open(&root).unwrap();
-        assert_eq!(reopened.archive_info().unwrap().schema_version, 2);
+        assert_eq!(reopened.archive_info().unwrap().schema_version, 3);
         assert_eq!(reopened.archive_info().unwrap().archive_id, archive_id);
         assert!(
             reopened
