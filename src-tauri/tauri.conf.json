@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "productName": "论文原始数据归档平台",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "com.deviljian.paperarchive",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -27,7 +27,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "category": "Productivity",
     "shortDescription": "本地科研论文与原始数据归档工具",
     "longDescription": "用于管理论文、Figure、Panel、Table 和科研原始文件的 Windows 本地归档平台。"
