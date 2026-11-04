@@ -17,6 +17,9 @@ pub enum ArchiveError {
     #[error("source file name is not valid UTF-8")]
     InvalidFilename,
 
+    #[error("source file disappeared or changed during import: {0}")]
+    SourceChanged(PathBuf),
+
     #[error("archive schema version {0} is not supported")]
     UnsupportedSchema(i64),
 
