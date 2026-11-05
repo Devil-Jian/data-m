@@ -2,7 +2,7 @@
 import { onMounted, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import ProcessingWorkspace from "./ProcessingWorkspace.vue";
+import ProfessionalWorkspace from "./ProfessionalWorkspace.vue";
 import ArchiveBrowser from "./ArchiveBrowser.vue";
 import type { ArchiveStatus } from "./types";
 
@@ -49,12 +49,12 @@ onMounted(()=>{void statusCheck();});
       <div class="top-actions">
         <span class="offline">本地单机 · 离线</span>
         <button class="path-button" @click="initializeArchive">数据仓库设置</button>
-        <span class="version">V0.4</span>
+        <span class="version">V0.5</span>
       </div>
     </header>
 
     <main v-if="status?.initialized" class="app-content">
-      <ProcessingWorkspace v-if="tab==='processing'" :key="activeKey" @archive-completed="completed" />
+      <ProfessionalWorkspace v-if="tab==='processing'" :key="activeKey" @archive-completed="completed" />
       <ArchiveBrowser v-else :key="libraryKey" @revise="revise" />
     </main>
     <main v-else class="setup">
