@@ -301,13 +301,13 @@ onUnmounted(()=>{window.removeEventListener("keydown",keydown);clearPreview();})
   <footer class="status"><span>{{ error||message||'就绪' }}</span><span>{{ scan?size(scan.total_bytes):'离线单机' }} · 源文件只读 · V0.5</span></footer>
   <div v-if="context" class="context" :style="{left:Math.min(context.x,innerWidth-210)+'px',top:Math.min(context.y,innerHeight-300)+'px'}" @click.stop>
     <button @click="showRename=true;context=null">批量重命名　F2</button>
-    <button @click="assign;context=null">设置 Figure / Panel</button>
+    <button @click="assign();context=null">设置 Figure / Panel</button>
     <hr />
     <button @click="move('Figure/子图')">移入展示子图</button>
     <button @click="move('Figure/统计原始图')">移入统计原始图</button>
     <button @click="move('Table')">移入统计表格</button>
     <button @click="move('Others')">移入 Others</button>
-    <hr /><button @click="undo;context=null">撤销　Ctrl+Z</button>
+    <hr /><button @click="undo();context=null">撤销　Ctrl+Z</button>
   </div>
   <div v-if="showRename" class="scrim" @click.self="showRename=false">
     <div class="dialog">
