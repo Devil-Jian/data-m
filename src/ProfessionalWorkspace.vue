@@ -31,6 +31,8 @@ const keepDescription = ref(true);
 const context = ref<{ x: number; y: number } | null>(null);
 const page = ref(0);
 const drafts = ref<Paper[]>([]);
+const preview = ref<string|null>(null);
+let previewRequest = 0;
 const size = (n: number) => n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(1) + " KB" : (n / 1048576).toFixed(2) + " MB";
 const fileName = (path: string) => path.split("/").pop() || path;
 const parent = (path: string) => path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
@@ -79,6 +81,7 @@ function redo() {const old=redoStack.value.pop();if(!old)return;undoStack.value.
 function choose(row:Row,e:MouseEvent) {
   const id=row.source_relative_path;
   active.value=id;
+  void loadPreview(row);
   const index=visible.value.findIndex(r=>r.source_relative_path===id);
   if(e.shiftKey) selected.value=visible.value.slice(Math.min(rangeAnchor,index),Math.max(rangeAnchor,index)+1).map(r=>r.source_relative_path);
   else if(e.ctrlKey||e.metaKey){selected.value=selectedSet.value.has(id)?selected.value.filter(v=>v!==id):[...selected.value,id];rangeAnchor=index;}
@@ -116,6 +119,26 @@ function rename(){
   if(new Set(names).size!==names.length){error.value="新名称出现冲突，未执行任何修改";return;}
   apply(next,"批量重命名（仅逻辑名称，不改源文件）");showRename.value=false;
 }
+function clearPreview(){
+  previewRequest++;
+  if(preview.value)URL.revokeObjectURL(preview.value);
+  preview.value=null;
+}
+async function loadPreview(row:Row){
+  clearPreview();
+  const ext=fileName(row.source_relative_path).split(".").pop()?.toLowerCase();
+  if(!scan.value || !ext || !["png","jpg","jpeg","webp"].includes(ext))return;
+  const token=++previewRequest;
+  try{
+    const bytes=await invoke<ArrayBuffer>("read_scan_image",{
+      root:scan.value.folder,
+      relativePath:row.source_relative_path
+    });
+    if(token!==previewRequest)return;
+    const mime=ext==="png"?"image/png":ext==="webp"?"image/webp":"image/jpeg";
+    preview.value=URL.createObjectURL(new Blob([bytes],{type:mime}));
+  }catch{ /* file metadata remains visible for TIFF and unsupported formats */ }
+}
 async function refreshDrafts(){
   try{drafts.value=(await invoke<Paper[]>("list_papers")).filter(p=>p.archive_status!=="archived");}
   catch{drafts.value=[];}
@@ -133,6 +156,7 @@ async function loadFolder(){
     }));
     selected.value=[];active.value=null;folder.value="全部文件";page.value=0;
     undoStack.value=[];redoStack.value=[];
+    clearPreview();
     message.value="扫描完成：自动识别 "+rows.value.length+" 个文件";
   }catch(e){error.value=String(e);}finally{busy.value=false;}
 }
@@ -168,7 +192,7 @@ function keydown(e:KeyboardEvent){
   if(e.key==="Escape"){context.value=null;selected.value=[];}
 }
 onMounted(()=>{window.addEventListener("keydown",keydown);void refreshDrafts();});
-onUnmounted(()=>window.removeEventListener("keydown",keydown));
+onUnmounted(()=>{window.removeEventListener("keydown",keydown);clearPreview();});
 </script>
 
 <template>
@@ -251,7 +275,7 @@ onUnmounted(()=>window.removeEventListener("keydown",keydown));
     <aside class="inspector">
       <header>文件检查器 <small>INSPECTOR</small></header>
       <template v-if="current">
-        <div class="preview-icon">▧</div>
+        <div class="preview-icon"><img v-if="preview" :src="preview" alt="原始文件预览" /><span v-else>▧</span></div>
         <h3>{{ fileName(current.logical_relative_path) }}</h3>
         <dl>
           <dt>原始文件名</dt><dd>{{ fileName(current.source_relative_path) }}</dd>
@@ -357,4 +381,7 @@ button{cursor:pointer;font:inherit}button:disabled{opacity:.45;cursor:not-allowe
 .changes{height:240px;overflow:auto;border:1px solid #e0e7ed;border-radius:6px;padding:0 12px}.changes p{font-size:11px;overflow-wrap:anywhere;border-bottom:1px solid #e8edf2;padding:5px}
 .changes strong{color:#286891}.dialog footer{justify-content:flex-end;gap:10px;margin-top:16px}
 .dialog footer button{padding:10px 15px;border:1px solid #d0deea;background:white;border-radius:6px}.dialog footer .highlight{background:#1e5b85;color:white}
+</style>
+<style scoped>
+.preview-icon img{max-width:100%;max-height:100%;object-fit:contain}
 </style>
