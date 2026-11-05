@@ -312,3 +312,19 @@ pub fn classify_other_resource(
         .move_other_to_item(&paper_id, &data_id, &target_item_id, &role)
         .map_err(|err| err.to_string())
 }
+
+#[tauri::command]
+pub async fn import_paper_plan(
+    path: String,
+    edits: Vec<crate::archive::workflow::PlannedFile>,
+    state: State<'_, AppState>,
+) -> Result<crate::archive::workflow::ImportResult, String> {
+    let store = state.store()?;
+    tauri::async_runtime::spawn_blocking(move || {
+        store
+            .import_folder_with_plan(std::path::Path::new(&path), edits)
+            .map_err(|error| format!("批量归档失败：{error}"))
+    })
+    .await
+    .map_err(|error| format!("归档任务意外结束：{error}"))?
+}
