@@ -328,3 +328,20 @@ pub async fn import_paper_plan(
     .await
     .map_err(|error| format!("归档任务意外结束：{error}"))?
 }
+
+#[tauri::command]
+pub async fn read_scan_image(
+    root: String,
+    relative_path: String,
+    state: State<'_, AppState>,
+) -> Result<Response, String> {
+    let store = state.store()?;
+    let bytes = tauri::async_runtime::spawn_blocking(move || {
+        store
+            .read_source_preview(std::path::Path::new(&root), &relative_path)
+            .map_err(|error| format!("源文件预览失败：{error}"))
+    })
+    .await
+    .map_err(|error| format!("预览任务异常结束：{error}"))??;
+    Ok(Response::new(bytes))
+}
