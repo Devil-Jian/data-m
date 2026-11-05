@@ -994,4 +994,68 @@ mod tests {
         assert!(!scan.warnings.is_empty());
         assert_eq!(scan.entries[0].kind, "other");
     }
+
+    #[test]
+    fn batch_plan_renames_logical_paths_without_touching_source() {
+        let temporary = TempDir::new().unwrap();
+        let source = temporary.path().join("test-paper");
+        fs::create_dir_all(source.join("Figure/子图")).unwrap();
+        fs::write(source.join("paper.pdf"), b"%PDF-1.4 demo").unwrap();
+        fs::write(source.join("Figure/子图/old.png"), b"original bytes").unwrap();
+        let store = ArchiveStore::open(temporary.path().join("warehouse")).unwrap();
+        let scan = store.scan_folder(&source).unwrap();
+        let edits: Vec<PlannedFile> = scan
+            .entries
+            .iter()
+            .map(|e| {
+                let mut plan = PlannedFile {
+                    source_relative_path: e.relative_path.clone(),
+                    logical_relative_path: e.relative_path.clone(),
+                    role: e.role.clone(),
+                    figure_number: e.figure_number,
+                    panel_label: e.panel_label.clone(),
+                    sequence: e.sequence,
+                };
+                if e.relative_path.ends_with("old.png") {
+                    plan.logical_relative_path = "Figure/子图/1-A-1-original.png".into();
+                    plan.role = "display".into();
+                    plan.figure_number = Some(1);
+                    plan.panel_label = Some("A".into());
+                    plan.sequence = Some(1);
+                }
+                plan
+            })
+            .collect();
+        let result = store.import_folder_with_plan(&source, edits).unwrap();
+        assert_eq!(result.imported, 2);
+        let rows = store.list_paper_resources(&result.paper.paper_id).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].source_relative_path.as_deref(), Some("Figure/子图/1-A-1-original.png"));
+        assert_eq!(rows[0].original_filename, "old.png");
+        assert_eq!(fs::read(source.join("Figure/子图/old.png")).unwrap(), b"original bytes");
+        assert!(!source.join("Figure/子图/1-A-1-original.png").exists());
+    }
+
+    #[test]
+    fn batch_plan_prevents_case_insensitive_logical_name_collisions() {
+        let temporary = TempDir::new().unwrap();
+        let source = temporary.path().join("paper");
+        fs::create_dir_all(&source).unwrap();
+        fs::write(source.join("paper.pdf"), b"pdf").unwrap();
+        fs::write(source.join("a.txt"), b"a").unwrap();
+        fs::write(source.join("b.txt"), b"b").unwrap();
+        let store = ArchiveStore::open(temporary.path().join("warehouse")).unwrap();
+        let scan = store.scan_folder(&source).unwrap();
+        let plans: Vec<PlannedFile> = scan.entries.iter().map(|e| PlannedFile {
+            source_relative_path: e.relative_path.clone(),
+            logical_relative_path: if e.relative_path=="paper.pdf" { e.relative_path.clone() } else { "Others/DUP.txt".into() },
+            role: e.role.clone(),
+            figure_number: e.figure_number,
+            panel_label: e.panel_label.clone(),
+            sequence: e.sequence,
+        }).collect();
+        assert!(store.import_folder_with_plan(&source, plans).is_err());
+        assert!(store.list_papers().unwrap().is_empty());
+    }
+
 }
