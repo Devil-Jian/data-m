@@ -27,6 +27,7 @@ pub fn run() {
             commands::scan_paper_folder,
             commands::import_paper_folder,
             commands::import_paper_plan,
+            commands::read_scan_image,
             commands::check_paper_archive,
             commands::finalize_paper_archive,
             commands::revise_archived_paper,
