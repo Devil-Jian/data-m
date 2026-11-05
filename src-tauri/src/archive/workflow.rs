@@ -37,6 +37,16 @@ pub struct FolderScan {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PlannedFile {
+    pub source_relative_path: String,
+    pub logical_relative_path: String,
+    pub role: String,
+    pub figure_number: Option<u32>,
+    pub panel_label: Option<String>,
+    pub sequence: Option<u32>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ImportResult {
     pub paper: Paper,
     pub imported: usize,
@@ -63,6 +73,14 @@ pub struct OtherResource {
     pub source_relative_path: String,
     pub sha256: String,
     pub file_size: u64,
+}
+
+fn valid_logical_path(value: &str) -> bool {
+    !value.is_empty()
+        && !value.contains('\\')
+        && !value.contains(':')
+        && !value.contains('|')
+        && value.split('/').all(|piece| !piece.is_empty() && piece != "." && piece != ".." && !piece.ends_with(' '))
 }
 
 fn invalid(message: &str) -> ArchiveError {
@@ -357,7 +375,67 @@ impl ArchiveStore {
     }
 
     pub fn import_folder(&self, root: &Path) -> Result<ImportResult, ArchiveError> {
-        let scan = self.scan_folder(root)?;
+        self.import_folder_with_plan(root, Vec::new())
+    }
+
+    pub fn import_folder_with_plan(
+        &self,
+        root: &Path,
+        edits: Vec<PlannedFile>,
+    ) -> Result<ImportResult, ArchiveError> {
+        let mut scan = self.scan_folder(root)?;
+        if !edits.is_empty() {
+            let mut changes = BTreeMap::new();
+            for edit in edits {
+                if !valid_logical_path(&edit.logical_relative_path) {
+                    return Err(invalid("逻辑目录或文件名包含无效路径片段"));
+                }
+                if !matches!(edit.role.as_str(), "composite" | "display" | "stat_image" | "statistics" | "other" | "unspecified" | "manuscript") {
+                    return Err(invalid("资源角色不合法"));
+                }
+                if edit.panel_label.as_ref().is_some_and(|label| label.len()!=1 || !label.bytes().all(|byte| byte.is_ascii_alphabetic())) {
+                    return Err(invalid("Panel 仅支持单个英文字母"));
+                }
+                if changes.insert(edit.source_relative_path.clone(), edit).is_some() {
+                    return Err(invalid("同一原始文件不能被修改两次"));
+                }
+            }
+            if changes.len() != scan.entries.len() || !scan.entries.iter().all(|entry| changes.contains_key(&entry.relative_path)) {
+                return Err(invalid("文件列表已经变化，请重新扫描后再导入"));
+            }
+            let mut logical_names = BTreeSet::new();
+            for entry in &mut scan.entries {
+                let edit = changes.remove(&entry.relative_path).expect("all paths verified");
+                if !logical_names.insert(edit.logical_relative_path.to_lowercase()) {
+                    return Err(invalid("整理后的目录存在重名文件，已阻止归档"));
+                }
+                let mut classified = classify(&edit.logical_relative_path, entry.file_size);
+                classified.role = edit.role;
+                classified.figure_number = edit.figure_number;
+                classified.panel_label = edit.panel_label;
+                classified.sequence = edit.sequence;
+                if classified.kind != "manuscript" {
+                    classified.kind = match classified.role.as_str() {
+                        "composite" => "figure",
+                        "display" | "stat_image" | "statistics" if classified.panel_label.is_some() => "panel",
+                        "statistics" if classified.figure_number.is_some() => "table",
+                        _ => "other",
+                    }.to_owned();
+                }
+                // Always import actual bytes from the original path; only mapping metadata changes.
+                entry.kind = classified.kind;
+                entry.role = classified.role;
+                entry.figure_number = classified.figure_number;
+                entry.panel_label = classified.panel_label;
+                entry.sequence = classified.sequence;
+                entry.issue = classified.issue;
+                entry.relative_path = format!("{}|{}", entry.relative_path, edit.logical_relative_path);
+            }
+        }
+        self.import_scanned_folder(scan)
+    }
+
+    fn import_scanned_folder(&self, scan: FolderScan) -> Result<ImportResult, ArchiveError> {
         if scan.entries.is_empty() {
             return Err(invalid("文件夹中没有可归档的文件"));
         }
@@ -370,7 +448,9 @@ impl ArchiveStore {
         let mut imported = 0usize;
 
         for entry in &scan.entries {
-            let input = Path::new(&scan.folder).join(&entry.relative_path);
+            let (source_rel, logical_rel) = entry.relative_path.split_once('|')
+                .unwrap_or((&entry.relative_path, &entry.relative_path));
+            let input = Path::new(&scan.folder).join(source_rel);
             let file = match self.import_file(&input) {
                 Ok(file) => file,
                 Err(e) => {
@@ -380,7 +460,7 @@ impl ArchiveStore {
             };
             imported += 1;
             if entry.kind == "manuscript" {
-                if scan.manuscript.as_deref() == Some(entry.relative_path.as_str()) {
+                if scan.manuscript.as_deref() == Some(source_rel) {
                     if let Err(e) = self.set_imported_manuscript(
                         &paper.paper_id,
                         &file.sha256,
@@ -390,7 +470,7 @@ impl ArchiveStore {
                         failed.push(format!("正文关联失败：{e}"));
                     }
                 } else {
-                    self.link_other(&paper.paper_id, &file.data_id, &entry.relative_path)?;
+                    self.link_other(&paper.paper_id, &file.data_id, logical_rel)?;
                 }
                 continue;
             }
@@ -463,7 +543,7 @@ impl ArchiveStore {
                     .map_err(|_| ArchiveError::LockPoisoned)?;
                 connection.execute(
                     "UPDATE data_references SET resource_role = ?1, source_relative_path = ?2 WHERE reference_id = ?3",
-                    params![entry.role,entry.relative_path,reference_id],
+                    params![entry.role,logical_rel,reference_id],
                 )?;
             } else {
                 self.link_other(&paper.paper_id, &file.data_id, &entry.relative_path)?;
