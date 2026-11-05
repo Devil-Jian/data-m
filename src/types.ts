@@ -131,3 +131,12 @@ export interface OtherResource {
   sha256: string;
   file_size: number;
 }
+
+export interface PlannedFile {
+  source_relative_path: string;
+  logical_relative_path: string;
+  role: string;
+  figure_number: number | null;
+  panel_label: string | null;
+  sequence: number | null;
+}
