@@ -1,61 +1,60 @@
-# 论文原始数据归档平台 V0.4
+# 论文原始数据归档平台 V0.5
 
-Windows 10/11 离线单机软件。采用 Tauri 2 + Vue 3 + TypeScript + Rust + SQLite，默认仓库 D:\PaperArchiveData。
+Windows 10/11 离线单机应用。当前版本重点改造**归档前的整理体验**，采用紧凑型桌面文件管理器界面；正式归档后继续使用只读论文资源浏览器。
 
-## 两个界面
+## 典型操作（V0.5）
 
-- 论文归档：选择整篇论文文件夹、扫描预览、自动识别 Figure/Panel/Table，调整文件角色和归属、归档检查、完成归档。
-- 论文资源库：只显示正式归档的论文；左侧论文目录、中间 PDF/DOCX 文章与关系视图、右侧原始数据；点击文章图表快速定位，默认只读。
+1. 点击「论文归档」→「打开论文文件夹」，选择含论文正文、Figure、Table、Others 的根目录。
+2. 系统自动识别组合图、子图、统计原始图与统计数据的归属。
+3. 如果目录与文件名规范，可以直接「完成归档」。
+4. 若存在异常，在中间文件表格中使用 Ctrl/Shift 多选，批量调整资源角色、逻辑移动、指定 Figure/Panel 或使用 F2 批量重命名；命名窗口先展示变更预览。
+5. 批量操作支持 Ctrl+Z 撤销、Ctrl+Y 重做，右键提供常用分类菜单。
+6. 「完成归档」将经过确认的逻辑路径/数据归属交给 Rust 批量导入服务；重复名称或非法路径将拒绝执行。完成后进入论文资源库。
 
-## 文件夹命名约定
+**操作不会重命名或移动源文件。** 整理得到的是归档库内的逻辑路径与图表映射；真实源文件名、SHA-256 和内容保持不变。正式归档前自动校验数据完整性。
 
-论文目录包含一份位于根目录的 PDF 或 DOCX，以及 Figure、Table、Others 文件夹。
+支持原始 PNG/JPEG/WebP 图片的简易检查器预览；TIFF 与其他科研数据格式目前优先展示文件元信息，深度解析仍待后续版本。
 
-    论文标题/
-      manuscript.docx
-      Figure/
-        组合图/
-          Figure1-结果.png
-        子图/
-          1-A-1-代表图.tif
-        统计原始图/
-          1-A-2-重复实验.tif
-      Table/
-        1-A-ROS.xlsx
-        T1-临床特征.xlsx
-      Others/
-        analysis.py
+## 标准目录
 
-Figure/组合图 识别最终组合图；Figure/子图 识别展示子图；Figure/统计原始图 识别未出现在最终组图中的统计原始图；Table/1-A 识别 Figure 1A 的原始统计数据；Table/T1 识别独立 Table 1。编号大小写不敏感，兼容 1-A1.png 和 2-a9.tif 等旧格式。
+```text
+论文标题/
+├── 论文正文.docx
+├── Figure/
+│   ├── 组合图/
+│   │   └── Figure1.png
+│   ├── 子图/
+│   │   ├── 1-A-1-细胞代表图.tif
+│   │   └── 1-B-1-染色图.tif
+│   └── 统计原始图/
+│       └── 1-A-2-重复样本.tif
+├── Table/
+│   ├── 1-A-ROS统计.xlsx
+│   └── T1-临床特征.xlsx
+└── Others/
+    └── 附录.pdf
+```
 
-扫描时展示识别报告，不确定的文件保留在待分类 / Others。导入为论文草稿后，可以修正图表归属、文件角色，或补充正文及原始文件，不改变原文件的内容和名称。
+兼容大小写不同的 Figure/Panel 编号及 `1-A1.png`、`2-a9.tif` 等旧命名。初次导入不需要逐个创建 Figure、Panel 和文件引用。
 
-## 归档流程
+## 工程与兼容
 
-1. 顶部选择“论文归档”，点击“导入整篇论文文件夹”。
-2. 阅读扫描识别报告，确认后一次导入为待归档草稿。
-3. 检查 Figure/Panel/Table 和数据关系，必要时修正角色和位置绑定。
-4. 点击“重新检查”；必须处理的错误消除后点击“完成归档”。
-5. 自动进入“论文资源库”；浏览文章图像和原始数据的对应关系。
+- Tauri 2 + Vue 3 + TypeScript + Rust + SQLite；Windows 10/11 x64；默认仓库 `D:\PaperArchiveData`。
+- SQLite WAL + FULL、外键、迁移 v1/v2 → v3、UUIDv7 与 SHA-256 不可变原始文件。
+- V0.5 沿用 v3 数据库结构。批量整理计划通过新增 IPC 在导入前校验，不会改动旧有归档数据。
+- 对于已经导入却未完成的旧版草稿，目前仍有部分后续编辑功能需要进一步整合到新文件管理器；新界面优先支持从**原始论文文件夹**启动完整归档。
+- Windows CI 负责 Rust 测试、前端构建和 NSIS 安装包。真实 Windows 操作体验仍需人工验收。
+- 本地数据仓库请独立备份；当前未提供 rdpack 跨电脑无损汇总、完整修订历史恢复和所有科研文件格式的内嵌预览。
 
-归档状态：draft（草稿）、archived（只读归档）、revising（修订草稿）。
-完成归档时保存不可变的关系快照和修订号。当前 V0.4 尚未提供在资源库中选择历史快照并回滚的完整界面。
+## 开发运行
 
-## 数据存储与兼容性
+```powershell
+npm ci
+npm run tauri dev
+cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+cargo test --locked --manifest-path src-tauri/Cargo.toml --all-targets
+npm run build
+npm run tauri build
+```
 
-- 默认 D:\PaperArchiveData；D 盘不存在时要求选择本地目录，不自动写入 C 盘。
-- SQLite WAL、FULL 同步、外键和增量迁移。V0.4 的 schema v3 可从 v1/v2 升级，原始 Blob 与 Data ID 不重新分配。
-- 流式 SHA-256 文件导入；相同内容 Blob 去重、每次导入拥有独立 UUIDv7 Data ID。
-- 完成归档前验证正文、引用关系和原始文件 SHA-256；关系调整不会移动、重新编码或删除原始文件。
-- PDF / DOCX 预览、JPEG / PNG / WebP 内嵌资源预览。TIFF、XLSX 及专用科研文件可以归档、查看元信息并定位原文件，暂不保证全部内嵌解析。
-- 升级前务必完全退出软件并备份整个归档库目录。
-
-## 当前限制
-
-没有实现 rdpack 完整无损跨电脑导入汇总、自动备份、完整历史快照浏览/恢复和所有科研格式的原位预览。尚需实际 Windows 10/11 安装后的人工测试，不能把本软件当作科研数据的唯一备份。
-
-## 开发
-
-需要 Node.js 22、Rust 1.90+、Windows C++ Build Tools、WebView2。运行 npm ci、npm run tauri dev；测试运行 cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check 和 cargo test --locked --manifest-path src-tauri/Cargo.toml --all-targets；安装包由 npm run tauri build 生成。
-
-功能分支 feat/archive-foundation；代码审查 PR：https://github.com/Devil-Jian/data-m/pull/1
+代码开发分支：`feat/archive-foundation`；审核 PR：https://github.com/Devil-Jian/data-m/pull/1。
