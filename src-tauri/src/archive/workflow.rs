@@ -462,9 +462,9 @@ impl ArchiveStore {
                 }
                 let mut classified = classify(&edit.logical_relative_path, entry.file_size);
                 classified.role = edit.role;
-                classified.figure_number = edit.figure_number;
-                classified.panel_label = edit.panel_label;
-                classified.sequence = edit.sequence;
+                classified.figure_number = edit.figure_number.or(classified.figure_number);
+                classified.panel_label = edit.panel_label.or(classified.panel_label);
+                classified.sequence = edit.sequence.or(classified.sequence);
                 if classified.kind != "manuscript" {
                     classified.kind = match classified.role.as_str() {
                         "composite" => "figure",
