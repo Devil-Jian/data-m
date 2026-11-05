@@ -24,6 +24,7 @@ const error = ref("");
 const undoStack = ref<Row[][]>([]);
 const redoStack = ref<Row[][]>([]);
 const showRename = ref(false);
+const showAssign = ref(false);
 const figure = ref(1);
 const panel = ref("A");
 const sequence = ref(1);
@@ -182,7 +183,7 @@ async function finalize(){
   }catch(e){error.value=String(e);}finally{busy.value=false;}
 }
 function keydown(e:KeyboardEvent){
-  if(["INPUT","TEXTAREA","SELECT"].includes((e.target as HTMLElement).tagName)||showRename.value)return;
+  if(["INPUT","TEXTAREA","SELECT"].includes((e.target as HTMLElement).tagName)||showRename.value||showAssign.value)return;
   if(e.ctrlKey&&e.key.toLowerCase()==="o"){e.preventDefault();void loadFolder();}
   if(e.ctrlKey&&e.key.toLowerCase()==="a"){e.preventDefault();selected.value=visible.value.map(r=>r.source_relative_path);}
   if(e.ctrlKey&&e.key.toLowerCase()==="z"){e.preventDefault();undo();}
@@ -201,7 +202,7 @@ onUnmounted(()=>{window.removeEventListener("keydown",keydown);clearPreview();})
     <div class="commands">
       <button class="highlight" :disabled="busy" @click="loadFolder">▤　打开论文文件夹 <small>Ctrl+O</small></button>
       <button :disabled="!selected.length" @click="showRename=true">批量重命名 <small>F2</small></button>
-      <button :disabled="!selected.length" @click="assign">设置 Figure / Panel</button>
+      <button :disabled="!selected.length" @click="showAssign=true">设置 Figure / Panel</button>
       <button :disabled="!undoStack.length" @click="undo">↶ 撤销</button>
       <button :disabled="!redoStack.length" @click="redo">↷ 重做</button>
     </div>
@@ -301,13 +302,24 @@ onUnmounted(()=>{window.removeEventListener("keydown",keydown);clearPreview();})
   <footer class="status"><span>{{ error||message||'就绪' }}</span><span>{{ scan?size(scan.total_bytes):'离线单机' }} · 源文件只读 · V0.5</span></footer>
   <div v-if="context" class="context" :style="{left:Math.min(context.x,innerWidth-210)+'px',top:Math.min(context.y,innerHeight-300)+'px'}" @click.stop>
     <button @click="showRename=true;context=null">批量重命名　F2</button>
-    <button @click="assign();context=null">设置 Figure / Panel</button>
+    <button @click="showAssign=true;context=null">设置 Figure / Panel</button>
     <hr />
     <button @click="move('Figure/子图')">移入展示子图</button>
     <button @click="move('Figure/统计原始图')">移入统计原始图</button>
     <button @click="move('Table')">移入统计表格</button>
     <button @click="move('Others')">移入 Others</button>
     <hr /><button @click="undo();context=null">撤销　Ctrl+Z</button>
+  </div>
+  <div v-if="showAssign" class="scrim" @click.self="showAssign=false">
+    <div class="dialog">
+      <header><h2>批量指定 Figure / Panel</h2><button @click="showAssign=false">×</button></header>
+      <p>将 {{ selected.length }} 个选中文件归属到同一 Figure / Panel，保留文件名和源数据。</p>
+      <div class="form">
+        <label>Figure 编号<input v-model.number="figure" type="number" min="1" /></label>
+        <label>Panel 编号<input v-model="panel" maxlength="1" /></label>
+      </div>
+      <footer><button @click="showAssign=false">取消</button><button class="highlight" @click="assign();showAssign=false">应用到选中文件</button></footer>
+    </div>
   </div>
   <div v-if="showRename" class="scrim" @click.self="showRename=false">
     <div class="dialog">
