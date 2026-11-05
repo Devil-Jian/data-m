@@ -1078,9 +1078,10 @@ mod tests {
                 if e.relative_path.ends_with("old.png") {
                     plan.logical_relative_path = "Figure/子图/1-A-1-original.png".into();
                     plan.role = "display".into();
-                    plan.figure_number = Some(1);
-                    plan.panel_label = Some("A".into());
-                    plan.sequence = Some(1);
+                    // Derive numbering from the new logical path; no manual binding.
+                    plan.figure_number = None;
+                    plan.panel_label = None;
+                    plan.sequence = None;
                 }
                 plan
             })
