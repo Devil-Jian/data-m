@@ -374,6 +374,30 @@ impl ArchiveStore {
         Ok(())
     }
 
+    pub fn read_source_preview(&self, root: &Path, relative: &str) -> Result<Vec<u8>, ArchiveError> {
+        let canonical_root = fs::canonicalize(root)?;
+        let storage = fs::canonicalize(&self.root)?;
+        if canonical_root.starts_with(&storage) || storage.starts_with(&canonical_root) {
+            return Err(invalid("不能从当前数据仓库读取未归档的图片预览"));
+        }
+        if !valid_logical_path(relative) {
+            return Err(invalid("预览路径不合法"));
+        }
+        let path = canonical_root.join(relative);
+        let canonical_file = fs::canonicalize(&path)?;
+        if !canonical_file.starts_with(&canonical_root) || !canonical_file.is_file() {
+            return Err(invalid("预览路径超出论文文件夹"));
+        }
+        if !has_ext(relative, &["png", "jpg", "jpeg", "webp"]) {
+            return Err(invalid("仅支持预览 PNG / JPEG / WebP 图片"));
+        }
+        let meta = fs::metadata(&canonical_file)?;
+        if meta.len() > 16 * 1024 * 1024 {
+            return Err(invalid("预览文件超过 16 MB，请在本地图片软件中查看"));
+        }
+        Ok(fs::read(canonical_file)?)
+    }
+
     pub fn import_folder(&self, root: &Path) -> Result<ImportResult, ArchiveError> {
         self.import_folder_with_plan(root, Vec::new())
     }
