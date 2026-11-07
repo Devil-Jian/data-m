@@ -155,13 +155,19 @@ public sealed class ArchiveRepository
         using var db = Connect();
         using var cmd = db.CreateCommand();
         cmd.CommandText = """
-            SELECT d.data_id,d.original_filename,r.resource_role,i.label,b.file_size,b.sha256
+            SELECT d.data_id,d.original_filename,r.resource_role,i.label,b.file_size,b.sha256,i.sort_order
             FROM data_references r
             JOIN paper_items i ON i.item_id=r.item_id
             JOIN data_records d ON d.data_id=r.data_id
             JOIN blobs b ON b.sha256=d.blob_sha256
             WHERE i.paper_id=$paper AND d.deleted_at IS NULL
-            ORDER BY i.sort_order,d.original_filename
+            UNION ALL
+            SELECT d.data_id,d.original_filename,'other','Others',b.file_size,b.sha256,999999
+            FROM paper_other_resources o
+            JOIN data_records d ON d.data_id=o.data_id
+            JOIN blobs b ON b.sha256=d.blob_sha256
+            WHERE o.paper_id=$paper AND d.deleted_at IS NULL
+            ORDER BY 7,2
             """;
         cmd.Parameters.AddWithValue("$paper", paperId);
         using var reader = cmd.ExecuteReader();
