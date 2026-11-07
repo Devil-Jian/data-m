@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Imaging;
 using PaperArchive.Core;
 using WinRT.Interop;
@@ -366,6 +367,43 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex) { await ShowErrorAsync(ex.Message); }
         finally { ImportButton.IsEnabled = true; }
+    }
+
+    private void Undo_Click(object sender, RoutedEventArgs e) => UndoLatest();
+
+    private void Undo_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        UndoLatest();
+        args.Handled = true;
+    }
+
+    private void Open_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        OpenButton_Click(sender, new RoutedEventArgs());
+        args.Handled = true;
+    }
+
+    private void Rename_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        RenameButton_Click(sender, new RoutedEventArgs());
+        args.Handled = true;
+    }
+
+    private void FocusSearch_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        SearchBox.Focus(FocusState.Programmatic);
+        args.Handled = true;
+    }
+
+    private void UndoLatest()
+    {
+        if (_undo.Count == 0 || _inLibrary) return;
+        var prior = _undo[^1];
+        _undo.RemoveAt(_undo.Count - 1);
+        _plans.Clear();
+        foreach (var plan in prior) _plans[plan.SourceRelativePath] = plan;
+        RefreshRows();
+        StatusText.Text = "已撤销";
     }
 
     private async void RevealButton_Click(object sender, RoutedEventArgs e)
