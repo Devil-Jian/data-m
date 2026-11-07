@@ -30,7 +30,7 @@ try
     Check(saved.Files == 6 && saved.Figures == 1, "import counters");
     Check(repo.ListPapers().Single().Status == "archived", "archive state");
     var resources = repo.ListResources(saved.PaperId);
-    Check(resources.Count == 4, "figure relationships");
+    Check(resources.Count == 5 && resources.Any(r => r.Group == "Others"), "figure and Others relationships");
     var representative = resources.Single(r => r.FileName == "1-A-1-image.tif");
     var bytes = File.ReadAllBytes(repo.ResolveOriginal(representative.Sha256));
     Check(bytes.SequenceEqual(new byte[] { 4, 5, 6 }), "preserve original bytes");
