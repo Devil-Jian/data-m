@@ -1,3 +1,16 @@
+# Windows 原生版（迁移测试）
+
+当前新架构位于 `feat/winui-native`，使用 **C# + .NET 10 + WinUI 3**。原有 Tauri/Vue/Rust 项目仍保留供兼容和回退，不再作为新版本界面开发主线。
+
+- [原生版操作手册](native/操作手册.md)
+- [Windows 原生 CI 构建](https://github.com/Devil-Jian/data-m/actions/workflows/native-winui.yml)
+- 原生项目：`native/PaperArchive.Core`、`native/PaperArchive.Native`。
+- 数据格式：直接兼容原 SQLite v1/v2/v3 与 SHA-256 Blob 仓库。升级前须备份整个仓库。
+- 当前阶段已实现基础文件夹扫描、批量分类与编号、归档、归档后资源列表；论文内嵌 PDF/DOCX 阅读及复杂图像/Excel 预览尚在迁移中。
+- 安装包与图形化人工验收完成前，保留为测试版，不代替稳定版本。
+
+---
+
 # 论文原始数据归档平台 V0.5
 
 Windows 10/11 离线单机应用。当前版本重点改造**归档前的整理体验**，采用紧凑型桌面文件管理器界面；正式归档后继续使用只读论文资源浏览器。
