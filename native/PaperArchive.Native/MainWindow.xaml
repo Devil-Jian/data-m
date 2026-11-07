@@ -4,6 +4,12 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="论文原始数据">
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" RowSpacing="0">
+        <Grid.KeyboardAccelerators>
+            <KeyboardAccelerator Key="O" Modifiers="Control" Invoked="Open_Invoked"/>
+            <KeyboardAccelerator Key="F" Modifiers="Control" Invoked="FocusSearch_Invoked"/>
+            <KeyboardAccelerator Key="Z" Modifiers="Control" Invoked="Undo_Invoked"/>
+            <KeyboardAccelerator Key="F2" Invoked="Rename_Invoked"/>
+        </Grid.KeyboardAccelerators>
         <Grid.RowDefinitions>
             <RowDefinition Height="54"/>
             <RowDefinition Height="Auto"/>
@@ -89,6 +95,7 @@
                             <MenuFlyoutItem Text="批量分类" Click="RoleButton_Click"/>
                             <MenuFlyoutItem Text="批量编号" Click="RenameButton_Click"/>
                             <MenuFlyoutSeparator/>
+                            <MenuFlyoutItem Text="撤销" Click="Undo_Click"/>
                             <MenuFlyoutItem Text="打开原始文件" Click="RevealButton_Click"/>
                         </MenuFlyout>
                     </ListView.ContextFlyout>
