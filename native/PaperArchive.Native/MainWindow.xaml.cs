@@ -163,7 +163,9 @@ public sealed partial class MainWindow : Window
         if (_papers.Count == 0) { _visible.Clear(); StatusText.Text = "暂无归档论文"; }
     }
 
-    private async void OpenButton_Click(object sender, RoutedEventArgs e)
+    private async void OpenButton_Click(object sender, RoutedEventArgs e) => await OpenFolderAsync();
+
+    private async Task OpenFolderAsync()
     {
         var folder = await ChooseDirectoryAsync("打开论文文件夹");
         if (folder is null) return;
@@ -286,7 +288,9 @@ public sealed partial class MainWindow : Window
         StatusText.Text = "批量分类已应用";
     }
 
-    private async void RenameButton_Click(object sender, RoutedEventArgs e)
+    private async void RenameButton_Click(object sender, RoutedEventArgs e) => await BatchNumberAsync();
+
+    private async Task BatchNumberAsync()
     {
         var selected = SelectedRows();
         if (_inLibrary || selected.Count == 0) return;
@@ -379,13 +383,13 @@ public sealed partial class MainWindow : Window
 
     private void Open_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
-        OpenButton_Click(sender, new RoutedEventArgs());
+        _ = OpenFolderAsync();
         args.Handled = true;
     }
 
     private void Rename_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
-        RenameButton_Click(sender, new RoutedEventArgs());
+        _ = BatchNumberAsync();
         args.Handled = true;
     }
 
