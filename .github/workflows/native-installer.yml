@@ -1,0 +1,78 @@
+name: Windows WinUI 3 Installer
+
+on:
+  push:
+    branches:
+      - feat/winui-native
+    paths:
+      - native/**
+      - .github/workflows/native-installer.yml
+      - src-tauri/migrations/**
+  workflow_dispatch:
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Test C# data migration and import
+        shell: pwsh
+        run: |
+          dotnet run --project native/PaperArchive.Core.SmokeTests/PaperArchive.Core.SmokeTests.csproj -c Release
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: Publish self-contained WinUI app
+        shell: pwsh
+        run: |
+          dotnet publish native/PaperArchive.Native/PaperArchive.Native.csproj -c Release -r win-x64 --self-contained true -p:Platform=x64 -o native/installer/native-dist
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          if (!(Test-Path native/installer/native-dist/PaperArchive.Native.exe)) { throw "Application executable missing" }
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          choco install nsis -y --no-progress
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: Generate exact uninstall file manifest
+        shell: pwsh
+        run: |
+          $source=(Resolve-Path native/installer/native-dist).Path
+          $lines=New-Object 'System.Collections.Generic.List[string]'
+          $files=Get-ChildItem -LiteralPath $source -File -Recurse
+          foreach ($file in $files) {
+            $relative=$file.FullName.Substring($source.Length+1).Replace('/','\')
+            $lines.Add('Delete "$INSTDIR\' + $relative + '"')
+          }
+          $folders=Get-ChildItem -LiteralPath $source -Directory -Recurse | Sort-Object { $_.FullName.Length } -Descending
+          foreach ($folder in $folders) {
+            $relative=$folder.FullName.Substring($source.Length+1).Replace('/','\')
+            $lines.Add('RMDir "$INSTDIR\' + $relative + '"')
+          }
+          [System.IO.File]::WriteAllLines(
+            (Join-Path $PWD 'native/installer/native-dist-uninstall.nsh'),
+            $lines,
+            [System.Text.UTF8Encoding]::new($false)
+          )
+          Write-Host "Manifested $($files.Count) application files for safe uninstall"
+      - name: Compile Windows EXE installer
+        shell: pwsh
+        run: |
+          $nsis=Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'NSIS\makensis.exe'
+          if (!(Test-Path $nsis)) { $nsis="C:\Program Files\NSIS\makensis.exe" }
+          if (!(Test-Path $nsis)) { throw "NSIS executable missing" }
+          Push-Location native/installer
+          & $nsis /V3 PaperArchive.nsi
+          $result=$LASTEXITCODE
+          Pop-Location
+          if ($result -ne 0) { exit $result }
+          $setup="native/installer/PaperArchive_WinUI3_Setup_x64.exe"
+          if (!(Test-Path $setup)) { throw "Installer EXE missing" }
+          $file=Get-Item $setup
+          if ($file.Length -lt 1000000) { throw "Installer unexpectedly small" }
+          Write-Host "Installer size: $($file.Length)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PaperArchive-WinUI3-Installer-x64
+          path: native/installer/PaperArchive_WinUI3_Setup_x64.exe
+          if-no-files-found: error
