@@ -229,9 +229,9 @@ public sealed class ArchiveRepository
                 }
                 if (new FileInfo(source).Length != info.Length)
                     throw new IOException("源文件在读取过程中变化。");
-                using var digest = SHA256.Create();
-                using var readback = File.OpenRead(staged);
-                var sha = Convert.ToHexString(digest.ComputeHash(readback)).ToLowerInvariant();
+                string sha;
+                using (var readback = File.OpenRead(staged))
+                    sha = Convert.ToHexString(SHA256.HashData(readback)).ToLowerInvariant();
                 var destination = Path.Combine(_root, "blobs", "sha256", sha[..2], sha);
                 Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
                 if (!File.Exists(destination)) File.Move(staged, destination);
