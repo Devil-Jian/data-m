@@ -55,6 +55,28 @@ jobs:
             [System.Text.UTF8Encoding]::new($false)
           )
           Write-Host "Manifested $($files.Count) application files for safe uninstall"
+      - name: Validate native runtime payload and NSIS UTF-8 encoding
+        shell: pwsh
+        run: |
+          $payload='native/installer/native-dist'
+          foreach ($required in @('PaperArchive.Native.exe','PaperArchive.Native.dll','Microsoft.ui.xaml.dll','Microsoft.WindowsAppRuntime.dll','coreclr.dll','hostfxr.dll')) {
+            if (!(Test-Path (Join-Path $payload $required))) {
+              throw "Missing required runtime component: $required"
+            }
+          }
+          $script='native/installer/PaperArchive.nsi'
+          $text=[System.IO.File]::ReadAllText((Resolve-Path $script).Path,[System.Text.Encoding]::UTF8)
+          # makensis recognizes UTF-8 with BOM reliably on all Windows runner locales.
+          [System.IO.File]::WriteAllText(
+            (Resolve-Path $script).Path,
+            $text,
+            [System.Text.UTF8Encoding]::new($true)
+          )
+          $bytes=[System.IO.File]::ReadAllBytes((Resolve-Path $script).Path)
+          if ($bytes[0] -ne 239 -or $bytes[1] -ne 187 -or $bytes[2] -ne 191) {
+            throw 'NSIS UTF-8 BOM is missing'
+          }
+          Write-Host 'WinUI runtime payload verified; NSIS UTF-8 BOM verified'
       - name: Compile Windows EXE installer
         shell: pwsh
         run: |
