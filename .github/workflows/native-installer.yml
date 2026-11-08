@@ -29,6 +29,20 @@ jobs:
           dotnet publish native/PaperArchive.Native/PaperArchive.Native.csproj -c Release -r win-x64 --self-contained true -p:Platform=x64 -o native/installer/native-dist
           if ($LASTEXITCODE -ne 0) { exit 1 }
           if (!(Test-Path native/installer/native-dist/PaperArchive.Native.exe)) { throw "Application executable missing" }
+      - name: Smoke-test native application startup
+        shell: pwsh
+        run: |
+          $exe=(Resolve-Path 'native/installer/native-dist/PaperArchive.Native.exe').Path
+          $process=Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
+          Start-Sleep -Seconds 8
+          $process.Refresh()
+          if ($process.HasExited) {
+            $log=Join-Path $env:LOCALAPPDATA 'PaperArchive/logs/startup.log'
+            if (Test-Path $log) { Get-Content $log -Tail 80 }
+            throw "WinUI process exited during startup with code $($process.ExitCode)"
+          }
+          Write-Host "WinUI process remained active through startup smoke-test"
+          Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
       - name: Install NSIS
         shell: pwsh
         run: |
