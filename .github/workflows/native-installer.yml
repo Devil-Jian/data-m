@@ -29,6 +29,30 @@ jobs:
           dotnet publish native/PaperArchive.Native/PaperArchive.Native.csproj -c Release -r win-x64 --self-contained true -p:Platform=x64 -o native/installer/native-dist
           if ($LASTEXITCODE -ne 0) { exit 1 }
           if (!(Test-Path native/installer/native-dist/PaperArchive.Native.exe)) { throw "Application executable missing" }
+      - name: Restore WinUI XAML resources omitted by unpackaged publish
+        shell: pwsh
+        run: |
+          $publish=(Resolve-Path 'native/installer/native-dist').Path
+          $project=(Resolve-Path 'native/PaperArchive.Native').Path
+          $resources=Get-ChildItem -LiteralPath (Join-Path $project 'obj') -File -Recurse |
+            Where-Object { $_.Extension -in @('.pri','.xbf') } |
+            Sort-Object LastWriteTimeUtc -Descending
+          Write-Host 'Compiled XAML resource files:'
+          $resources | Select-Object -First 35 FullName, Length | Format-Table -AutoSize
+          $pri=$resources | Where-Object { $_.Name -eq 'resources.pri' } | Select-Object -First 1
+          if ($pri) {
+            Copy-Item -LiteralPath $pri.FullName -Destination (Join-Path $publish 'resources.pri') -Force
+            Write-Host "Restored application resource index: $($pri.FullName)"
+          } else {
+            Write-Host 'No resources.pri found in intermediate output'
+          }
+          foreach ($name in @('App.xbf','MainWindow.xbf')) {
+            $xbf=$resources | Where-Object { $_.Name -eq $name } | Select-Object -First 1
+            if ($xbf) {
+              Copy-Item -LiteralPath $xbf.FullName -Destination (Join-Path $publish $name) -Force
+              Write-Host "Restored XAML resource: $($xbf.FullName)"
+            }
+          }
       - name: Smoke-test native application startup
         shell: pwsh
         run: |
