@@ -229,7 +229,7 @@ try
     Assert(File.ReadAllBytes(compositeOut).SequenceEqual(File.ReadAllBytes(composPath)),
         "composite export preserves original image bytes");
     Assert(repo.ListFigureOverview(paperId).Any(x=>x.Figure.Id==figuresNew[0].Id&&
-        x.LinkedAssetCount==1&&x.CompositeCount==1),
+        x.LinkedAssetCount==1&&x.CompositeCount==2),
         "Figure overview counts linked materials and full versions");
     // V15-14 composite filename changes are metadata-only; removal promotes
     // the previous version without touching shared content-addressed bytes.
@@ -244,6 +244,8 @@ try
         repo.ListFigureShowData(figuresNew[0].Id).Single().Id==v1.Id &&
         repo.ListFigureShowData(figuresNew[0].Id).Single().IsCurrent,
         "delete current Figure version promotes the remaining version");
+    Assert(repo.ListFigureOverview(paperId).Any(x=>x.Figure.Id==figuresNew[0].Id &&
+        x.CompositeCount==1), "Figure overview updates after version removal");
     Assert(File.Exists(storedBlob) && repo.ListPanelAssets(aPanel.Id).Single().AssetId==show.Id,
         "version removal preserves blob and original Panel association");
     var expectedNoFile=repo.CreateFiguresFast(paperId,1,1);
