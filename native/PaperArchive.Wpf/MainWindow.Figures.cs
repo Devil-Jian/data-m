@@ -731,6 +731,38 @@ public partial class MainWindow
         BatchPanel_Click(sender,e);
     }
 
+    private void RenameFigureComposite_Click(object sender,RoutedEventArgs e)
+    {
+        if(_workspace is null||_figureContextTarget?.Item is not FigureComposite composite)return;
+        var name=Prompt("重命名完整 Figure","修改显示文件名（不更改原始文件）",composite.FileName);
+        if(name is null)return;
+        try
+        {
+            _workspace.RenameFigureComposite(composite.Id,name);
+            RefreshFigureView();
+            FigureFiles.SelectedItem=FigureFiles.Items.Cast<FigureRow>()
+                .FirstOrDefault(x=>x.Item is FigureComposite c&&c.Id==composite.Id);
+        }
+        catch(Exception ex){ShowError(ex);}
+    }
+
+    private void DeleteFigureComposite_Click(object sender,RoutedEventArgs e)
+    {
+        if(_workspace is null||_figureContextTarget?.Item is not FigureComposite composite)return;
+        if(System.Windows.MessageBox.Show(this,
+            $"删除完整 Figure 的版本 v{composite.Version}？\\n"+
+            "该版本将从 show_data 列表中移除，仓库 Blob 和原始实验素材不会删除。",
+            "删除完整成图版本",MessageBoxButton.YesNo,MessageBoxImage.Warning)!=
+            MessageBoxResult.Yes)return;
+        try
+        {
+            _workspace.DeleteFigureCompositeVersion(composite.Id);
+            LoadProjectTree();
+            RefreshFigureView();
+        }
+        catch(Exception ex){ShowError(ex);}
+    }
+
     private void FigureFiles_ContextMenuOpening(object sender,ContextMenuEventArgs e)
     {
         if(!_figureMode)return;
@@ -783,6 +815,9 @@ public partial class MainWindow
             case FigureComposite:
                 menu.Items.Add(Action("预览 / 详细信息",FigureContextPreview_Click));
                 menu.Items.Add(Action("打开文件",FigureContextOpen_Click));
+                menu.Items.Add(Action("重命名",RenameFigureComposite_Click));
+                menu.Items.Add(Action("删除版本",DeleteFigureComposite_Click));
+                menu.Items.Add(new Separator());
                 menu.Items.Add(Action("导出完整 Figure…",ExportComposite_Click));
                 menu.Items.Add(Action("设为当前版本",SetCurrentComposite_Click));
                 break;
