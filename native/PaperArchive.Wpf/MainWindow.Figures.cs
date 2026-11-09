@@ -20,12 +20,14 @@ public partial class MainWindow
     private FigureTemplate? _currentFigure;
     private PanelTemplate? _currentPanel;
     private bool _showOnlyComposites;
+    private FigureRow? _figureContextTarget;
+    private bool _figureContextBlank;
 
     private string FigurePath()
     {
         var path=(_activePaper?.Name??"论文项目")+" > 组图项目";
         if(_currentFigure is not null)path+=" > Figure "+_currentFigure.Number;
-        if(_showOnlyComposites)path+=" > 完整组图";
+        if(_showOnlyComposites)path+=" > show_data";
         else if(_currentPanel is not null)path+=" > Panel "+_currentPanel.Label;
         return path;
     }
@@ -128,17 +130,28 @@ public partial class MainWindow
         {
             UpdateStatus();return;
         }
-        PreviewImage.Source=row.Item is FigureComposite c&&_workspace is not null?
+        // Panel image references and completed Figures both point to immutable blobs.
+        var sha=row.Item switch
+        {
+            FigureComposite composite=>composite.Sha256,
+            PanelAssetLink link=>link.Sha256,
+            _=>null
+        };
+        PreviewImage.Source=sha is {Length:64} && sha.All(Uri.IsHexDigit) && _workspace is not null?
             PreviewFromFile(()=>Path.Combine(_workspace.Root,"blobs","sha256",
-                c.Sha256[..2],c.Sha256)):null;
+                sha[..2],sha)):null;
         DetailName.Text=row.Name;
         DetailMeta.Text=$"类型：{row.Type}\n状态：{row.Status}\n{row.Detail}";
         if(row.Item is PanelAssetLink link)
         {
             DetailMeta.Text+=$"\nAsset ID：{link.AssetId}\nSHA-256：{link.Sha256}";
             RelatedFiles.ItemsSource=new[]{"同组 RAW / PROCESS 可在实验项目内查看。"};
+            if(PreviewImage.Source is null)
+                DetailMeta.Text+="\n图片无法预览：文件可能缺失、损坏或格式不受支持。";
         }
         else RelatedFiles.ItemsSource=null;
+        if(row.Item is FigureComposite && PreviewImage.Source is null)
+            DetailMeta.Text+="\n图片无法预览：文件可能缺失、损坏或格式不受支持。";
         UpdateStatus();
     }
 
@@ -551,10 +564,10 @@ public partial class MainWindow
         {
             var composite=_workspace.ImportFigureComposite(figure.Id,dialog.FileName);
             LoadProjectTree();
-            RefreshFigureView();
-            System.Windows.MessageBox.Show(this,
-                $"已导入 {composite.FileName}（版本 v{composite.Version}）。\n原始字节已安全归档。",
-                "完整组图导入");
+            SelectTreeTag(new FigureCompositesNode(_activePaper!.Id,figure.Id));
+            FigureFiles.SelectedItem=FigureFiles.Items.Cast<FigureRow>()
+                .FirstOrDefault(x=>x.Item is FigureComposite c&&c.Id==composite.Id);
+            FigureFiles.ScrollIntoView(FigureFiles.SelectedItem);
         }
         catch(Exception ex){ShowError(ex);}
     }
@@ -662,44 +675,112 @@ public partial class MainWindow
         catch(Exception ex){ShowError(ex);}
     }
 
+    private void FigureFiles_PreviewMouseRightButtonDown(object sender,MouseButtonEventArgs e)
+    {
+        if(!_figureMode)return;
+        var hit=e.OriginalSource is DependencyObject origin?
+            ItemsControl.ContainerFromElement(FigureFiles,origin) as ListViewItem:null;
+        _figureContextTarget=hit?.Content as FigureRow;
+        _figureContextBlank=_figureContextTarget is null;
+        if(_figureContextBlank)FigureFiles.SelectedItem=null;
+        else if(!hit!.IsSelected)FigureFiles.SelectedItem=_figureContextTarget;
+    }
+
+    private void FigureContextOpen_Click(object sender,RoutedEventArgs e)
+    {
+        if(_activePaper is null||_figureContextTarget is null)return;
+        switch(_figureContextTarget.Item)
+        {
+            case FigureTemplate figure:
+                SelectTreeTag(new FigureNode(_activePaper.Id,figure.Id));break;
+            case PanelTemplate panel when _currentFigure is not null:
+                SelectTreeTag(new PanelNode(_activePaper.Id,_currentFigure.Id,panel.Id));break;
+            case FigureComposite composite:
+                OpenFigureComposite(composite);break;
+            default:
+                FigureFiles.SelectedItem=_figureContextTarget;break;
+        }
+    }
+
+    private void FigureContextPreview_Click(object sender,RoutedEventArgs e)
+    {
+        if(_figureContextTarget is null)return;
+        FigureFiles.SelectedItem=_figureContextTarget;
+        FigureFiles.Focus();
+    }
+
+    private void FigureContextPanel_Click(object sender,RoutedEventArgs e)
+    {
+        if(_activePaper is null||_figureContextTarget?.Item is not FigureTemplate figure)return;
+        SelectTreeTag(new FigureNode(_activePaper.Id,figure.Id));
+        QuickPanel_Click(sender,e);
+    }
+
+    private void FigureContextBatchPanel_Click(object sender,RoutedEventArgs e)
+    {
+        if(_activePaper is null||_figureContextTarget?.Item is not FigureTemplate figure)return;
+        SelectTreeTag(new FigureNode(_activePaper.Id,figure.Id));
+        BatchPanel_Click(sender,e);
+    }
+
     private void FigureFiles_ContextMenuOpening(object sender,ContextMenuEventArgs e)
     {
         if(!_figureMode)return;
+        var target=_figureContextBlank?null:_figureContextTarget;
+        if(Keyboard.IsKeyDown(Key.Apps)||Keyboard.IsKeyDown(Key.F10))
+            target=FigureFiles.SelectedItem as FigureRow;
+        if(target is not null && !FigureFiles.Items.Contains(target))target=null;
+        _figureContextTarget=target;
         var menu=new ContextMenu();
-        if(_currentFigure is null)
+        if(target is null)
         {
-            menu.Items.Add(Action("新建 Figure",QuickFigure_Click));
-            menu.Items.Add(Action("批量新建 Figure…",BatchFigure_Click));
-            if(FigureFiles.SelectedItem is FigureRow{Item:FigureTemplate})
+            if(_currentFigure is null)
             {
-                menu.Items.Add(new Separator());
+                menu.Items.Add(Action("新建 Figure",QuickFigure_Click));
+                menu.Items.Add(Action("批量新建 Figure…",BatchFigure_Click));
+            }
+            else if(_currentPanel is not null)
+                menu.Items.Add(Action("关联 SHOW 素材…",LinkShowFromFigure_Click));
+            else if(_showOnlyComposites)
+                menu.Items.Add(Action("导入完整 Figure…",ImportComposite_Click));
+            else
+            {
                 menu.Items.Add(Action("新建 Panel",QuickPanel_Click));
                 menu.Items.Add(Action("批量新建 Panel…",BatchPanel_Click));
+                menu.Items.Add(new Separator());
+                menu.Items.Add(Action("导入完整 Figure…",ImportComposite_Click));
             }
         }
-        else if(_currentPanel is not null)
+        else switch(target.Item)
         {
-            menu.Items.Add(Action("关联 SHOW 素材…",LinkShowFromFigure_Click));
-            menu.Items.Add(Action("取消关联（所选）",UnlinkPanelAsset_Click));
-        }
-        else
-        {
-            menu.Items.Add(Action("新建 Panel",QuickPanel_Click));
-            menu.Items.Add(Action("批量新建 Panel…",BatchPanel_Click));
-            menu.Items.Add(Action("关联 SHOW 素材…",LinkShowFromFigure_Click));
-            menu.Items.Add(new Separator());
-            menu.Items.Add(Action("导出全部组图素材…",ExportFigureMaterials_Click));
-            menu.Items.Add(Action("导入完整 Figure…",ImportComposite_Click));
-            menu.Items.Add(Action("导出完整 Figure…",ExportComposite_Click));
-            menu.Items.Add(Action("设为当前正式成图（所选版本）",SetCurrentComposite_Click));
-        }
-        if(FigureFiles.SelectedItem is FigureRow{Item:FigureTemplate or PanelTemplate})
-        {
-            menu.Items.Add(new Separator());
-            menu.Items.Add(Action("重命名 (F2)",RenameFigurePlaceholder_Click));
-            menu.Items.Add(Action("删除 (Delete)",DeleteFigurePlaceholder_Click));
+            case FigureTemplate:
+                menu.Items.Add(Action("打开",FigureContextOpen_Click));
+                menu.Items.Add(Action("重命名 (F2)",RenameFigurePlaceholder_Click));
+                menu.Items.Add(Action("删除 (Delete)",DeleteFigurePlaceholder_Click));
+                menu.Items.Add(new Separator());
+                menu.Items.Add(Action("新建 Panel",FigureContextPanel_Click));
+                menu.Items.Add(Action("批量新建 Panel…",FigureContextBatchPanel_Click));
+                break;
+            case PanelTemplate:
+                menu.Items.Add(Action("打开",FigureContextOpen_Click));
+                menu.Items.Add(Action("重命名 (F2)",RenameFigurePlaceholder_Click));
+                menu.Items.Add(Action("删除 (Delete)",DeleteFigurePlaceholder_Click));
+                menu.Items.Add(new Separator());
+                menu.Items.Add(Action("关联 SHOW 素材…",LinkShowFromFigure_Click));
+                break;
+            case PanelAssetLink:
+                menu.Items.Add(Action("预览 / 详细信息",FigureContextPreview_Click));
+                menu.Items.Add(Action("移除（仅取消关联）",UnlinkPanelAsset_Click));
+                break;
+            case FigureComposite:
+                menu.Items.Add(Action("预览 / 详细信息",FigureContextPreview_Click));
+                menu.Items.Add(Action("打开文件",FigureContextOpen_Click));
+                menu.Items.Add(Action("导出完整 Figure…",ExportComposite_Click));
+                menu.Items.Add(Action("设为当前版本",SetCurrentComposite_Click));
+                break;
         }
         FigureFiles.ContextMenu=menu;
+        _figureContextBlank=false;
     }
 
     private bool HandleFigureShortcut(KeyEventArgs e)
