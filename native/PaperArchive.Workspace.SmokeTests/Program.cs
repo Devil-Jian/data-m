@@ -166,6 +166,21 @@ try
     var latest=repo.CreateFiguresFast(paperId,1);
     Assert(latest.Single().Number==5,
         "quick Figure creation uses next available number without recycling an occupied one");
+    var chosenNumbers=repo.CreateFiguresFast(paperId,2,1,startNumber:11);
+    Assert(chosenNumbers.Select(x=>x.Number).SequenceEqual(new[]{11,12}),
+        "custom starting Figure index");
+    var skippedNumbers=repo.CreateFiguresFast(paperId,2,0,startNumber:11);
+    Assert(skippedNumbers.Select(x=>x.Number).SequenceEqual(new[]{13,14}),
+        "batch skips used Figure identifiers");
+    var specifiedPanels=repo.CreatePanelsFast(chosenNumbers[0].Id,2,startLabel:"C");
+    Assert(specifiedPanels.Select(x=>x.Label).SequenceEqual(new[]{"C","D"}),
+        "custom starting Panel label");
+    bool rollbackOnOverflow=false;
+    try{repo.CreatePanelsFast(chosenNumbers[0].Id,26,startLabel:"Y");}
+    catch(InvalidOperationException){rollbackOnOverflow=true;}
+    Assert(rollbackOnOverflow&&repo.ListPanels(chosenNumbers[0].Id).Count==3,
+        "invalid batch is completely rolled back");
+
     var extraPanels=repo.CreatePanelsFast(latest.Single().Id,3);
     Assert(string.Join(",",extraPanels.Select(p=>p.Label))=="A,B,C",
         "quick Panel creation uses next letter");

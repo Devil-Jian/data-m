@@ -481,7 +481,7 @@ public sealed partial class ExperimentWorkspace
             if(!File.Exists(source))throw new FileNotFoundException("素材源文件缺失。",source);
             var exported=CopyVerifiedNoOverwrite(source,row.Name,row.Hash,
                 Path.Combine(destination,"Panel_"+row.Panel));
-            static string Csv(string s)=>"\""+s.Replace("\"","᠎\"\"")+"\"";
+            static string Csv(string s)=>"\""+s.Replace("\"","\"\"")+"\"";
             manifests.Add(string.Join(",",new[]{row.Panel,Path.GetFileName(exported),
                 row.Name,row.Result,row.Group,row.Asset,row.Hash}.Select(Csv)));
         }

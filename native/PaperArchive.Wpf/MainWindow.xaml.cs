@@ -153,10 +153,6 @@ public partial class MainWindow : Window
                 var parent=new TreeViewItem{
                     Header=TreeLabel(paper.Name,"paper",paperCount),
                     Tag=paper,IsExpanded=true};
-                var manuscriptCount=_workspace.ListPaperDocuments(paper.Id).Count;
-                parent.Items.Add(new TreeViewItem{
-                    Header=TreeLabel("论文全文","doc",manuscriptCount),
-                    Tag=new PaperDocumentsNode(paper.Id)});
                 var experiments=new TreeViewItem{
                     Header=TreeLabel("实验项目","folder",paperCount),
                     Tag=new PaperExperimentsNode(paper.Id),
@@ -195,6 +191,10 @@ public partial class MainWindow : Window
                     figuresNode.Items.Add(fNode);
                 }
                 parent.Items.Add(figuresNode);
+                var manuscriptCount=_workspace.ListPaperDocuments(paper.Id).Count;
+                parent.Items.Add(new TreeViewItem{
+                    Header=TreeLabel("论文全文","doc",manuscriptCount),
+                    Tag=new PaperDocumentsNode(paper.Id)});
                 ProjectTree.Items.Add(parent);
             }
         }

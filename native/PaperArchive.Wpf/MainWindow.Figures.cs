@@ -234,21 +234,84 @@ public partial class MainWindow
         return first.Text.Trim();
     }
 
+    private (int Count,int Panels,int Start)? AskBatchFigureOptions(string paperId)
+    {
+        if(_workspace is null)return null;
+        var occupied=_workspace.ListFigures(paperId).Select(f=>f.Number).ToHashSet();
+        var defaultStart=occupied.Count==0?1:occupied.Max()+1;
+        var dlg=new Window{Title="批量新建 Figure",Owner=this,Width=475,Height=318,
+            ResizeMode=ResizeMode.NoResize,WindowStartupLocation=WindowStartupLocation.CenterOwner};
+        var body=new StackPanel{Margin=new Thickness(20)};
+        var startBox=new TextBox{Text=defaultStart.ToString(),Margin=new Thickness(0,4,0,10)};
+        var countBox=new TextBox{Text="4",Margin=new Thickness(0,4,0,10)};
+        var panelBox=new TextBox{Text="3",Margin=new Thickness(0,4,0,10)};
+        void AddInput(string label,TextBox control)
+        {
+            body.Children.Add(new TextBlock{Text=label});
+            body.Children.Add(control);
+        }
+        AddInput("起始 Figure 编号（正整数）",startBox);
+        AddInput("创建 Figure 数量（1–100）",countBox);
+        AddInput("每张 Figure 的 Panel 数量（0–26）",panelBox);
+        var preview=new TextBlock{TextWrapping=TextWrapping.Wrap,
+            Foreground=System.Windows.Media.Brushes.DimGray,
+            Margin=new Thickness(0,3,0,10)};
+        body.Children.Add(preview);
+        var accept=new Button{Content="创建",IsDefault=true};
+        void Refresh()
+        {
+            if(!int.TryParse(startBox.Text,out var start)||start<=0||
+               !int.TryParse(countBox.Text,out var count)||count<1||count>100||
+               !int.TryParse(panelBox.Text,out var panels)||panels<0||panels>26)
+            {
+                preview.Text="请输入有效的起始编号、Figure 数量和 Panel 数量。";
+                accept.IsEnabled=false;return;
+            }
+            var sequence=new List<int>();
+            var number=start;
+            while(sequence.Count<count && number<int.MaxValue)
+            {
+                if(!occupied.Contains(number))sequence.Add(number);
+                number++;
+            }
+            if(sequence.Count!=count)
+            {
+                preview.Text="起始编号超出可用范围。";accept.IsEnabled=false;return;
+            }
+            preview.Text="预计创建："+string.Join("、",sequence.Take(8).Select(x=>$"Figure {x}"))+
+                (sequence.Count>8?$" …… 共 {sequence.Count} 个":"")+
+                (panels>0?$"；每个 Figure 自动创建 Panel A–{(char)('A'+panels-1)}":"");
+            accept.IsEnabled=true;
+        }
+        startBox.TextChanged+=(_,_)=>Refresh();
+        countBox.TextChanged+=(_,_)=>Refresh();
+        panelBox.TextChanged+=(_,_)=>Refresh();
+        var buttons=new StackPanel{Orientation=Orientation.Horizontal,
+            HorizontalAlignment=HorizontalAlignment.Right};
+        var cancel=new Button{Content="取消",IsCancel=true};
+        accept.Click+=(_,_)=>{dlg.DialogResult=true;dlg.Close();};
+        buttons.Children.Add(accept);buttons.Children.Add(cancel);
+        body.Children.Add(buttons);
+        dlg.Content=body;Refresh();
+        return dlg.ShowDialog()==true?
+            (int.Parse(countBox.Text),int.Parse(panelBox.Text),int.Parse(startBox.Text)):null;
+    }
+
     private void BatchFigure_Click(object sender,RoutedEventArgs e)
     {
         if(_workspace is null||_activePaper is null)return;
-        var first=PromptFields(this,"批量新建 Figure",
-            "创建 Figure 数量（1–100）","每个 Figure 的 Panel 数量（0–26）",
-            "4","3",out var second);
-        if(first is null)return;
-        if(!int.TryParse(first,out var number)||!int.TryParse(second,out var panels))return;
+        var options=AskBatchFigureOptions(_activePaper.Id);
+        if(options is not { } selected)return;
         try
         {
-            var created=_workspace.CreateFiguresFast(_activePaper.Id,number,panels);
+            var created=_workspace.CreateFiguresFast(_activePaper.Id,
+                selected.Count,selected.Panels,selected.Start);
             LoadProjectTree();
             SelectTreeTag(new PaperFiguresNode(_activePaper.Id));
-            // Multiple Figure placeholders remain visible in the folder list.
             RefreshFigureView();
+            if(created.Count==1)FigureFiles.SelectedItem=
+                FigureFiles.Items.Cast<FigureRow>()
+                    .FirstOrDefault(x=>x.Item is FigureTemplate f&&f.Id==created[0].Id);
         }
         catch(Exception ex){ShowError(ex);}
     }
@@ -256,14 +319,23 @@ public partial class MainWindow
     private void BatchPanel_Click(object sender,RoutedEventArgs e)
     {
         if(_workspace is null||_activePaper is null||CurrentOrSelectedFigure() is not { } figure)return;
-        var value=Prompt("批量新建 Panel","创建 Panel 数量（1–26）","3");
-        if(value is null||!int.TryParse(value,out var n))return;
+        var existing=_workspace.ListPanels(figure.Id);
+        var last=existing.Where(p=>p.Label.Length==1&&p.Label[0]>='A'&&p.Label[0]<='Z')
+            .Select(p=>p.Label[0]).DefaultIfEmpty('@').Max();
+        var first=PromptFields(this,"批量新建 Panel",
+            "起始标签（A–Z）","创建 Panel 数量（1–26）",
+            last<'Z'?((char)(last+1)).ToString():"A","3",out var countValue);
+        if(first is null||first.Length!=1||!char.IsAsciiLetter(first[0])||
+           !int.TryParse(countValue,out var count))return;
         try
         {
-            _workspace.CreatePanelsFast(figure.Id,n);
+            var created=_workspace.CreatePanelsFast(figure.Id,count,first.ToUpperInvariant());
             LoadProjectTree();
             SelectTreeTag(new FigureNode(_activePaper.Id,figure.Id));
             RefreshFigureView();
+            var lastCreated=created[^1];
+            FigureFiles.SelectedItem=FigureFiles.Items.Cast<FigureRow>()
+                .FirstOrDefault(x=>x.Item is PanelTemplate p&&p.Id==lastCreated.Id);
         }
         catch(Exception ex){ShowError(ex);}
     }
