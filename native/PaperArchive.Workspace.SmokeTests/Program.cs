@@ -223,6 +223,28 @@ try
     Assert(repo.ListFigureComposites(expectedNoFile.Single().Id).Count==0 &&
         repo.ListPanelAssets(repo.ListPanels(expectedNoFile.Single().Id)[0].Id).Count==0,
         "Panel and Figure placeholders have no actual image files");
+    // V15-13: empty Figure/Panel structures, safe deletion and stable IDs.
+    var emptyPaper=repo.CreatePaperProject("V15-13 验收项目");
+    var five=repo.CreateFiguresFast(emptyPaper,5,3,startNumber:1);
+    Assert(five.Count==5 && repo.ListFigureOverview(emptyPaper).Count==5 &&
+        five.All(f=>repo.ListPanelOverview(f.Id).Count==3), "5 Figures and 15 Panels");
+    Assert(five.SelectMany(f=>repo.ListPanels(f.Id)).All(p=>repo.ListPanelAssets(p.Id).Count==0),
+        "15 placeholders contain zero image references");
+    var firstFigure=five[0];
+    var firstPanel=repo.ListPanels(firstFigure.Id)[0];
+    repo.RenamePanelLabel(firstPanel.Id,"D");
+    Assert(repo.ListPanels(firstFigure.Id).Any(p=>p.Id==firstPanel.Id&&p.Label=="D"),
+        "Panel rename preserves identity");
+    repo.RenameFigureNumber(firstFigure.Id,7);
+    Assert(repo.ListFigures(emptyPaper).Any(f=>f.Id==firstFigure.Id&&f.Number==7),
+        "Figure renumber preserves identity");
+    repo.DeletePanelPlaceholder(firstPanel.Id);
+    Assert(repo.ListPanels(firstFigure.Id).Count==2,"Panel deletion removes only placeholder");
+    repo.DeleteFigurePlaceholder(firstFigure.Id);
+    Assert(repo.ListFigures(emptyPaper).Count==4,"Figure deletion removes its panels");
+    var afterDelete=repo.CreateFiguresFast(emptyPaper,1);
+    Assert(afterDelete.Single().Number==6,
+        "next Figure uses max current number after deleting renamed Figure 7");
     Console.WriteLine("PASS: V1.5 figure placeholders, batch numbering, linking, material manifest, versioning, verified exports.");
     Console.WriteLine("PASS: Manuscript PDF/DOCX snapshot and persistent logical move undo.");
     Console.WriteLine("PASS: V1.3 papers, figures, panels, move, copy, stable IDs, rename, delete/restore.");
