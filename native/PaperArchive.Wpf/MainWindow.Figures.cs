@@ -332,17 +332,63 @@ public partial class MainWindow
         catch(Exception ex){ShowError(ex);}
     }
 
+    private (string Start,int Count)? AskBatchPanelOptions(
+        IReadOnlyList<PanelTemplate> existing,char last)
+    {
+        var occupied=existing.Select(p=>p.Label).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var dialog=new Window{Title="批量新建 Panel",Owner=this,Width=435,Height=260,
+            ResizeMode=ResizeMode.NoResize,WindowStartupLocation=WindowStartupLocation.CenterOwner};
+        var body=new StackPanel{Margin=new Thickness(18)};
+        body.Children.Add(new TextBlock{Text="起始标签（A–Z）"});
+        var start=new TextBox{Text=last<'Z'?((char)(last+1)).ToString():"A",
+            Margin=new Thickness(0,5,0,10)};
+        body.Children.Add(start);
+        body.Children.Add(new TextBlock{Text="创建数量（1–26）"});
+        var quantity=new TextBox{Text="3",Margin=new Thickness(0,5,0,10)};
+        body.Children.Add(quantity);
+        var preview=new TextBlock{TextWrapping=TextWrapping.Wrap,
+            Margin=new Thickness(0,0,0,10)};
+        body.Children.Add(preview);
+        var buttons=new StackPanel{Orientation=Orientation.Horizontal,
+            HorizontalAlignment=HorizontalAlignment.Right};
+        var accept=new Button{Content="创建",IsDefault=true};
+        var cancel=new Button{Content="取消",IsCancel=true};
+        void Refresh()
+        {
+            var label=start.Text.Trim().ToUpperInvariant();
+            if(label.Length!=1||label[0]<'A'||label[0]>'Z'||
+                !int.TryParse(quantity.Text,out var count)||count<1||count>26)
+            {
+                preview.Text="请输入有效的 A–Z 起始标签和创建数量。";
+                accept.IsEnabled=false;return;
+            }
+            var candidates=Enumerable.Range(label[0], 'Z'-label[0]+1)
+                .Select(x=>((char)x).ToString()).Where(x=>!occupied.Contains(x))
+                .Take(count).ToArray();
+            accept.IsEnabled=candidates.Length==count;
+            preview.Text=accept.IsEnabled?
+                "预计创建："+string.Join("、",candidates.Select(x=>"Panel "+x)):
+                "剩余 Panel 字母不足，无法创建指定数量。";
+        }
+        start.TextChanged+=(_,_)=>Refresh();
+        quantity.TextChanged+=(_,_)=>Refresh();
+        accept.Click+=(_,_)=>{dialog.DialogResult=true;dialog.Close();};
+        buttons.Children.Add(accept);buttons.Children.Add(cancel);body.Children.Add(buttons);
+        dialog.Content=body;Refresh();
+        return dialog.ShowDialog()==true?(start.Text.Trim().ToUpperInvariant(),
+            int.Parse(quantity.Text)):null;
+    }
+
     private void BatchPanel_Click(object sender,RoutedEventArgs e)
     {
         if(_workspace is null||_activePaper is null||CurrentOrSelectedFigure() is not { } figure)return;
         var existing=_workspace.ListPanels(figure.Id);
         var last=existing.Where(p=>p.Label.Length==1&&p.Label[0]>='A'&&p.Label[0]<='Z')
             .Select(p=>p.Label[0]).DefaultIfEmpty('@').Max();
-        var first=PromptFields(this,"批量新建 Panel",
-            "起始标签（A–Z）","创建 Panel 数量（1–26）",
-            last<'Z'?((char)(last+1)).ToString():"A","3",out var countValue);
-        if(first is null||first.Length!=1||!char.IsAsciiLetter(first[0])||
-           !int.TryParse(countValue,out var count))return;
+        var options=AskBatchPanelOptions(existing,last);
+        if(options is not { } selected)return;
+        var first=selected.Start;
+        var count=selected.Count;
         try
         {
             var created=_workspace.CreatePanelsFast(figure.Id,count,first.ToUpperInvariant());
