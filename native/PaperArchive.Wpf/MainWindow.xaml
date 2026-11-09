@@ -275,6 +275,7 @@
                                   SelectionMode="Extended"
                                   SelectionChanged="FigureFiles_SelectionChanged"
                                   MouseDoubleClick="FigureFiles_DoubleClick"
+                                  PreviewMouseRightButtonDown="FigureFiles_PreviewMouseRightButtonDown"
                                   ContextMenuOpening="FigureFiles_ContextMenuOpening">
                             <ListView.View>
                                 <GridView>
