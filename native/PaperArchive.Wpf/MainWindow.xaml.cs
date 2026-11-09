@@ -178,9 +178,9 @@ public partial class MainWindow : Window
         }
 
         if(ProjectTree.SelectedItem is not TreeViewItem node)return;
-        if(node.Tag is PaperProject paper)
+        if(node.Tag is PaperProject paperProject)
         {
-            _activePaper=paper;_activeProject=null;_activeResult=null;
+            _activePaper=paperProject;_activeProject=null;_activeResult=null;
             _all.Clear();_visible.Clear();
         }
         else if(node.Tag is ExperimentProject project)
