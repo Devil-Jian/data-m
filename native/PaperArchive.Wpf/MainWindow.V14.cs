@@ -123,7 +123,7 @@ public partial class MainWindow
     }
 
     private static bool IsValidDropNode(TreeViewItem? item) =>
-        item?.Tag is ExperimentResult or ExperimentProject;
+        item?.Tag is ExperimentResult or ExperimentProject or PaperProject;
 
     private void StopExpandTimer()
     {
@@ -166,6 +166,31 @@ public partial class MainWindow
         e.Handled=true;
     }
 
+    private ExperimentProject? PickTargetProjectForPaper(string paperId)
+    {
+        if(_workspace is null)return null;
+        var projects=_workspace.ListProjectsForPaper(paperId);
+        if(projects.Count==0)
+        {
+            System.Windows.MessageBox.Show(this,
+                "目标论文项目下没有实验项目。请先新建实验项目。","无法移动");
+            return null;
+        }
+        var dialog=new Window{Title="选择目标实验项目",Owner=this,Width=470,Height=170,
+            WindowStartupLocation=WindowStartupLocation.CenterOwner,ResizeMode=ResizeMode.NoResize};
+        var content=new StackPanel{Margin=new Thickness(17)};
+        content.Children.Add(new TextBlock{Text="拖入论文项目需要先选择所属实验项目",
+            Margin=new Thickness(0,0,0,9)});
+        var select=new ComboBox{ItemsSource=projects,DisplayMemberPath="Name",
+            SelectedIndex=0,MinHeight=30};
+        content.Children.Add(select);
+        var button=new Button{Content="确定",IsDefault=true,
+            HorizontalAlignment=HorizontalAlignment.Right,Margin=new Thickness(0,11,0,0)};
+        button.Click+=(_,_)=>{dialog.DialogResult=true;dialog.Close();};
+        content.Children.Add(button);dialog.Content=content;
+        return dialog.ShowDialog()==true?select.SelectedItem as ExperimentProject:null;
+    }
+
     private void ProjectTree_PreviewDrop(object sender,DragEventArgs e)
     {
         StopExpandTimer();
@@ -177,12 +202,16 @@ public partial class MainWindow
         try
         {
             // Paper nodes are deliberately not valid drop targets.
-            string targetId=node.Tag switch
+            string? targetId=node.Tag switch
             {
                 ExperimentResult result=>result.Id,
                 ExperimentProject project=>_workspace.GetOrCreateUnsortedResult(project.Id),
-                _=>throw new InvalidOperationException("请选择实验项目或结果单元。")
+                PaperProject paper=>
+                    PickTargetProjectForPaper(paper.Id) is { } project?
+                        _workspace.GetOrCreateUnsortedResult(project.Id):null,
+                _=>null
             };
+            if(targetId is null)return;
             // MoveAssets / CopyAssets check all conflicts within a single SQLite
             // transaction. The first try may fail safely without partial moves.
             int Run(bool merge)=>copy?
@@ -205,6 +234,11 @@ public partial class MainWindow
             }
             else if(node.Tag is ExperimentProject destProject)
                 _activeProject=destProject;
+            else if(node.Tag is PaperProject destPaper)
+            {
+                _activeProject=_workspace.ListProjectsForPaper(destPaper.Id)
+                    .FirstOrDefault(p=>_workspace.ListResults(p.Id).Any(r=>r.Id==targetId));
+            }
             _activePaper=_workspace.ListPaperProjects()
                 .FirstOrDefault(p=>_workspace.ListProjectsForPaper(p.Id)
                     .Any(x=>x.Id==_activeProject?.Id));

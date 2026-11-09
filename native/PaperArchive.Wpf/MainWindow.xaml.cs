@@ -506,6 +506,10 @@ public partial class MainWindow : Window
     {
         var selected = SelectedAssets();
         if (selected.Count == 0 || _workspace is null) return;
+        // Ctrl+C / toolbar Copy also places an internal logical reference on
+        // the workspace clipboard, while retaining native file/image paste.
+        _cutAssetIds=selected.Select(x=>x.Asset.Id).ToArray();
+        _clipboardCut=false;
         try
         {
             var cache = Path.Combine(Path.GetTempPath(), "PaperArchive", "Clipboard");
