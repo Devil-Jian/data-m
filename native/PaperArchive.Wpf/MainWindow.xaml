@@ -96,7 +96,6 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*" MinHeight="100"/>
                         <RowDefinition Height="5"/>
-                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="236" MinHeight="125"/>
                     </Grid.RowDefinitions>
                     <TextBlock x:Name="SidebarHeading" Text="论文项目" FontWeight="SemiBold"
@@ -128,9 +127,31 @@
                                                     <DockPanel LastChildFill="True">
                                                         <ToggleButton x:Name="Expander" DockPanel.Dock="Left"
                                                                       Width="19" Margin="0,0,2,0" Padding="0"
-                                                                      Content="›" Background="Transparent"
-                                                                      BorderThickness="0" Foreground="#FF555555"
-                                                                      IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"/>
+                                                                      Background="Transparent" BorderThickness="0"
+                                                                      Focusable="False"
+                                                                      IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                                                            <ToggleButton.Template>
+                                                                <ControlTemplate TargetType="{x:Type ToggleButton}">
+                                                                    <Grid Background="Transparent" Width="19" Height="26">
+                                                                        <Path Stroke="#FF555555" StrokeThickness="1.5"
+                                                                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                                              Data="M 6,5 L 10,9 L 6,13"
+                                                                              HorizontalAlignment="Center"
+                                                                              VerticalAlignment="Center">
+                                                                            <Path.RenderTransform>
+                                                                                <RotateTransform x:Name="ArrowRotation" Angle="0"
+                                                                                                 CenterX="8" CenterY="9"/>
+                                                                            </Path.RenderTransform>
+                                                                        </Path>
+                                                                    </Grid>
+                                                                    <ControlTemplate.Triggers>
+                                                                        <Trigger Property="IsChecked" Value="True">
+                                                                            <Setter TargetName="ArrowRotation" Property="Angle" Value="90"/>
+                                                                        </Trigger>
+                                                                    </ControlTemplate.Triggers>
+                                                                </ControlTemplate>
+                                                            </ToggleButton.Template>
+                                                        </ToggleButton>
                                                         <ContentPresenter ContentSource="Header"
                                                                           VerticalAlignment="Center" Margin="2,3,4,3"/>
                                                     </DockPanel>
@@ -143,9 +164,6 @@
                                                 </Trigger>
                                                 <Trigger Property="IsExpanded" Value="False">
                                                     <Setter TargetName="ItemsHost" Property="Visibility" Value="Collapsed"/>
-                                                </Trigger>
-                                                <Trigger Property="IsExpanded" Value="True">
-                                                    <Setter TargetName="Expander" Property="Content" Value="⌄"/>
                                                 </Trigger>
                                                 <Trigger Property="IsMouseOver" Value="True">
                                                     <Setter TargetName="RowBorder" Property="Background" Value="#FFF0F4F8"/>
@@ -164,12 +182,21 @@
                     <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch"
                                   Background="#FFE6E6E6" ResizeDirection="Rows"
                                   ResizeBehavior="PreviousAndNext"/>
-                    <TextBlock Grid.Row="3" Text="浏览位置" FontWeight="SemiBold"
-                               Margin="12,11,0,8" Foreground="#FF555555"/>
-                    <ListBox Grid.Row="4" x:Name="FolderList" Margin="5,0,5,4"
-                             Background="Transparent" BorderThickness="0"
-                             SelectionChanged="FolderList_SelectionChanged"
-                             ContextMenuOpening="FolderList_ContextMenuOpening"/>
+                    <!-- The filter heading and options share one resizable pane. -->
+                    <Grid Grid.Row="3" x:Name="FilterPane" MinHeight="125">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="FilterHeading" Grid.Row="0" Text="文件筛选"
+                                   FontWeight="SemiBold" Margin="12,11,0,8"
+                                   Foreground="#FF555555"/>
+                        <ListBox Grid.Row="1" x:Name="FolderList" Margin="5,0,5,4"
+                                 VerticalAlignment="Stretch"
+                                 Background="Transparent" BorderThickness="0"
+                                 SelectionChanged="FolderList_SelectionChanged"
+                                 ContextMenuOpening="FolderList_ContextMenuOpening"/>
+                    </Grid>
                 </Grid>
             </Border>
             <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch"
