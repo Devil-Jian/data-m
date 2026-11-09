@@ -1,4 +1,4 @@
-# PaperArchive WPF desktop (PRD v1.3)
+# PaperArchive WPF desktop (PRD v1.4)
 
 This is the new **Windows 10/11 native desktop** implementation. The previous
 WinUI 3 app in `native/PaperArchive.Native` is preserved for comparison.
@@ -107,3 +107,33 @@ dedicated `历史工作区（待分配）` paper project.
   retained in the underlying immutable blob store.
 - Context menu operations are defined for project/result nodes and files.
   Adding arbitrary nested logical subfolders is a future extension.
+
+## V1.4 Windows Explorer interaction changes
+
+- **Scope navigation**: clicking the paper project shows *all* files in all its experiments; clicking an experiment project shows all files in its result units; clicking a result unit narrows to only that unit. The `所属实验结果` column is visible for aggregate scopes. Status bar totals follow the chosen scope rather than the last opened result.
+- **Drag/drop**: from selected file rows or thumbnails, drag to a result unit (move), experiment project (move to `待整理数据`), or paper project (choose an experiment project first). Hold **Ctrl** to logically copy instead. Blob SHA-256 data is never physically moved. Conflicting data group prefixes require explicit merge consent and the transaction rolls back on conflict.
+- **Navigation pane**: light Explorer-like folder glyphs, selected-row highlighting, tree in the upper area with its own scrolling; `浏览位置` stays docked to the bottom of the sidebar and has a resizable divider.
+- **Blank tree context menu**: only `新建论文项目`, `新建实验项目`, `新建结果单元`; invalid options are disabled. Node-specific right clicks still provide their usual editing operations.
+- **Menus**: the top workflow line contains `新建 ▾`, `导入 ▾`, `导出 ▾`. The lower command line contains cut, copy, paste, rename, delete, move, sort, view and more. Search operates within the current selected scope. Menu and column-header sorting share one state.
+- **Details pane**: the original subtle border chevron remains; no wide toolbar toggle is added. Alt+Shift+P is still supported.
+
+The UI uses familiar WPF controls with a native light palette. It is intentionally
+not a pixel-perfect replica of the Windows 11 Explorer shell.
+
+### V1.4 regression checklist (Windows)
+
+1. Click a paper project, then its experiment, then a result unit. The visible list and lower-left path/visible/total counts must match each scope.
+2. Switch to `show_data` while a paper project is selected. Files from multiple result units should remain visible; `所属实验结果` disambiguates them.
+3. Drag one or multiple selected files to a result unit. Default is **move**; Ctrl-drag is **copy**. The source files must remain unchanged; after the operation, re-open the result and verify the counts.
+4. Drag to a parent experiment project. Files should go to its `待整理数据` unit. Drag to a paper project and select the destination experiment project from the dialog. Drop outside a valid target must have no effect.
+5. Right-click blank tree space: only three creation options. Right-click an actual node: node-specific options.
+6. Test top New/Import/Export menus and lower command line, then sort from both the command bar and column headers.
+7. Resize the main window. The browsing section should stay at the sidebar bottom; toggle and resize the right details pane.
+8. Double-click table headers and empty space: **no file must open**. Double-click a file row: the correct file must open.
+9. Re-run the V1.3 move/copy/soft-delete/restore tests and verify the original SHA-256 manifest.
+
+### Current release limitations
+
+- A green GitHub Actions build proves compilation and basic Core tests, **not** manual WPF interaction correctness or a full production release.
+- Multi-operation undo, per-file conflict-preview wizard and arbitrary nested virtual folders remain later milestones.
+- PDF/DOCX inline reading, paper finalization and transfer packages remain later milestones.
