@@ -73,7 +73,7 @@ public partial class MainWindow
             foreach(var overview in _workspace.ListFigureOverview(_activePaper.Id))
                 rows.Add(new($"Figure {overview.Figure.Number}","Figure 占位",
                     $"{overview.PanelCount} Panel",
-                    overview.CurrentFileName is null?"未导入完整组图":"已导入完整组图",
+                    overview.LinkedAssetCount==0?"未关联":"已关联",
                     $"{overview.LinkedAssetCount} 张素材 · {overview.CompositeCount} 个成图版本",
                     overview.Figure));
         }
@@ -185,6 +185,22 @@ public partial class MainWindow
         return (FigureFiles?.SelectedItem as FigureRow)?.Item as PanelTemplate;
     }
 
+    private void SelectCreatedFigure(string id)
+    {
+        FigureFiles.SelectedItem=FigureFiles.Items.Cast<FigureRow>()
+            .FirstOrDefault(x=>x.Item is FigureTemplate f&&f.Id==id);
+        FigureFiles.ScrollIntoView(FigureFiles.SelectedItem);
+        FigureFiles.Focus();
+    }
+
+    private void SelectCreatedPanel(string id)
+    {
+        FigureFiles.SelectedItem=FigureFiles.Items.Cast<FigureRow>()
+            .FirstOrDefault(x=>x.Item is PanelTemplate p&&p.Id==id);
+        FigureFiles.ScrollIntoView(FigureFiles.SelectedItem);
+        FigureFiles.Focus();
+    }
+
     private void QuickFigure_Click(object sender,RoutedEventArgs e)
     {
         if(_workspace is null||_activePaper is null)return;
@@ -192,7 +208,8 @@ public partial class MainWindow
         {
             var f=_workspace.CreateFiguresFast(_activePaper.Id,1).Single();
             LoadProjectTree();
-            SelectTreeTag(new FigureNode(_activePaper.Id,f.Id));
+            SelectTreeTag(new PaperFiguresNode(_activePaper.Id));
+            SelectCreatedFigure(f.Id);
         }
         catch(Exception ex){ShowError(ex);}
     }
@@ -204,7 +221,8 @@ public partial class MainWindow
         {
             var p=_workspace.CreatePanelsFast(f.Id,1).Single();
             LoadProjectTree();
-            SelectTreeTag(new PanelNode(_activePaper.Id,f.Id,p.Id));
+            SelectTreeTag(new FigureNode(_activePaper.Id,f.Id));
+            SelectCreatedPanel(p.Id);
         }
         catch(Exception ex){ShowError(ex);}
     }
@@ -309,9 +327,7 @@ public partial class MainWindow
             LoadProjectTree();
             SelectTreeTag(new PaperFiguresNode(_activePaper.Id));
             RefreshFigureView();
-            if(created.Count==1)FigureFiles.SelectedItem=
-                FigureFiles.Items.Cast<FigureRow>()
-                    .FirstOrDefault(x=>x.Item is FigureTemplate f&&f.Id==created[0].Id);
+            SelectCreatedFigure(created[^1].Id);
         }
         catch(Exception ex){ShowError(ex);}
     }
@@ -333,9 +349,7 @@ public partial class MainWindow
             LoadProjectTree();
             SelectTreeTag(new FigureNode(_activePaper.Id,figure.Id));
             RefreshFigureView();
-            var lastCreated=created[^1];
-            FigureFiles.SelectedItem=FigureFiles.Items.Cast<FigureRow>()
-                .FirstOrDefault(x=>x.Item is PanelTemplate p&&p.Id==lastCreated.Id);
+            SelectCreatedPanel(created[^1].Id);
         }
         catch(Exception ex){ShowError(ex);}
     }
@@ -570,13 +584,24 @@ public partial class MainWindow
 
     private bool HandleFigureShortcut(KeyEventArgs e)
     {
-        if(_libraryMode || Keyboard.Modifiers!=(ModifierKeys.Control|ModifierKeys.Shift))
-            return false;
-        if(e.Key==Key.F&&_figureMode&&_currentFigure is null)
+        if(_libraryMode||!_figureMode||SearchBox.IsKeyboardFocusWithin||
+            e.OriginalSource is TextBox)return false;
+        if(Keyboard.Modifiers==ModifierKeys.None && e.Key==Key.Enter &&
+            FigureFiles.IsKeyboardFocusWithin && FigureFiles.SelectedItem is FigureRow selected)
+        {
+            if(selected.Item is FigureTemplate figure && _activePaper is not null)
+                SelectTreeTag(new FigureNode(_activePaper.Id,figure.Id));
+            else if(selected.Item is PanelTemplate panel && _activePaper is not null && _currentFigure is not null)
+                SelectTreeTag(new PanelNode(_activePaper.Id,_currentFigure.Id,panel.Id));
+            else return false;
+            return true;
+        }
+        if(Keyboard.Modifiers!=(ModifierKeys.Control|ModifierKeys.Shift))return false;
+        if(e.Key==Key.F&&_currentFigure is null)
         {
             QuickFigure_Click(this,new RoutedEventArgs());return true;
         }
-        if(e.Key==Key.P&&_figureMode&&_currentFigure is not null)
+        if(e.Key==Key.P&&_currentFigure is not null&&_currentPanel is null)
         {
             QuickPanel_Click(this,new RoutedEventArgs());return true;
         }
