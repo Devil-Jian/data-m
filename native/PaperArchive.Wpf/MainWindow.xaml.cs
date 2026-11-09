@@ -19,6 +19,7 @@ public sealed class AssetRow
     public string RelativePath => Asset.RelativePath;
     public string DirectoryLabel => Path.GetDirectoryName(Asset.RelativePath)?.Replace('\\', '/') ?? ".";
     public string GroupPrefix => Asset.GroupPrefix;
+    public string ResultLabel { get; }
     public string StageLabel => Asset.Stage switch
     {
         "raw" => "RAW", "process" => "PROCESS", "show" => "SHOW",
@@ -54,11 +55,12 @@ public sealed class AssetRow
         }
     }
 
-    public AssetRow(ExperimentWorkspace workspace, ExperimentAsset asset, string usage)
+    public AssetRow(ExperimentWorkspace workspace, ExperimentAsset asset, string usage, string resultLabel = "")
     {
         _workspace = workspace;
         Asset = asset;
         UsageLabel = usage;
+        ResultLabel = resultLabel;
     }
 }
 
@@ -78,7 +80,7 @@ public partial class MainWindow : Window
     private string _activeFolder = "全部文件";
 
     private static readonly string[] FolderNames =
-        ["全部文件", "全部图片", "raw_data", "process_data", "show_data", "统计表", "数据组"];
+        ["全部文件", "全部图片", "raw_data", "process_data", "show_data", "统计表"];
 
     public MainWindow()
     {
@@ -92,6 +94,7 @@ public partial class MainWindow : Window
         FileList.ContextMenu=new ContextMenu();
         ThumbnailList.ContextMenu=new ContextMenu();
         Loaded += (_, _) => InitializeWarehouse();
+        UpdateActionAvailability();
     }
 
     private static string DefaultWarehouse()
@@ -118,6 +121,7 @@ public partial class MainWindow : Window
                 ToggleDetails();
             WarehouseLabel.Text = warehouse;
             LoadProjectTree();
+            LoadScopeAssets();
         }
         catch (Exception ex) { ShowError(ex); }
     }
@@ -190,38 +194,35 @@ public partial class MainWindow : Window
                 LoadPaper(paper);
             return;
         }
-
         if(ProjectTree.SelectedItem is not TreeViewItem node)return;
         if(node.Tag is PaperProject paperProject)
         {
             _activePaper=paperProject;_activeProject=null;_activeResult=null;
-            _all.Clear();_visible.Clear();
         }
         else if(node.Tag is ExperimentProject project)
         {
             _activeProject=project;_activeResult=null;
             _activePaper=(node.Parent as TreeViewItem)?.Tag as PaperProject;
-            _all.Clear();_visible.Clear();
         }
-        else if(node.Tag is ExperimentResult result && _workspace is not null)
+        else if(node.Tag is ExperimentResult result)
         {
             _activeResult=result;
             var parent=node.Parent as TreeViewItem;
             _activeProject=parent?.Tag as ExperimentProject;
             _activePaper=(parent?.Parent as TreeViewItem)?.Tag as PaperProject;
-            LoadSelectedResult();
-            RebuildFolderList();
         }
-        RefreshItems();
+        LoadScopeAssets();
+        UpdateActionAvailability();
     }
 
     private void RebuildFolderList()
     {
         // Left side chooses the folder/view scope. Data-group filtering is
         // intentionally left to the Data Group column in the central list.
-        FolderList.ItemsSource = null;
-        FolderList.ItemsSource = FolderNames;
-        FolderList.SelectedIndex = 0;
+        var previous=_activeFolder;
+        FolderList.ItemsSource=null;
+        FolderList.ItemsSource=FolderNames;
+        FolderList.SelectedItem=FolderNames.Contains(previous)?previous:FolderNames[0];
     }
 
     private void FolderList_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -253,16 +254,11 @@ public partial class MainWindow : Window
             "process_data" => query.Where(x => x.Asset.Stage == "process"),
             "show_data" => query.Where(x => x.Asset.Stage == "show"),
             "统计表" => query.Where(x => x.Asset.Stage == "statistics"),
-            "数据组" => query.OrderBy(x => x.GroupPrefix, StringComparer.OrdinalIgnoreCase),
-            _ when _activeFolder.StartsWith("数据组: ", StringComparison.Ordinal) =>
-                query.Where(x => x.GroupPrefix.Equals(
-                    _activeFolder["数据组: ".Length..], StringComparison.OrdinalIgnoreCase)),
             _ => query
         };
         _visible.Clear();
         foreach (var row in ApplyTableSort(query.Where(AcceptColumnFilters))) _visible.Add(row);
-        CurrentLocation.Text = _activeResult is null ? "请选择实验结果单元"
-            : $"{_activePaper?.Name}  >  {_activeProject?.Name}  >  {_activeResult.Name}  >  {_activeFolder}";
+        CurrentLocation.Text = CurrentScopePath();
         UpdateStatus();
         UpdateDetails();
     }
@@ -275,9 +271,7 @@ public partial class MainWindow : Window
             StatusText.Text = $"论文资源库  |  显示 {LibraryFiles?.Items.Count ?? 0} / 共 {LibraryFiles?.Items.Count ?? 0} 个文件";
             return;
         }
-        var path = _activeResult is null
-            ? _activePaper?.Name ?? "论文项目"
-            : $"{_activeProject?.Name}  >  {_activeResult.Name}  >  {_activeFolder}";
+        var path=CurrentScopePath();
         var selected = _thumbnailMode ? ThumbnailList.SelectedItems.Count : FileList.SelectedItems.Count;
         StatusText.Text = $"{path}  |  显示 {_visible.Count} / 共 {_all.Count} 个文件  |  已选 {selected} 项";
     }
@@ -323,24 +317,18 @@ public partial class MainWindow : Window
         if (ProjectTree is null || LibraryArea is null) return;
         _libraryMode = LibraryTab.IsChecked == true;
         var editor = _libraryMode ? Visibility.Collapsed : Visibility.Visible;
-        CreatePaperButton.Visibility = editor;
-        CreateProjectButton.Visibility = editor;
-        CreateResultButton.Visibility = editor;
-        ImportProjectButton.Visibility = editor;
-        MoveButton.Visibility = editor;
-        ImportButton.Visibility = editor;
-        CopyButton.Visibility = editor;
-        ExportButton.Visibility = editor;
-        FigureButton.Visibility = editor;
-        ConfirmUsageButton.Visibility = editor;
-        SearchBox.Visibility = editor;
-        SidebarHeading.Text = _libraryMode ? "论文" : "论文项目";
+        WorkflowMenus.Visibility=editor;
+        FileCommands.Visibility=editor;
+        ConfirmUsageButton.Visibility=editor;
+        SearchBox.Visibility=editor;
+        SidebarHeading.Text = _libraryMode ? "已归档论文" : "论文项目";
         LibraryArea.Visibility = _libraryMode ? Visibility.Visible : Visibility.Collapsed;
         FolderList.Visibility = editor;
         FileList.Visibility = _libraryMode || _thumbnailMode ? Visibility.Collapsed : Visibility.Visible;
         ThumbnailList.Visibility = _libraryMode || !_thumbnailMode ? Visibility.Collapsed : Visibility.Visible;
         if (_libraryMode) LoadPaperTree();
-        else LoadProjectTree();
+        else {LoadProjectTree();LoadScopeAssets();}
+        UpdateActionAvailability();
         UpdateStatus();
     }
 
@@ -470,7 +458,7 @@ public partial class MainWindow : Window
             var imported = await Task.Run(() => _workspace.ImportResult(projectId, folder));
             _activeResult = _workspace.ListResults(projectId).First(r => r.Id == imported.ResultId);
             LoadProjectTree();
-            LoadSelectedResult();
+            LoadScopeAssets();
             RebuildFolderList();
             System.Windows.MessageBox.Show(this,
                 $"已导入 {imported.FileCount} 个文件，识别 {imported.DataGroupCount} 个数据组。\n原始目录中的文件未被修改。",
@@ -629,18 +617,7 @@ public partial class MainWindow : Window
         catch (Exception ex) { ShowError(ex); }
     }
 
-    private void LoadSelectedResult()
-    {
-        if (_activeResult is null || _workspace is null) return;
-        _all.Clear();
-        foreach(var a in _workspace.ListAssets(_activeResult.Id))
-        {
-            var uses=_workspace.ListUsages(a.Id).Where(x=>x.State is "exported" or "confirmed")
-                .Select(x=>$"Fig {x.Figure}{x.Panel}").Distinct().ToArray();
-            _all.Add(new AssetRow(_workspace,a,uses.Length==0?"—":string.Join(", ",uses)));
-        }
-        RefreshItems();
-    }
+    private void LoadSelectedResult() => LoadScopeAssets();
 
     private void Files_DoubleClick(object sender,MouseButtonEventArgs e)
     {
