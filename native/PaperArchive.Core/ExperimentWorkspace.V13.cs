@@ -107,7 +107,7 @@ public sealed partial class ExperimentWorkspace
     {
         using var db=Connect();
         using var cmd=db.CreateCommand();
-        cmd.CommandText="SELECT id,name FROM experiment_projects WHERE paper_id=$id ORDER BY name COLLATE NOCASE";
+        cmd.CommandText="SELECT id,name FROM experiment_projects WHERE paper_id=$id AND is_deleted=0 ORDER BY name COLLATE NOCASE";
         cmd.Parameters.AddWithValue("$id",paperId);
         using var rd=cmd.ExecuteReader();
         var result=new List<ExperimentProject>();

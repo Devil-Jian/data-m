@@ -88,6 +88,22 @@ try
     repo.RenameResult(destination,"ROS 汇总");
     Assert(repo.ListResults(workingProject).Any(x=>x.Id==destination&&x.Name=="ROS 汇总"),
            "result rename");
+    var copiedUnit=repo.CopyResult(destination,workingProject,"ROS 复制");
+    Assert(repo.ListResults(workingProject).Any(x=>x.Id==copiedUnit),"result unit copy");
+    Assert(repo.ListAssets(copiedUnit).Count==4,"result copy contents");
+    repo.MoveResult(copiedUnit,project);
+    Assert(repo.ListResults(project).Any(x=>x.Id==copiedUnit),"result reparent between projects");
+    repo.SetResultDeleted(copiedUnit,true);
+    Assert(repo.ListResults(project).All(x=>x.Id!=copiedUnit) &&
+           repo.ListDeletedResults(project).Any(x=>x.Id==copiedUnit),"result soft delete");
+    repo.SetResultDeleted(copiedUnit,false);
+    Assert(repo.ListResults(project).Any(x=>x.Id==copiedUnit),"restore result");
+    var blankProject=repo.CreateProjectForPaper(paperId,"暂存实验项目");
+    repo.SetProjectDeleted(blankProject,true);
+    Assert(repo.ListProjectsForPaper(paperId).All(x=>x.Id!=blankProject) &&
+           repo.ListDeletedProjects(paperId).Any(x=>x.Id==blankProject),"project soft delete");
+    repo.SetProjectDeleted(blankProject,false);
+    Assert(repo.ListProjectsForPaper(paperId).Any(x=>x.Id==blankProject),"restore project");
     Assert(repo.ListPaperProjects().Any(x=>x.Id==paperId),"paper persists");
     repo.AssignUsageToPaper(usage.Id,paperId);
     Assert(repo.ListUsages(show.Id).Single().PaperTitle=="Paper A",

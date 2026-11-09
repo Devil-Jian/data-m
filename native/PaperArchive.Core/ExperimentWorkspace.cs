@@ -43,6 +43,7 @@ public sealed partial class ExperimentWorkspace
         var workspace = new ExperimentWorkspace(root);
         workspace.Initialize();
         workspace.InitializeV13();
+        workspace.InitializeV13Tree();
         return workspace;
     }
 
@@ -100,7 +101,7 @@ public sealed partial class ExperimentWorkspace
     {
         using var db = Connect();
         using var cmd = db.CreateCommand();
-        cmd.CommandText = "SELECT id,name FROM experiment_projects ORDER BY name COLLATE NOCASE";
+        cmd.CommandText = "SELECT id,name FROM experiment_projects WHERE is_deleted=0 ORDER BY name COLLATE NOCASE";
         using var reader = cmd.ExecuteReader();
         var list = new List<ExperimentProject>();
         while (reader.Read()) list.Add(new(reader.GetString(0), reader.GetString(1)));
@@ -129,7 +130,7 @@ public sealed partial class ExperimentWorkspace
         cmd.CommandText = """
             SELECT r.id,r.project_id,r.name,COUNT(a.id)
             FROM experiment_results r LEFT JOIN experiment_assets a ON a.result_id=r.id
-            WHERE r.project_id=$id GROUP BY r.id ORDER BY r.imported_at DESC
+            WHERE r.project_id=$id AND r.is_deleted=0 GROUP BY r.id ORDER BY r.imported_at DESC
             """;
         cmd.Parameters.AddWithValue("$id", projectId);
         using var reader = cmd.ExecuteReader();
