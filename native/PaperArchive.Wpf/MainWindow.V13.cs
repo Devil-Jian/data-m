@@ -323,7 +323,7 @@ public partial class MainWindow
         if(e.OriginalSource is not DependencyObject source||sender is not ItemsControl items)return;
         if(ItemsControl.ContainerFromElement(items,source) is ListBoxItem item&&!item.IsSelected)
         {
-            items.UnselectAll();
+            if(items is ListBox selectable)selectable.UnselectAll();
             item.IsSelected=true;
         }
     }
