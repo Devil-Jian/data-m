@@ -130,7 +130,11 @@ public sealed partial class ExperimentWorkspace
         var created=new List<FigureTemplate>();
         for(int i=0;i<count;i++)
         {
-            while(occupied.Contains(number))number++;
+            while(occupied.Contains(number))
+            {
+                if(number==int.MaxValue)throw new InvalidOperationException("Figure 编号已达到上限。");
+                number++;
+            }
             var figure=new FigureTemplate(NewId(),paperId,number);
             using(var cmd=db.CreateCommand())
             {
@@ -145,7 +149,11 @@ public sealed partial class ExperimentWorkspace
                 InsertPanel(db,tx,figure.Id,((char)('A'+panelIndex)).ToString());
             occupied.Add(number);
             created.Add(figure);
-            number++;
+            if(i<count-1)
+            {
+                if(number==int.MaxValue)throw new InvalidOperationException("Figure 编号已达到上限。");
+                number++;
+            }
         }
         tx.Commit();
         return created;
@@ -169,6 +177,14 @@ public sealed partial class ExperimentWorkspace
         if(count<1||count>26)throw new ArgumentOutOfRangeException(nameof(count));
         using var db=Connect();
         using var tx=db.BeginTransaction();
+        using(var verify=db.CreateCommand())
+        {
+            verify.Transaction=tx;
+            verify.CommandText="SELECT COUNT(*) FROM figure_templates WHERE id=$id";
+            verify.Parameters.AddWithValue("$id",figureId);
+            if(Convert.ToInt64(verify.ExecuteScalar())!=1)
+                throw new KeyNotFoundException("Figure 不存在。");
+        }
         var existing=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         using(var query=db.CreateCommand())
         {
@@ -202,6 +218,109 @@ public sealed partial class ExperimentWorkspace
             throw new InvalidOperationException("剩余 Panel 字母不足，未创建任何占位。");
         tx.Commit();
         return created;
+    }
+
+
+    public (int LinkedImages,int Composites) GetFigureDeletionImpact(string figureId)
+    {
+        using var db=Connect();
+        using var cmd=db.CreateCommand();
+        cmd.CommandText="""
+            SELECT (SELECT COUNT(*) FROM figure_panel_assets a
+                    JOIN panel_templates p ON a.panel_id=p.id WHERE p.figure_id=$id),
+                   (SELECT COUNT(*) FROM figure_composites WHERE figure_id=$id)
+            WHERE EXISTS(SELECT 1 FROM figure_templates WHERE id=$id)
+            """;
+        cmd.Parameters.AddWithValue("$id",figureId);
+        using var reader=cmd.ExecuteReader();
+        if(!reader.Read())throw new KeyNotFoundException("Figure 不存在。");
+        return(reader.GetInt32(0),reader.GetInt32(1));
+    }
+
+    public int GetPanelDeletionImpact(string panelId)
+    {
+        using var db=Connect();
+        using var cmd=db.CreateCommand();
+        cmd.CommandText="""
+            SELECT (SELECT COUNT(*) FROM figure_panel_assets WHERE panel_id=$id)
+            WHERE EXISTS(SELECT 1 FROM panel_templates WHERE id=$id)
+            """;
+        cmd.Parameters.AddWithValue("$id",panelId);
+        var count=cmd.ExecuteScalar();
+        if(count is null)throw new KeyNotFoundException("Panel 不存在。");
+        return Convert.ToInt32(count);
+    }
+
+    public void DeleteFigurePlaceholder(string figureId)
+    {
+        using var db=Connect();
+        using var tx=db.BeginTransaction();
+        void Execute(string sql)
+        {
+            using var command=db.CreateCommand();
+            command.Transaction=tx;
+            command.CommandText=sql;
+            command.Parameters.AddWithValue("$id",figureId);
+            command.ExecuteNonQuery();
+        }
+        Execute("DELETE FROM figure_composite_sources WHERE composite_id IN (SELECT id FROM figure_composites WHERE figure_id=$id)");
+        Execute("DELETE FROM figure_composites WHERE figure_id=$id");
+        Execute("DELETE FROM figure_panel_assets WHERE panel_id IN (SELECT id FROM panel_templates WHERE figure_id=$id)");
+        Execute("DELETE FROM panel_templates WHERE figure_id=$id");
+        Execute("DELETE FROM paper_document_figures WHERE figure_id=$id");
+        using(var cmd=db.CreateCommand())
+        {
+            cmd.Transaction=tx;
+            cmd.CommandText="DELETE FROM figure_templates WHERE id=$id";
+            cmd.Parameters.AddWithValue("$id",figureId);
+            if(cmd.ExecuteNonQuery()!=1)throw new KeyNotFoundException("Figure 不存在。");
+        }
+        tx.Commit();
+    }
+
+    public void DeletePanelPlaceholder(string panelId)
+    {
+        using var db=Connect();
+        using var tx=db.BeginTransaction();
+        using(var links=db.CreateCommand())
+        {
+            links.Transaction=tx;
+            links.CommandText="DELETE FROM figure_panel_assets WHERE panel_id=$id";
+            links.Parameters.AddWithValue("$id",panelId);
+            links.ExecuteNonQuery();
+        }
+        using(var cmd=db.CreateCommand())
+        {
+            cmd.Transaction=tx;
+            cmd.CommandText="DELETE FROM panel_templates WHERE id=$id";
+            cmd.Parameters.AddWithValue("$id",panelId);
+            if(cmd.ExecuteNonQuery()!=1)throw new KeyNotFoundException("Panel 不存在。");
+        }
+        tx.Commit();
+    }
+
+    public void RenameFigureNumber(string figureId,int number)
+    {
+        if(number<1)throw new ArgumentOutOfRangeException(nameof(number));
+        using var db=Connect();
+        using var cmd=db.CreateCommand();
+        cmd.CommandText="UPDATE figure_templates SET number=$number WHERE id=$id";
+        cmd.Parameters.AddWithValue("$number",number);
+        cmd.Parameters.AddWithValue("$id",figureId);
+        if(cmd.ExecuteNonQuery()!=1)throw new KeyNotFoundException("Figure 不存在。");
+    }
+
+    public void RenamePanelLabel(string panelId,string label)
+    {
+        label=label.Trim().ToUpperInvariant();
+        if(label.Length!=1||label[0]<'A'||label[0]>'Z')
+            throw new ArgumentException("Panel 标签必须为 A–Z。",nameof(label));
+        using var db=Connect();
+        using var cmd=db.CreateCommand();
+        cmd.CommandText="UPDATE panel_templates SET label=$label WHERE id=$id";
+        cmd.Parameters.AddWithValue("$label",label);
+        cmd.Parameters.AddWithValue("$id",panelId);
+        if(cmd.ExecuteNonQuery()!=1)throw new KeyNotFoundException("Panel 不存在。");
     }
 
     private static (string FigureId,string PaperId) GetPanelOwner(
