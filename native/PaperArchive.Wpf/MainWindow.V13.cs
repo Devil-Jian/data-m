@@ -283,6 +283,153 @@ public partial class MainWindow
         return null;
     }
 
+    private ExperimentProject? PickProjectForResult(string title)
+    {
+        if(_workspace is null||_activePaper is null)return null;
+        var projects=_workspace.ListProjectsForPaper(_activePaper.Id);
+        if(projects.Count==0)return null;
+        var dialog=new Window{Title=title,Owner=this,Width=490,Height=170,
+            WindowStartupLocation=WindowStartupLocation.CenterOwner,ResizeMode=ResizeMode.NoResize};
+        var layout=new StackPanel{Margin=new Thickness(17)};
+        layout.Children.Add(new TextBlock{Text="目标实验项目",Margin=new Thickness(0,0,0,8)});
+        var select=new ComboBox{ItemsSource=projects,DisplayMemberPath="Name",
+            SelectedIndex=0,MinHeight=30};
+        layout.Children.Add(select);
+        var ok=new Button{Content="确定",IsDefault=true,HorizontalAlignment=HorizontalAlignment.Right,
+            Margin=new Thickness(0,12,0,0)};
+        ok.Click+=(_,_)=>{dialog.DialogResult=true;dialog.Close();};
+        layout.Children.Add(ok);dialog.Content=layout;
+        return dialog.ShowDialog()==true?select.SelectedItem as ExperimentProject:null;
+    }
+
+    private void RenameTree_Click(object sender,RoutedEventArgs e)
+    {
+        if(_workspace is null||ProjectTree.SelectedItem is not TreeViewItem node)return;
+        try
+        {
+            switch(node.Tag)
+            {
+                case PaperProject paper:
+                    var p=Prompt("重命名论文项目","项目名称",paper.Name);
+                    if(p is not null){_workspace.RenamePaperProject(paper.Id,p);_activePaper=new(paper.Id,p);}
+                    break;
+                case ExperimentProject project:
+                    var exp=Prompt("重命名实验项目","项目名称",project.Name);
+                    if(exp is not null){_workspace.RenameProject(project.Id,exp);_activeProject=new(project.Id,exp);}
+                    break;
+                case ExperimentResult result:
+                    var name=Prompt("重命名实验结果单元","结果名称",result.Name);
+                    if(name is not null){_workspace.RenameResult(result.Id,name);_activeResult=result with{Name=name};}
+                    break;
+            }
+            LoadProjectTree();RefreshItems();
+        }
+        catch(Exception ex){ShowError(ex);}
+    }
+
+    private void MoveResult_Click(object sender,RoutedEventArgs e)
+    {
+        if(_workspace is null||ProjectTree.SelectedItem is not TreeViewItem{Tag:ExperimentResult result})return;
+        var target=PickProjectForResult("移动实验结果单元");
+        if(target is null)return;
+        if(target.Id==result.ProjectId)return;
+        try
+        {
+            _workspace.MoveResult(result.Id,target.Id);
+            _activeProject=target;
+            _activeResult=_workspace.ListResults(target.Id).Single(x=>x.Id==result.Id);
+            LoadProjectTree();LoadSelectedResult();RebuildFolderList();
+        }
+        catch(Exception ex){ShowError(ex);}
+    }
+
+    private void CopyResult_Click(object sender,RoutedEventArgs e)
+    {
+        if(_workspace is null||ProjectTree.SelectedItem is not TreeViewItem{Tag:ExperimentResult result})return;
+        var target=PickProjectForResult("复制实验结果单元");
+        if(target is null)return;
+        try
+        {
+            var id=_workspace.CopyResult(result.Id,target.Id);
+            _activeProject=target;_activeResult=_workspace.ListResults(target.Id).Single(x=>x.Id==id);
+            LoadProjectTree();LoadSelectedResult();RebuildFolderList();
+        }
+        catch(Exception ex){ShowError(ex);}
+    }
+
+    private void CopyProject_Click(object sender,RoutedEventArgs e)
+    {
+        if(_workspace is null||_activePaper is null||
+            ProjectTree.SelectedItem is not TreeViewItem{Tag:ExperimentProject project})return;
+        var name=Prompt("复制实验项目","新项目名称",project.Name+" - 副本");
+        if(name is null)return;
+        try
+        {
+            var newId=_workspace.CreateProjectForPaper(_activePaper.Id,name);
+            foreach(var result in _workspace.ListResults(project.Id))
+                _workspace.CopyResult(result.Id,newId,result.Name);
+            _activeProject=_workspace.ListProjectsForPaper(_activePaper.Id).Single(x=>x.Id==newId);
+            _activeResult=null;_all.Clear();_visible.Clear();
+            LoadProjectTree();RefreshItems();
+        }
+        catch(Exception ex){ShowError(ex);}
+    }
+
+    private void DeleteTree_Click(object sender,RoutedEventArgs e)
+    {
+        if(_workspace is null||ProjectTree.SelectedItem is not TreeViewItem node)return;
+        if(node.Tag is not ExperimentResult && node.Tag is not ExperimentProject)return;
+        var name=node.Tag is ExperimentResult unit?unit.Name:((ExperimentProject)node.Tag).Name;
+        if(System.Windows.MessageBox.Show(this,
+            $"将「{name}」移入软件回收站？\n数据仓库文件不会被删除。",
+            "确认逻辑删除",MessageBoxButton.YesNo,MessageBoxImage.Warning)!=MessageBoxResult.Yes)return;
+        try
+        {
+            if(node.Tag is ExperimentResult result)
+            {
+                _workspace.SetResultDeleted(result.Id,true);_activeResult=null;
+                _all.Clear();_visible.Clear();
+            }
+            else if(node.Tag is ExperimentProject project)
+            {
+                _workspace.SetProjectDeleted(project.Id,true);
+                _activeProject=null;_activeResult=null;_all.Clear();_visible.Clear();
+            }
+            LoadProjectTree();RefreshItems();
+        }
+        catch(Exception ex){ShowError(ex);}
+    }
+
+    private void RestoreTree_Click(object sender,RoutedEventArgs e)
+    {
+        if(_workspace is null||ProjectTree.SelectedItem is not TreeViewItem node)return;
+        try
+        {
+            if(node.Tag is PaperProject paper)
+            {
+                var deleted=_workspace.ListDeletedProjects(paper.Id);
+                if(deleted.Count==0){System.Windows.MessageBox.Show(this,"没有已删除的实验项目。");return;}
+                var name=Prompt("恢复实验项目","输入需要恢复的实验项目名称",
+                    deleted[0].Name);
+                var project=deleted.FirstOrDefault(x=>x.Name==name);
+                if(project is null)return;
+                _workspace.SetProjectDeleted(project.Id,false);
+            }
+            else if(node.Tag is ExperimentProject project)
+            {
+                var deleted=_workspace.ListDeletedResults(project.Id);
+                if(deleted.Count==0){System.Windows.MessageBox.Show(this,"没有已删除的结果单元。");return;}
+                var name=Prompt("恢复实验结果单元","输入需要恢复的结果单元名称",
+                    deleted[0].Name);
+                var result=deleted.FirstOrDefault(x=>x.Name==name);
+                if(result is null)return;
+                _workspace.SetResultDeleted(result.Id,false);
+            }
+            LoadProjectTree();RefreshItems();
+        }
+        catch(Exception ex){ShowError(ex);}
+    }
+
     private void ProjectTree_PreviewMouseRightButtonDown(object sender,MouseButtonEventArgs e)
     {
         if(e.OriginalSource is DependencyObject src && TreeItemFrom(src) is { } node)
@@ -294,15 +441,30 @@ public partial class MainWindow
         if(_libraryMode)return;
         var menu=new ContextMenu();
         menu.Items.Add(Action("新建论文项目",CreatePaper_Click));
-        if(ProjectTree.SelectedItem is TreeViewItem {Tag: PaperProject})
+        if(ProjectTree.SelectedItem is not TreeViewItem node){ProjectTree.ContextMenu=menu;return;}
+        if(node.Tag is PaperProject)
+        {
             menu.Items.Add(Action("新建实验项目",CreateProject_Click));
-        if(_activeProject is not null)
+            menu.Items.Add(Action("重命名论文项目    F2",RenameTree_Click));
+            menu.Items.Add(Action("恢复已删除实验项目",RestoreTree_Click));
+        }
+        else if(node.Tag is ExperimentProject)
         {
             menu.Items.Add(Action("新建实验结果单元",CreateResult_Click));
             menu.Items.Add(Action("导入完整实验项目（待整理）",ImportProject_Click));
             menu.Items.Add(Action("导入单个实验结果",Import_Click));
             menu.Items.Add(new Separator());
-            menu.Items.Add(Action("重命名    F2",RenameSelected_Click));
+            menu.Items.Add(Action("复制实验项目",CopyProject_Click));
+            menu.Items.Add(Action("重命名    F2",RenameTree_Click));
+            menu.Items.Add(Action("恢复已删除结果单元",RestoreTree_Click));
+            menu.Items.Add(Action("删除到软件回收站",DeleteTree_Click));
+        }
+        else if(node.Tag is ExperimentResult)
+        {
+            menu.Items.Add(Action("移动到其他实验项目…",MoveResult_Click));
+            menu.Items.Add(Action("复制到其他实验项目…",CopyResult_Click));
+            menu.Items.Add(Action("重命名    F2",RenameTree_Click));
+            menu.Items.Add(Action("删除到软件回收站",DeleteTree_Click));
         }
         ProjectTree.ContextMenu=menu;
     }
@@ -378,11 +540,15 @@ public partial class MainWindow
         {
             menu.Items.Add(Action("未用于论文",(_,_)=>{_columnFilters[column]="—";RefreshItems();}));
             menu.Items.Add(Action("已用于论文",(_,_)=>{_columnFilters[column]="*";RefreshItems();}));
+            foreach(var value in _all.SelectMany(x=>x.UsageLabel.Split(',',
+                StringSplitOptions.TrimEntries|StringSplitOptions.RemoveEmptyEntries))
+                .Where(x=>x!="—").Distinct().OrderBy(x=>FigureOrder(x)).Take(80))
+                menu.Items.Add(Action(value,(_,_)=>{_columnFilters[column]=value;RefreshItems();}));
         }
         else menu.Items.Add(Action("设置筛选条件…",(_,_)=>
         {
             var initial=_columnFilters.GetValueOrDefault(column,"");
-            var filter=Prompt("筛选 · "+column,column=="大小"?"输入最小文件大小（MB）": "输入包含的文字",initial);
+            var filter=Prompt("筛选 · "+column,column=="大小"?"输入文件大小范围（MB），例如 1-10；或仅填最小值": "输入包含的文字",initial);
             if(filter is null)return;
             _columnFilters[column]=filter;
             RefreshItems();
@@ -402,7 +568,13 @@ public partial class MainWindow
                 case "所在目录" when !row.RelativePath.Contains(value,StringComparison.OrdinalIgnoreCase):return false;
                 case "论文位置" when value=="*" && row.UsageLabel=="—":return false;
                 case "论文位置" when value!="*" && !row.UsageLabel.Contains(value,StringComparison.OrdinalIgnoreCase):return false;
-                case "大小" when double.TryParse(value,out var minMegabytes) && row.Asset.Size < minMegabytes*1024*1024:return false;
+                case "大小":
+                    var bounds=value.Split('-',2,StringSplitOptions.TrimEntries);
+                    if(bounds.Length>0&&double.TryParse(bounds[0],out var minSize) &&
+                       row.Asset.Size<minSize*1024*1024)return false;
+                    if(bounds.Length==2&&double.TryParse(bounds[1],out var maxSize) &&
+                       row.Asset.Size>maxSize*1024*1024)return false;
+                    break;
             }
         }
         return true;
