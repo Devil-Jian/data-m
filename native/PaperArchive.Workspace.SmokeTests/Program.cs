@@ -39,7 +39,7 @@ try
     var exports=Path.Combine(root,"figures");
     var usage=repo.ExportForFigure(show,"Paper A",2,"a",exports);
     Assert(usage.State=="exported" && usage.Panel=="A","usage created");
-    Assert(File.ReadAllBytes(usage.ExportPath).SequenceEqual([12,13,14]),"export is lossless");
+    Assert(File.ReadAllBytes(usage.ExportPath).SequenceEqual(new byte[] { 12, 13, 14 }),"export is lossless");
     var second=repo.ExportOriginal(show,exports);
     Assert(second!=usage.ExportPath && File.Exists(second),"no silent overwrite");
     repo.SetUsageState(usage.Id,"confirmed");

@@ -148,7 +148,11 @@ public partial class MainWindow : Window
                         }
             }
             if (ProjectTree.Items.Count > 0 && _activeProject is null)
-                ((TreeViewItem)ProjectTree.Items[0]).IsSelected = true;
+            {
+                var first = (TreeViewItem)ProjectTree.Items[0];
+                _activeProject = first.Tag as ExperimentProject;
+                first.IsSelected = true;
+            }
         }
         finally { _refreshingTree = false; }
     }
@@ -444,6 +448,8 @@ public partial class MainWindow : Window
             var imported = await Task.Run(() => _workspace.ImportResult(projectId, folder));
             _activeResult = _workspace.ListResults(projectId).First(r => r.Id == imported.ResultId);
             LoadProjectTree();
+            LoadSelectedResult();
+            RebuildFolderList();
             System.Windows.MessageBox.Show(this,
                 $"已导入 {imported.FileCount} 个文件，识别 {imported.DataGroupCount} 个数据组。\n原始目录中的文件未被修改。",
                 "导入完成");
@@ -495,14 +501,25 @@ public partial class MainWindow : Window
             var paths = new List<string>();
             foreach (var row in selected)
             {
-                var destination = Path.Combine(cache, row.Asset.Id + Path.GetExtension(row.FileName));
+                var assetCache = Path.Combine(cache, row.Asset.Id);
+                Directory.CreateDirectory(assetCache);
+                var destination = Path.Combine(assetCache, row.FileName);
                 File.Copy(_workspace.GetBlobPath(row.Asset), destination, overwrite: true);
                 paths.Add(destination);
             }
             var data = new System.Windows.DataObject();
             data.SetData(System.Windows.DataFormats.FileDrop, paths.ToArray());
-            if (selected.Count == 1 && selected[0].IsImage && selected[0].Thumbnail is { } bitmap)
+            if (selected.Count == 1 && selected[0].IsImage)
+            {
+                using var stream = File.OpenRead(_workspace.GetBlobPath(selected[0].Asset));
+                var bitmap = new BitmapImage();
+                bitmap.BeginInit();
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.StreamSource = stream;
+                bitmap.EndInit();
+                bitmap.Freeze();
                 data.SetData(System.Windows.DataFormats.Bitmap, bitmap);
+            }
             System.Windows.Clipboard.SetDataObject(data, true);
         }
         catch (Exception ex) { ShowError(ex); }
