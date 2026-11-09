@@ -608,6 +608,10 @@ public partial class MainWindow
             RefreshItems();
         }));
         header!.ContextMenu=menu;
+        // Header filter menus must not bubble to the file-row context menu.
+        e.Handled=true;
+        menu.PlacementTarget=header;
+        menu.IsOpen=true;
     }
 
     private bool AcceptColumnFilters(AssetRow row)

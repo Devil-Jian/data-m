@@ -128,7 +128,7 @@ public sealed partial class ExperimentWorkspace
         using var db = Connect();
         using var cmd = db.CreateCommand();
         cmd.CommandText = """
-            SELECT r.id,r.project_id,r.name,COUNT(a.id)
+            SELECT r.id,r.project_id,r.name,COUNT(CASE WHEN a.is_deleted=0 THEN a.id END)
             FROM experiment_results r LEFT JOIN experiment_assets a ON a.result_id=r.id
             WHERE r.project_id=$id AND r.is_deleted=0 GROUP BY r.id ORDER BY r.imported_at DESC
             """;

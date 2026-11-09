@@ -105,6 +105,9 @@
                             <Style TargetType="{x:Type GridViewColumnHeader}">
                                 <EventSetter Event="Click" Handler="ColumnHeader_Click"/>
                                 <EventSetter Event="ContextMenuOpening" Handler="ColumnHeader_ContextMenuOpening"/>
+                                <Setter Property="ContextMenu">
+                                    <Setter.Value><ContextMenu/></Setter.Value>
+                                </Setter>
                             </Style>
                         </ListView.Resources>
                         <ListView.View>
