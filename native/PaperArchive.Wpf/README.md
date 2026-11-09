@@ -1,4 +1,4 @@
-# PaperArchive WPF desktop (PRD v1.2)
+# PaperArchive WPF desktop (PRD v1.3)
 
 This is the new **Windows 10/11 native desktop** implementation. The previous
 WinUI 3 app in `native/PaperArchive.Native` is preserved for comparison.
@@ -69,3 +69,41 @@ dotnet publish native/PaperArchive.Wpf/PaperArchive.Wpf.csproj -c Release -r win
 GitHub Actions `wpf-desktop.yml` builds on Windows and uploads a portable
 ZIP. It is not yet an installer; do not distribute as a stable release before
 end-to-end acceptance testing.
+
+## V1.3 paper-first workflow
+
+1. Create a **paper project** in the pre-archive workspace.
+2. Select it and create one or more **experiment projects**.
+3. Import a complete unsorted project into **待整理数据**, or import a
+   preorganized experiment result folder.
+4. Use the project tree context menu to create empty result units, move/copy
+   entire result units, rename, soft-delete, or restore. Right-click selected
+   image files to move/copy between result units. Blob SHA-256 bytes are shared,
+   while a logical copy creates a new Asset ID. Moving keeps the Asset ID.
+5. Click a file-list column to sort; right-click a header to filter. Sidebar
+   is only a browsing scope selector, not a second group filter.
+6. Use the splitter-edge chevron or Alt+Shift+P to collapse the details pane.
+7. Export **SHOW** assets to a selected paper / Figure / Panel; create new
+   Figure and Panel templates directly in the dialog.
+8. Plain "Export Original" may export to any folder or an existing paper
+   Figure/Panel directory. Plain export does **not** mark final paper usage.
+9. Double-click a real file row to open it; column headers and empty space
+   must never open the previously selected file.
+
+## Safe schema upgrade
+
+The first launch initializes new v1.3 tables in `workspace.db` and adds
+nullable paper ownership and logical deletion columns without changing
+legacy `archive.db`. Existing experiment projects are placed under a
+dedicated `历史工作区（待分配）` paper project.
+
+## Limitations before the final V1.3 milestone
+
+- Side-panel sorting/filter controls are functional, but virtualized gallery
+  and rich Figure/PDF rendering remain in subsequent milestones.
+- Full undo journal for multi-file moves is not yet available; operations
+  are SQLite transactional and conflict-checked.
+- Tree deletion is recoverable (logical tombstone), while deleted files are
+  retained in the underlying immutable blob store.
+- Context menu operations are defined for project/result nodes and files.
+  Adding arbitrary nested logical subfolders is a future extension.

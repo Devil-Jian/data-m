@@ -302,6 +302,60 @@ public partial class MainWindow
         return dialog.ShowDialog()==true?select.SelectedItem as ExperimentProject:null;
     }
 
+    private string? PickPaperFigureExportFolder()
+    {
+        if(_workspace is null)return null;
+        var papers=_workspace.ListPaperProjects()
+            .Where(x=>!x.Name.StartsWith("历史工作区")).ToArray();
+        if(papers.Length==0)
+        {
+            System.Windows.MessageBox.Show(this,"请先创建论文项目以及 Figure/Panel。");
+            return null;
+        }
+        var dialog=new Window{Title="选择论文组图工作目录",Owner=this,
+            Width=485,Height=315,WindowStartupLocation=WindowStartupLocation.CenterOwner,
+            ResizeMode=ResizeMode.NoResize};
+        var content=new StackPanel{Margin=new Thickness(19)};
+        var papersBox=new ComboBox{ItemsSource=papers,DisplayMemberPath="Name",SelectedItem=
+            papers.FirstOrDefault(x=>x.Id==_activePaper?.Id)??papers[0],MinHeight=30};
+        var figuresBox=new ComboBox{DisplayMemberPath="Number",MinHeight=30};
+        var panelsBox=new ComboBox{DisplayMemberPath="Label",MinHeight=30};
+        void ReloadPanels()
+        {
+            panelsBox.ItemsSource=figuresBox.SelectedItem is FigureTemplate fig?
+                _workspace.ListPanels(fig.Id):null;
+            if(panelsBox.Items.Count>0)panelsBox.SelectedIndex=0;
+        }
+        void ReloadFigures()
+        {
+            figuresBox.ItemsSource=papersBox.SelectedItem is PaperProject paper?
+                _workspace.ListFigures(paper.Id):null;
+            if(figuresBox.Items.Count>0)figuresBox.SelectedIndex=0;
+        }
+        papersBox.SelectionChanged+=(_,_)=>ReloadFigures();
+        figuresBox.SelectionChanged+=(_,_)=>ReloadPanels();
+        foreach(var pair in new[]{("论文项目",(Control)papersBox),("Figure",(Control)figuresBox),("Panel",(Control)panelsBox)})
+        {
+            content.Children.Add(new TextBlock{Text=pair.Item1,Margin=new Thickness(0,0,0,5)});
+            pair.Item2.Margin=new Thickness(0,0,0,10);
+            content.Children.Add(pair.Item2);
+        }
+        var okay=new Button{Content="使用该组图目录",IsDefault=true,
+            HorizontalAlignment=HorizontalAlignment.Right,Margin=new Thickness(0,8,0,0)};
+        okay.Click+=(_,_)=>
+        {
+            if(figuresBox.SelectedItem is not FigureTemplate||panelsBox.SelectedItem is not PanelTemplate)
+            {System.Windows.MessageBox.Show(dialog,"请先建立 Figure 和 Panel 模板。");return;}
+            dialog.DialogResult=true;dialog.Close();
+        };
+        content.Children.Add(okay);dialog.Content=content;ReloadFigures();
+        if(dialog.ShowDialog()!=true || papersBox.SelectedItem is not PaperProject chosen ||
+           figuresBox.SelectedItem is not FigureTemplate figure ||
+           panelsBox.SelectedItem is not PanelTemplate panel)return null;
+        return Path.Combine(_workspace.Root,"Exports","Papers",chosen.Id,
+            $"Figure-{figure.Number}", $"Panel-{panel.Label}");
+    }
+
     private void RenameTree_Click(object sender,RoutedEventArgs e)
     {
         if(_workspace is null||ProjectTree.SelectedItem is not TreeViewItem node)return;

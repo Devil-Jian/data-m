@@ -86,6 +86,11 @@ public partial class MainWindow : Window
         FileList.ItemsSource = _visible;
         ThumbnailList.ItemsSource = _visible;
         FolderList.ItemsSource = FolderNames;
+        // Ensure ContextMenuOpening also works on the first right click.
+        ProjectTree.ContextMenu=new ContextMenu();
+        FolderList.ContextMenu=new ContextMenu();
+        FileList.ContextMenu=new ContextMenu();
+        ThumbnailList.ContextMenu=new ContextMenu();
         Loaded += (_, _) => InitializeWarehouse();
     }
 
@@ -203,13 +208,10 @@ public partial class MainWindow : Window
 
     private void RebuildFolderList()
     {
+        // Left side chooses the folder/view scope. Data-group filtering is
+        // intentionally left to the Data Group column in the central list.
         FolderList.ItemsSource = null;
-        var folders = FolderNames.ToList();
-        foreach (var prefix in _all.Select(x => x.GroupPrefix)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
-            folders.Add("数据组: " + prefix);
-        FolderList.ItemsSource = folders;
+        FolderList.ItemsSource = FolderNames;
         FolderList.SelectedIndex = 0;
     }
 
@@ -543,8 +545,13 @@ public partial class MainWindow : Window
         if (_workspace is null) return;
         var rows = SelectedAssets();
         if (rows.Count == 0) return;
-        var folder = SelectFolder("选择无损导出原图的目标文件夹");
-        if (folder is null) return;
+        var choice=System.Windows.MessageBox.Show(this,
+            "将原图导出到已建立论文的 Figure/Panel 工作目录？\n是：选择论文及图表位置；否：指定任意文件夹；取消：不导出。",
+            "导出原图",MessageBoxButton.YesNoCancel,MessageBoxImage.Question);
+        if(choice==MessageBoxResult.Cancel)return;
+        var folder=choice==MessageBoxResult.Yes?
+            PickPaperFigureExportFolder():SelectFolder("选择无损导出原图的目标文件夹");
+        if(folder is null)return;
         try
         {
             foreach (var row in rows) _workspace.ExportOriginal(row.Asset, folder);
