@@ -7,7 +7,6 @@ using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using PaperArchive.Core;
 using PaperArchive.Core.Workspace;
-using WinForms = System.Windows.Forms;
 
 namespace PaperArchive.Wpf;
 
@@ -381,8 +380,8 @@ public partial class MainWindow : Window
 
     private static string? SelectFolder(string description)
     {
-        using var dialog = new WinForms.FolderBrowserDialog { Description = description, UseDescriptionForTitle = true };
-        return dialog.ShowDialog() == WinForms.DialogResult.OK ? dialog.SelectedPath : null;
+        var dialog = new Microsoft.Win32.OpenFolderDialog { Title = description, Multiselect = false };
+        return dialog.ShowDialog() == true ? dialog.FolderName : null;
     }
 
     private string? Prompt(string title, string description, string initial = "")
