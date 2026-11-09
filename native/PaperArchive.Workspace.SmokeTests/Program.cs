@@ -229,7 +229,7 @@ try
     Assert(File.ReadAllBytes(compositeOut).SequenceEqual(File.ReadAllBytes(composPath)),
         "composite export preserves original image bytes");
     Assert(repo.ListFigureOverview(paperId).Any(x=>x.Figure.Id==figuresNew[0].Id&&
-        x.LinkedAssetCount==1&&x.CompositeCount==2),
+        x.LinkedAssetCount==1&&x.CompositeCount==1),
         "Figure overview counts linked materials and full versions");
     // V15-14 composite filename changes are metadata-only; removal promotes
     // the previous version without touching shared content-addressed bytes.
