@@ -88,7 +88,7 @@ public partial class MainWindow
         }
         else if(_showOnlyComposites)
         {
-            foreach(var composite in _workspace.ListFigureComposites(_currentFigure.Id))
+            foreach(var composite in _workspace.ListFigureShowData(_currentFigure.Id))
                 rows.Add(new(composite.FileName,"完整 Figure",
                     $"{composite.Size/1024.0:0.0} KB",
                     composite.IsCurrent?"当前正式版本":"历史版本",
@@ -101,11 +101,7 @@ public partial class MainWindow
                     panel.LinkedAssetCount.ToString(),
                     panel.LinkedAssetCount==0?"未关联图片":"已关联",
                     "双击查看关联的 SHOW 图片",panel.Panel));
-            foreach(var composite in _workspace.ListFigureComposites(_currentFigure.Id))
-                rows.Add(new(composite.FileName,"完整 Figure",
-                    $"{composite.Size/1024.0:0.0} KB",
-                    composite.IsCurrent?"当前正式版本":"历史版本",
-                    $"v{composite.Version}",composite));
+            // Full Figure versions belong to the dedicated show_data node.
         }
         var query=SearchBox?.Text.Trim()??"";
         FigureFiles.ItemsSource=rows.Where(x=>x.Name.Contains(query,StringComparison.OrdinalIgnoreCase)
@@ -113,7 +109,8 @@ public partial class MainWindow
         CurrentLocation.Text=FigurePath();
         QuickFigureButton.IsEnabled=_currentFigure is null;
         BatchFigureButton.IsEnabled=_currentFigure is null;
-        QuickPanelButton.IsEnabled=_currentFigure is not null&&_currentPanel is null;
+        QuickPanelButton.IsEnabled=_currentFigure is not null&&_currentPanel is null&&
+            !_showOnlyComposites;
         BatchPanelButton.IsEnabled=QuickPanelButton.IsEnabled;
         UpdateStatus();
         PreviewImage.Source=null;
