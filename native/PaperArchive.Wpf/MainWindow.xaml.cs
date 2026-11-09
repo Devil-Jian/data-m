@@ -87,6 +87,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         FileList.ItemsSource = _visible;
         ThumbnailList.ItemsSource = _visible;
+        FigureFiles.ContextMenu=new ContextMenu();
         FolderList.ItemsSource = FolderNames;
         // Ensure ContextMenuOpening also works on the first right click.
         ProjectTree.ContextMenu=new ContextMenu();
@@ -137,6 +138,10 @@ public partial class MainWindow : Window
         var previousProject=_activeProject;
         var previousResult=_activeResult;
         var manuscripts=_showManuscripts;
+        var previousFigure=_currentFigure;
+        var previousPanel=_currentPanel;
+        var previousComposites=_showOnlyComposites;
+        var figureMode=_figureMode;
         _refreshingTree=true;
         try
         {
@@ -170,11 +175,40 @@ public partial class MainWindow : Window
                     experiments.Items.Add(projectNode);
                 }
                 parent.Items.Add(experiments);
+                var figuresNode=new TreeViewItem{
+                    Header=TreeLabel("组图项目","folder",_workspace.ListFigures(paper.Id).Count),
+                    Tag=new PaperFiguresNode(paper.Id),IsExpanded=true};
+                foreach(var figure in _workspace.ListFigures(paper.Id))
+                {
+                    var fNode=new TreeViewItem{
+                        Header=TreeLabel($"Figure {figure.Number}","folder",_workspace.ListPanels(figure.Id).Count),
+                        Tag=new FigureNode(paper.Id,figure.Id),IsExpanded=true};
+                    foreach(var panel in _workspace.ListPanels(figure.Id))
+                        fNode.Items.Add(new TreeViewItem{
+                            Header=TreeLabel("Panel "+panel.Label,"doc",
+                                _workspace.ListPanelAssets(panel.Id).Count),
+                            Tag=new PanelNode(paper.Id,figure.Id,panel.Id)});
+                    fNode.Items.Add(new TreeViewItem{
+                        Header=TreeLabel("完整组图","folder",
+                            _workspace.ListFigureComposites(figure.Id).Count),
+                        Tag=new FigureCompositesNode(paper.Id,figure.Id)});
+                    figuresNode.Items.Add(fNode);
+                }
+                parent.Items.Add(figuresNode);
                 ProjectTree.Items.Add(parent);
             }
         }
         finally{_refreshingTree=false;}
-        if(manuscripts&&previousPaper is not null)
+        if(figureMode&&previousPaper is not null)
+        {
+            object target=previousFigure is null?new PaperFiguresNode(previousPaper.Id):
+                previousComposites?new FigureCompositesNode(previousPaper.Id,previousFigure.Id):
+                previousPanel is not null?
+                    new PanelNode(previousPaper.Id,previousFigure.Id,previousPanel.Id):
+                    new FigureNode(previousPaper.Id,previousFigure.Id);
+            SelectTreeTag(target);
+        }
+        else if(manuscripts&&previousPaper is not null)
             SelectTreeTag(new PaperDocumentsNode(previousPaper.Id));
         else if(previousResult is not null&&SelectTreeTag(previousResult)){}
         else if(previousProject is not null&&SelectTreeTag(previousProject)){}
@@ -201,26 +235,46 @@ public partial class MainWindow : Window
         if(node.Tag is PaperProject paperProject)
         {
             _activePaper=paperProject;_activeProject=null;_activeResult=null;
-            CloseManuscripts();
+            CloseFigures();CloseManuscripts();
         }
         else if(node.Tag is PaperDocumentsNode docs)
         {
             _activePaper=_workspace?.ListPaperProjects().FirstOrDefault(p=>p.Id==docs.PaperId);
-            LoadManuscripts(docs.PaperId);
+            CloseFigures();LoadManuscripts(docs.PaperId);
             UpdateActionAvailability();
             return;
+        }
+        else if(node.Tag is PaperFiguresNode figures)
+        {
+            ShowFigures(figures.PaperId);
+            UpdateActionAvailability();return;
+        }
+        else if(node.Tag is FigureNode fig)
+        {
+            ShowFigures(fig.PaperId,fig.FigureId);
+            UpdateActionAvailability();return;
+        }
+        else if(node.Tag is PanelNode panel)
+        {
+            ShowFigures(panel.PaperId,panel.FigureId,panel.PanelId);
+            UpdateActionAvailability();return;
+        }
+        else if(node.Tag is FigureCompositesNode comp)
+        {
+            ShowFigures(comp.PaperId,comp.FigureId,compositesOnly:true);
+            UpdateActionAvailability();return;
         }
         else if(node.Tag is PaperExperimentsNode group)
         {
             _activePaper=_workspace?.ListPaperProjects().FirstOrDefault(p=>p.Id==group.PaperId);
             _activeProject=null;_activeResult=null;
-            CloseManuscripts();
+            CloseFigures();CloseManuscripts();
         }
         else if(node.Tag is ExperimentProject project)
         {
             _activeProject=project;_activeResult=null;
             _activePaper=((node.Parent as TreeViewItem)?.Parent as TreeViewItem)?.Tag as PaperProject;
-            CloseManuscripts();
+            CloseFigures();CloseManuscripts();
         }
         else if(node.Tag is ExperimentResult result)
         {
@@ -228,7 +282,7 @@ public partial class MainWindow : Window
             var parent=node.Parent as TreeViewItem;
             _activeProject=parent?.Tag as ExperimentProject;
             _activePaper=((parent?.Parent as TreeViewItem)?.Parent as TreeViewItem)?.Tag as PaperProject;
-            CloseManuscripts();
+            CloseFigures();CloseManuscripts();
         }
         LoadScopeAssets();
         UpdateActionAvailability();
@@ -253,6 +307,7 @@ public partial class MainWindow : Window
     private void Search_Changed(object sender, TextChangedEventArgs e)
     {
         if(_showManuscripts)UpdateManuscriptList();
+        else if(_figureMode)RefreshFigureView();
         else RefreshItems();
     }
 
@@ -292,6 +347,28 @@ public partial class MainWindow : Window
         if (_libraryMode)
         {
             StatusText.Text = $"论文资源库  |  显示 {LibraryFiles?.Items.Count ?? 0} / 共 {LibraryFiles?.Items.Count ?? 0} 个文件";
+            return;
+        }
+        if(_figureMode)
+        {
+            if(_workspace is null||_activePaper is null)return;
+            if(_currentPanel is not null)
+            {
+                var count=_workspace.ListPanelAssets(_currentPanel.Id).Count;
+                StatusText.Text=$"{FigurePath()}  |  显示 {FigureFiles.Items.Count} / 共 {count} 张素材";
+            }
+            else if(_currentFigure is null)
+            {
+                var count=_workspace.ListFigures(_activePaper.Id).Count;
+                StatusText.Text=$"{FigurePath()}  |  显示 {FigureFiles.Items.Count} / 共 {count} 个 Figure";
+            }
+            else
+            {
+                var panels=_workspace.ListPanels(_currentFigure.Id).Count;
+                var composites=_workspace.ListFigureComposites(_currentFigure.Id).Count;
+                var links=_workspace.ListPanelOverview(_currentFigure.Id).Sum(x=>x.LinkedAssetCount);
+                StatusText.Text=$"{FigurePath()}  |  {panels} 个 Panel  |  {links} 张素材  |  {composites} 个完整组图版本";
+            }
             return;
         }
         if(_showManuscripts)
@@ -354,6 +431,8 @@ public partial class MainWindow : Window
         LibraryArea.Visibility = _libraryMode ? Visibility.Visible : Visibility.Collapsed;
         FolderList.Visibility = editor;
         ManuscriptArea.Visibility=Visibility.Collapsed;
+        FigureArea.Visibility=Visibility.Collapsed;
+        _figureMode=false;
         _showManuscripts=false;
         FileList.Visibility = _libraryMode || _thumbnailMode ? Visibility.Collapsed : Visibility.Visible;
         ThumbnailList.Visibility = _libraryMode || !_thumbnailMode ? Visibility.Collapsed : Visibility.Visible;
@@ -595,7 +674,7 @@ public partial class MainWindow : Window
 
     private void Figure_Click(object sender, RoutedEventArgs e)
     {
-        ShowFigureDialog();
+        LinkSelectedToPanel_Click(sender,e);
     }
 
     private void Figure_Old_Click(object sender, RoutedEventArgs e)
@@ -682,6 +761,7 @@ public partial class MainWindow : Window
 
     private void Window_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
+        if(HandleFigureShortcut(e)){e.Handled=true;return;}
         if (Keyboard.Modifiers == (ModifierKeys.Alt | ModifierKeys.Shift) && e.Key == Key.P)
         {
             ToggleDetails();

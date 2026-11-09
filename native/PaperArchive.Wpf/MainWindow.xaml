@@ -247,6 +247,46 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
+                    <!-- Figure workspace; placeholder rows are not image files. -->
+                    <Grid x:Name="FigureArea" Visibility="Collapsed" Background="White">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Border Background="#FFF9F9F9" BorderBrush="#FFE4E4E4" BorderThickness="0,0,0,1">
+                            <DockPanel Margin="10,7" LastChildFill="False">
+                                <StackPanel Orientation="Horizontal" x:Name="FigureCommands" DockPanel.Dock="Left">
+                                    <Button x:Name="QuickFigureButton" Content="+ Figure"
+                                            Click="QuickFigure_Click"/>
+                                    <Button x:Name="QuickPanelButton" Content="+ Panel"
+                                            Click="QuickPanel_Click"/>
+                                    <Button x:Name="BatchFigureButton" Content="批量 Figure…"
+                                            Click="BatchFigure_Click"/>
+                                    <Button x:Name="BatchPanelButton" Content="批量 Panel…"
+                                            Click="BatchPanel_Click"/>
+                                    <Button Content="关联 SHOW…" Click="LinkShowFromFigure_Click"/>
+                                    <Button Content="导出全部素材…" Click="ExportFigureMaterials_Click"/>
+                                    <Button Content="导入完整 Figure…" Click="ImportComposite_Click"/>
+                                    <Button Content="导出完整 Figure…" Click="ExportComposite_Click"/>
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+                        <ListView x:Name="FigureFiles" Grid.Row="1" BorderThickness="0"
+                                  SelectionMode="Extended"
+                                  SelectionChanged="FigureFiles_SelectionChanged"
+                                  MouseDoubleClick="FigureFiles_DoubleClick"
+                                  ContextMenuOpening="FigureFiles_ContextMenuOpening">
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Header="名称" Width="260" DisplayMemberBinding="{Binding Name}"/>
+                                    <GridViewColumn Header="类型" Width="130" DisplayMemberBinding="{Binding Type}"/>
+                                    <GridViewColumn Header="数量" Width="90" DisplayMemberBinding="{Binding Count}"/>
+                                    <GridViewColumn Header="状态" Width="170" DisplayMemberBinding="{Binding Status}"/>
+                                    <GridViewColumn Header="详细信息" Width="240" DisplayMemberBinding="{Binding Detail}"/>
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
+                    </Grid>
                     <Grid x:Name="ManuscriptArea" Visibility="Collapsed" Background="White">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="45"/>

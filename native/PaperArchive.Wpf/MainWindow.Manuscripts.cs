@@ -126,6 +126,10 @@ public partial class MainWindow
                 (ExperimentResult x,ExperimentResult y)=>x.Id==y.Id,
                 (PaperDocumentsNode x,PaperDocumentsNode y)=>x.PaperId==y.PaperId,
                 (PaperExperimentsNode x,PaperExperimentsNode y)=>x.PaperId==y.PaperId,
+                (PaperFiguresNode x,PaperFiguresNode y)=>x.PaperId==y.PaperId,
+                (FigureNode x,FigureNode y)=>x.FigureId==y.FigureId,
+                (PanelNode x,PanelNode y)=>x.PanelId==y.PanelId,
+                (FigureCompositesNode x,FigureCompositesNode y)=>x.FigureId==y.FigureId,
                 _=>false
             };
             if(equal){node.IsSelected=true;node.BringIntoView();return true;}

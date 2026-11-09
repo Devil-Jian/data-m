@@ -25,12 +25,12 @@ public partial class MainWindow
         string path=_activePaper?.Name??"论文项目";
         if(_activeProject is not null)path+=" > "+_activeProject.Name;
         if(_activeResult is not null)path+=" > "+_activeResult.Name;
-        return _showManuscripts ? path+" > 论文全文" : path+" > "+_activeFolder;
+        return _figureMode?FigurePath():_showManuscripts?path+" > 论文全文":path+" > "+_activeFolder;
     }
 
     private void LoadScopeAssets()
     {
-        if(_workspace is null||_showManuscripts)return;
+        if(_workspace is null||_showManuscripts||_figureMode)return;
         _all.Clear();
         var assets=_workspace.ListScopeAssets(_activePaper?.Id,
             _activeProject?.Id,_activeResult?.Id);
@@ -128,7 +128,7 @@ public partial class MainWindow
         data.SetData(typeof(AssetDrag),bundle);
         _dragging=true;
         try{System.Windows.DragDrop.DoDragDrop(view,data,
-            DragDropEffects.Move|DragDropEffects.Copy);}
+            DragDropEffects.Move|DragDropEffects.Copy|DragDropEffects.Link);}
         finally{_dragging=false;_dragStartedOn=null;StopExpandTimer();}
     }
 
@@ -141,7 +141,7 @@ public partial class MainWindow
     }
 
     private static bool IsValidDropNode(TreeViewItem? item) =>
-        item?.Tag is ExperimentResult or ExperimentProject or PaperProject;
+        item?.Tag is ExperimentResult or ExperimentProject or PaperProject or PanelNode;
 
     private void StopExpandTimer()
     {
@@ -167,7 +167,8 @@ public partial class MainWindow
         }
         else
         {
-            e.Effects=(e.KeyStates&DragDropKeyStates.ControlKey)!=0?
+            e.Effects=node?.Tag is PanelNode?DragDropEffects.Link:
+                (e.KeyStates&DragDropKeyStates.ControlKey)!=0?
                 DragDropEffects.Copy:DragDropEffects.Move;
             if(!ReferenceEquals(_hoverTreeItem,node))
             {
@@ -219,7 +220,17 @@ public partial class MainWindow
         var copy=(e.KeyStates&DragDropKeyStates.ControlKey)!=0;
         try
         {
-            // Paper nodes are deliberately not valid drop targets.
+            if(node.Tag is PanelNode panelNode)
+            {
+                _workspace.LinkShowAssets(panelNode.PanelId,data.AssetIds);
+                _activePaper=_workspace.ListPaperProjects()
+                    .First(x=>x.Id==panelNode.PaperId);
+                LoadProjectTree();
+                SelectTreeTag(panelNode);
+                e.Effects=DragDropEffects.Link;
+                return;
+            }
+            // Experiment project moves remain logical; Panel drops create references.
             string? targetId=node.Tag switch
             {
                 ExperimentResult result=>result.Id,

@@ -510,6 +510,32 @@ public partial class MainWindow
             ProjectTree.ContextMenu=menu;
             return;
         }
+        if(node.Tag is PaperFiguresNode)
+        {
+            menu.Items.Add(Action("新建 Figure",QuickFigure_Click));
+            menu.Items.Add(Action("批量新建 Figure…",BatchFigure_Click));
+            ProjectTree.ContextMenu=menu;return;
+        }
+        if(node.Tag is FigureNode)
+        {
+            menu.Items.Add(Action("新建 Panel",QuickPanel_Click));
+            menu.Items.Add(Action("批量新建 Panel…",BatchPanel_Click));
+            menu.Items.Add(Action("导入完整 Figure…",ImportComposite_Click));
+            menu.Items.Add(Action("导出全部组图素材…",ExportFigureMaterials_Click));
+            menu.Items.Add(Action("导出完整 Figure…",ExportComposite_Click));
+            ProjectTree.ContextMenu=menu;return;
+        }
+        if(node.Tag is PanelNode)
+        {
+            menu.Items.Add(Action("关联 SHOW 素材…",LinkShowFromFigure_Click));
+            ProjectTree.ContextMenu=menu;return;
+        }
+        if(node.Tag is FigureCompositesNode)
+        {
+            menu.Items.Add(Action("导入完整 Figure…",ImportComposite_Click));
+            menu.Items.Add(Action("导出完整 Figure…",ExportComposite_Click));
+            ProjectTree.ContextMenu=menu;return;
+        }
         if(node.Tag is PaperDocumentsNode)
         {
             menu.Items.Add(Action("导入 PDF / Word 全文…",ImportPaperDocument_Click));
@@ -584,8 +610,8 @@ public partial class MainWindow
         menu.Items.Add(Action("重命名    F2",RenameSelected_Click));
         menu.Items.Add(Action("复制相对路径",CopyPath_Click));
         menu.Items.Add(Action("导出原图…",ExportOriginal_Click));
-        if(SelectedAssets().All(x=>x.Asset.Stage=="show"))
-            menu.Items.Add(Action("导出用于组图…",Figure_Click));
+        if(SelectedAssets().Count>0 && SelectedAssets().All(x=>x.Asset.Stage=="show"))
+            menu.Items.Add(Action("关联到组图 Panel…",LinkSelectedToPanel_Click));
         menu.Items.Add(new Separator());
         menu.Items.Add(Action("删除到软件回收站    Delete",DeleteAssets_Click));
         menu.Items.Add(Action("属性    Alt+Enter",Properties_Click));
