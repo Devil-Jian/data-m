@@ -25,7 +25,7 @@ public partial class MainWindow
         string path=_activePaper?.Name??"论文项目";
         if(_activeProject is not null)path+=" > "+_activeProject.Name;
         if(_activeResult is not null)path+=" > "+_activeResult.Name;
-        return _figureMode?FigurePath():_showManuscripts?path+" > 论文全文":path+" > "+_activeFolder;
+        return _figureMode?FigurePath():_showManuscripts?path+" > 论文全文":path;
     }
 
     private void LoadScopeAssets()
