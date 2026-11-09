@@ -840,6 +840,23 @@ public partial class MainWindow
         {
             DeleteFigurePlaceholder_Click(this,new RoutedEventArgs());return true;
         }
+        if(Keyboard.Modifiers==ModifierKeys.None && FigureFiles.IsKeyboardFocusWithin &&
+            FigureFiles.SelectedItem is FigureRow fileRow)
+        {
+            _figureContextTarget=fileRow;
+            if(e.Key==Key.F2 && fileRow.Item is FigureComposite)
+            {
+                RenameFigureComposite_Click(this,new RoutedEventArgs());return true;
+            }
+            if(e.Key==Key.Delete && fileRow.Item is FigureComposite)
+            {
+                DeleteFigureComposite_Click(this,new RoutedEventArgs());return true;
+            }
+            if(e.Key==Key.Delete && fileRow.Item is PanelAssetLink)
+            {
+                UnlinkPanelAsset_Click(this,new RoutedEventArgs());return true;
+            }
+        }
         if(Keyboard.Modifiers==ModifierKeys.None && e.Key==Key.Enter &&
             FigureFiles.IsKeyboardFocusWithin && FigureFiles.SelectedItem is FigureRow selected)
         {
