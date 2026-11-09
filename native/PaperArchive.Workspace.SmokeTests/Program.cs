@@ -158,6 +158,57 @@ try
     Assert(repo.UndoLastMove(),"undo result unit move");
     Assert(repo.ListResults(workingProject).Any(x=>x.Id==undoResultUnit),
            "result unit restored to project");
+    // PRD V1.5: fixed group workspace, fast Figure/Panel placeholders, SHOW linking,
+    // panel-scoped material export and immutable composite version history.
+    var figuresNew=repo.CreateFiguresFast(paperId,3,2);
+    Assert(figuresNew.Count==3 && figuresNew.All(f=>repo.ListPanels(f.Id).Count==2),
+        "batch creation generates Figure/Panel placeholders");
+    var latest=repo.CreateFiguresFast(paperId,1);
+    Assert(latest.Single().Number==5,
+        "quick Figure creation uses next available number without recycling an occupied one");
+    var extraPanels=repo.CreatePanelsFast(latest.Single().Id,3);
+    Assert(string.Join(",",extraPanels.Select(p=>p.Label))=="A,B,C",
+        "quick Panel creation uses next letter");
+    var aPanel=repo.ListPanels(figuresNew[0].Id).First(x=>x.Label=="A");
+    Assert(repo.LinkShowAssets(aPanel.Id,new[]{show.Id})==1,
+        "SHOW asset association succeeds without file copy");
+    Assert(repo.LinkShowAssets(aPanel.Id,new[]{show.Id})==0,
+        "duplicate association is idempotent");
+    var links=repo.ListPanelAssets(aPanel.Id);
+    Assert(links.Count==1&&links[0].AssetId==show.Id&&links[0].Sha256==show.Sha256,
+        "linked SHOW retains source hash and identity");
+    bool rejectsRaw=false;
+    try{repo.LinkShowAssets(aPanel.Id,new[]{raw.Id});}
+    catch(InvalidOperationException){rejectsRaw=true;}
+    Assert(rejectsRaw,"RAW asset cannot be bound as panel material");
+    var exportRoot=Path.Combine(root,"figure-exports");
+    var materialExport=repo.ExportFigureMaterials(figuresNew[0].Id,exportRoot);
+    Assert(materialExport.ExportedCount==1 && File.Exists(materialExport.ManifestPath),
+        "Figure material batch export includes manifest");
+    Assert(File.ReadAllBytes(Path.Combine(exportRoot,"Panel_A",show.FileName))
+        .SequenceEqual(File.ReadAllBytes(repo.GetBlobPath(show))),
+        "SHOW material is exported byte-for-byte");
+    var composPath=Path.Combine(root,"Figure1_final.tif");
+    File.WriteAllBytes(composPath,new byte[]{73,73,42,0,1,2,3,4});
+    var v1=repo.ImportFigureComposite(figuresNew[0].Id,composPath);
+    File.WriteAllBytes(composPath,new byte[]{73,73,42,0,1,9,9,9});
+    var v2=repo.ImportFigureComposite(figuresNew[0].Id,composPath);
+    Assert(v1.Version==1 && v1.IsCurrent && v2.Version==2 && !v2.IsCurrent,
+        "composites are versioned and original current persists");
+    repo.SetCurrentComposite(figuresNew[0].Id,v2.Id);
+    Assert(repo.ListFigureComposites(figuresNew[0].Id).Single(x=>x.IsCurrent).Id==v2.Id,
+        "new composite can be chosen as current version");
+    var compositeOut=repo.ExportComposite(v2,Path.Combine(root,"completed-figures"));
+    Assert(File.ReadAllBytes(compositeOut).SequenceEqual(File.ReadAllBytes(composPath)),
+        "composite export preserves original image bytes");
+    Assert(repo.ListFigureOverview(paperId).Any(x=>x.Figure.Id==figuresNew[0].Id&&
+        x.LinkedAssetCount==1&&x.CompositeCount==2),
+        "Figure overview counts linked materials and full versions");
+    var expectedNoFile=repo.CreateFiguresFast(paperId,1,1);
+    Assert(repo.ListFigureComposites(expectedNoFile.Single().Id).Count==0 &&
+        repo.ListPanelAssets(repo.ListPanels(expectedNoFile.Single().Id)[0].Id).Count==0,
+        "Panel and Figure placeholders have no actual image files");
+    Console.WriteLine("PASS: V1.5 figure placeholders, batch numbering, linking, material manifest, versioning, verified exports.");
     Console.WriteLine("PASS: Manuscript PDF/DOCX snapshot and persistent logical move undo.");
     Console.WriteLine("PASS: V1.3 papers, figures, panels, move, copy, stable IDs, rename, delete/restore.");
     Console.WriteLine("PASS: workspace import, naming, SHA-256, source safety, no overwrite, Figure usage, reopen, group separation.");
