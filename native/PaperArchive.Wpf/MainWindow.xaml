@@ -37,6 +37,7 @@
                     <Button x:Name="CopyButton" Content="复制" Click="Copy_Click"/>
                     <Button x:Name="ExportButton" Content="导出原图…" Click="ExportOriginal_Click"/>
                     <Button x:Name="FigureButton" Content="导出用于组图…" Click="Figure_Click"/>
+                    <Button x:Name="ConfirmUsageButton" Content="确认用于论文" Click="ConfirmUsage_Click"/>
                     <Button x:Name="DetailsButton" Content="隐藏详细信息" Click="Details_Click"/>
                 </StackPanel>
                 <TextBox x:Name="SearchBox" DockPanel.Dock="Right" Width="290"

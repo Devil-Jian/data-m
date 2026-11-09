@@ -310,6 +310,7 @@ public partial class MainWindow : Window
         CopyButton.Visibility = editor;
         ExportButton.Visibility = editor;
         FigureButton.Visibility = editor;
+        ConfirmUsageButton.Visibility = editor;
         SearchBox.Visibility = editor;
         SidebarHeading.Text = _libraryMode ? "论文" : "实验项目";
         LibraryArea.Visibility = _libraryMode ? Visibility.Visible : Visibility.Collapsed;
@@ -565,6 +566,31 @@ public partial class MainWindow : Window
             System.Windows.MessageBox.Show(this,
                 $"已导出 {rows.Count} 个原始文件，并记录用于 Figure {figure}{panelValue.ToUpperInvariant()}。\n请在最终组图后确认使用状态。",
                 "导出完成");
+        }
+        catch (Exception ex) { ShowError(ex); }
+    }
+
+    private void ConfirmUsage_Click(object sender, RoutedEventArgs e)
+    {
+        if (_workspace is null) return;
+        var rows = SelectedAssets();
+        if (rows.Count == 0) return;
+        try
+        {
+            var count = 0;
+            foreach (var row in rows)
+            {
+                var usage = _workspace.ListUsages(row.Asset.Id)
+                    .FirstOrDefault(x => x.State == "exported");
+                if (usage is null) continue;
+                _workspace.SetUsageState(usage.Id, "confirmed");
+                count++;
+            }
+            LoadSelectedResult();
+            System.Windows.MessageBox.Show(this,
+                count == 0 ? "选中图片没有待确认的组图导出记录。" :
+                    $"已确认 {count} 条论文使用记录。最终归档前仍需核对 Figure/Panel 位置。",
+                "论文使用确认");
         }
         catch (Exception ex) { ShowError(ex); }
     }

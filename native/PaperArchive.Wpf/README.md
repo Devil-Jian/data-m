@@ -45,13 +45,12 @@ Development is optional for the graphical XAML designer/Hot Reload.
   preservation of original relative paths and SHA-256.
 - Selected file preview, multi-selection, Ctrl+C clipboard file objects +
   bitmap for supported single images, byte-preserving export.
-- Export selected show_data to Figure/Panel with usage metadata.
+- Export selected show_data to Figure/Panel with usage metadata, then confirm selected exported uses in the toolbar.
 - Existing paper archive resource list remains browsable through the Core API.
 
 ## Known next steps (not yet implemented)
 
 - Figure/PDF page navigation with embedded document rendering.
-- Confirmation UI for exported usage (the Core API supports it).
 - Full paper archive creation from the new experiment workspace.
 - Advanced grouping rules, drag/drop and safe bulk renaming with undo.
 - Thumbnail virtualization for extremely large folders, medical/scientific
