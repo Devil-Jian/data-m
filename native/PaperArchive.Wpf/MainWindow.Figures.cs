@@ -125,6 +125,11 @@ public partial class MainWindow
     {
         if(FigureFiles?.SelectedItem is not FigureRow row)
         {
+            PreviewImage.Source=null;
+            RelatedFiles.ItemsSource=null;
+            DetailName.Text=_currentPanel is not null?"Panel "+_currentPanel.Label:
+                _currentFigure is not null?"Figure "+_currentFigure.Number:"组图项目";
+            DetailMeta.Text="请选择项目以查看详细信息。";
             UpdateStatus();return;
         }
         // Panel image references and completed Figures both point to immutable blobs.
@@ -679,8 +684,14 @@ public partial class MainWindow
             ItemsControl.ContainerFromElement(FigureFiles,origin) as ListViewItem:null;
         _figureContextTarget=hit?.Content as FigureRow;
         _figureContextBlank=_figureContextTarget is null;
-        if(_figureContextBlank)FigureFiles.SelectedItem=null;
-        else if(!hit!.IsSelected)FigureFiles.SelectedItem=_figureContextTarget;
+        if(_figureContextBlank)FigureFiles.SelectedItems.Clear();
+        else
+        {
+            // Single-target actions must never accidentally operate on an old
+            // selection or on another member of a multiselection.
+            FigureFiles.SelectedItems.Clear();
+            FigureFiles.SelectedItem=_figureContextTarget;
+        }
     }
 
     private void FigureContextOpen_Click(object sender,RoutedEventArgs e)
