@@ -670,6 +670,12 @@ public partial class MainWindow
         {
             menu.Items.Add(Action("新建 Figure",QuickFigure_Click));
             menu.Items.Add(Action("批量新建 Figure…",BatchFigure_Click));
+            if(FigureFiles.SelectedItem is FigureRow{Item:FigureTemplate})
+            {
+                menu.Items.Add(new Separator());
+                menu.Items.Add(Action("新建 Panel",QuickPanel_Click));
+                menu.Items.Add(Action("批量新建 Panel…",BatchPanel_Click));
+            }
         }
         else if(_currentPanel is not null)
         {
