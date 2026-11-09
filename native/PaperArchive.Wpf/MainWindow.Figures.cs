@@ -136,7 +136,7 @@ public partial class MainWindow
         var sha=row.Item switch
         {
             FigureComposite composite=>composite.Sha256,
-            PanelAssetLink link=>link.Sha256,
+            PanelAssetLink linkedAsset=>linkedAsset.Sha256,
             _=>null
         };
         PreviewImage.Source=sha is {Length:64} && sha.All(Uri.IsHexDigit) && _workspace is not null?
