@@ -510,6 +510,68 @@ public sealed partial class ExperimentWorkspace
         finally {if(File.Exists(staging))File.Delete(staging);}
     }
 
+    public void RenameFigureComposite(string compositeId,string fileName)
+    {
+        fileName=Path.GetFileName(fileName.Trim());
+        if(string.IsNullOrWhiteSpace(fileName) || fileName.Length>180 ||
+            fileName is "." or ".." ||
+            fileName.IndexOfAny(Path.GetInvalidFileNameChars())>=0)
+            throw new ArgumentException("完整成图文件名无效。",nameof(fileName));
+        using var db=Connect();
+        using var cmd=db.CreateCommand();
+        cmd.CommandText="UPDATE figure_composites SET filename=$name WHERE id=$id";
+        cmd.Parameters.AddWithValue("$name",fileName);
+        cmd.Parameters.AddWithValue("$id",compositeId);
+        if(cmd.ExecuteNonQuery()!=1)throw new KeyNotFoundException("完整成图版本不存在。");
+    }
+
+    public void DeleteFigureCompositeVersion(string compositeId)
+    {
+        using var db=Connect();
+        using var tx=db.BeginTransaction();
+        string figureId;
+        bool wasCurrent;
+        using(var query=db.CreateCommand())
+        {
+            query.Transaction=tx;
+            query.CommandText="SELECT figure_id,is_current FROM figure_composites WHERE id=$id";
+            query.Parameters.AddWithValue("$id",compositeId);
+            using var reader=query.ExecuteReader();
+            if(!reader.Read())throw new KeyNotFoundException("完整成图版本不存在。");
+            figureId=reader.GetString(0);
+            wasCurrent=reader.GetInt32(1)==1;
+        }
+        using(var sources=db.CreateCommand())
+        {
+            sources.Transaction=tx;
+            sources.CommandText="DELETE FROM figure_composite_sources WHERE composite_id=$id";
+            sources.Parameters.AddWithValue("$id",compositeId);
+            sources.ExecuteNonQuery();
+        }
+        using(var remove=db.CreateCommand())
+        {
+            remove.Transaction=tx;
+            remove.CommandText="DELETE FROM figure_composites WHERE id=$id";
+            remove.Parameters.AddWithValue("$id",compositeId);
+            remove.ExecuteNonQuery();
+        }
+        if(wasCurrent)
+        {
+            using var promote=db.CreateCommand();
+            promote.Transaction=tx;
+            promote.CommandText="""
+                UPDATE figure_composites SET is_current=1
+                WHERE id=(SELECT id FROM figure_composites
+                          WHERE figure_id=$figure ORDER BY version DESC LIMIT 1)
+                """;
+            promote.Parameters.AddWithValue("$figure",figureId);
+            promote.ExecuteNonQuery();
+        }
+        // The content-addressed blob is retained; another version or experiment
+        // may still reference the same bytes.
+        tx.Commit();
+    }
+
     public void SetCurrentComposite(string figureId,string compositeId)
     {
         using var db=Connect();
