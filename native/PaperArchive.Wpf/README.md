@@ -1,4 +1,4 @@
-# PaperArchive WPF desktop (PRD v1.4)
+# PaperArchive WPF desktop (PRD v1.5)
 
 This is the new **Windows 10/11 native desktop** implementation. The previous
 WinUI 3 app in `native/PaperArchive.Native` is preserved for comparison.
@@ -157,3 +157,55 @@ not a pixel-perfect replica of the Windows 11 Explorer shell.
   paths. Ctrl+Z is not triggered while editing the search box.
 - Undo currently applies to **moves** (not imports, copies, deletions, exports
   or document revisions). No Redo (Ctrl+Y) support yet.
+
+## V1.5 Figure workspace (first usable implementation)
+
+Each paper project has **three fixed logical categories** in this display order:
+
+```text
+Paper project
+├── 实验项目          experimental projects / results / RAW–PROCESS–SHOW
+├── 组图项目          Figure 1 / Panel A / complete-composite versions
+└── 论文全文          PDF / Word manuscript snapshots
+```
+
+- In **组图项目**, click **+ Figure** to create the next free Figure number or
+  **批量 Figure…** to specify a starting number, Figure count (1–100)
+  and optional Panel count (0–26) per Figure. The dialog previews the
+  generated Figure numbers; occupied numbers are skipped, never overwritten.
+- In **Figure N**, click **+ Panel** to add the next unused letter, or
+  **批量 Panel…** to specify starting label A–Z and count.
+  Batch creation runs in one SQLite transaction; invalid batches roll back.
+- These are **logical placeholders**, not empty image files. They have stable
+  IDs and do not participate in file SHA-256 or asset counts.
+- In an experiment result, select one or more **SHOW** images and choose
+  **关联到组图**. Alternatively drag SHOW files to a Panel node; the drag
+  creates a reference and **does not move** the experimental assets.
+- Right-click a Figure or use its toolbar to **导出全部素材**. Original SHOW
+  files are exported byte-for-byte into Panel_A / Panel_B subfolders with
+  a CSV manifest showing source assets and SHA-256.
+- **导入完整 Figure…** creates a new immutable, versioned composite asset.
+  Choose its current version separately; **导出完整 Figure…** copies the
+  exact original bytes, with SHA-256 validation and no silent overwrite.
+- **论文全文** remains separate; it stores PDF, DOC, DOCX versions independently
+  of the Figure composition workspace.
+
+### Tested in Windows CI
+
+`native/PaperArchive.Workspace.SmokeTests` now checks automatic and explicit
+Figure numbering, skip-over occupied indices, atomic invalid Panel creation,
+SHOW link constraints, source-file identity, material manifest exports,
+composite revisions, current-version selection and verified export.
+WPF build and portable ZIP publish run on GitHub Actions.
+
+### Remaining work
+
+- No inline Figure drag-order arranger or visual Panel collage editor.
+- Detailed confirmation of *which* linked source files were actually used
+  in each composite is not yet exposed as a UI workflow.
+- Legacy V1.4 Figure usage metadata still needs a migration/reconciliation
+  screen before treating historical usage as confirmed composition provenance.
+- Embedding/reconciling composite Figure versions into specific Word/PDF
+  manuscript versions remains a later milestone.
+- The release requires hands-on Windows drag/drop and keyboard acceptance tests;
+  a successful CI build is not a complete UI validation.
