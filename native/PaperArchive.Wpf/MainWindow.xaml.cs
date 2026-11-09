@@ -89,6 +89,7 @@ public partial class MainWindow : Window
         ThumbnailList.ItemsSource = _visible;
         FigureFiles.ContextMenu=new ContextMenu();
         FolderList.ItemsSource = FolderNames;
+        FolderList.SelectedIndex=0;
         // Ensure ContextMenuOpening also works on the first right click.
         ProjectTree.ContextMenu=new ContextMenu();
         FolderList.ContextMenu=new ContextMenu();
@@ -290,18 +291,20 @@ public partial class MainWindow : Window
 
     private void RebuildFolderList()
     {
-        // Left side chooses the folder/view scope. Data-group filtering is
-        // intentionally left to the Data Group column in the central list.
-        var previous=_activeFolder;
-        FolderList.ItemsSource=null;
-        FolderList.ItemsSource=FolderNames;
-        FolderList.SelectedItem=FolderNames.Contains(previous)?previous:FolderNames[0];
+        // Selection is a data filter, never a navigation target.
+        // Do not reset ItemsSource: clearing it emits an intermediate
+        // SelectionChanged and unexpectedly resets the user's filter.
+        var selected=FolderNames.Contains(_activeFolder)?_activeFolder:FolderNames[0];
+        if(!Equals(FolderList.SelectedItem,selected))
+            FolderList.SelectedItem=selected;
+        RefreshItems();
     }
 
     private void FolderList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        _activeFolder = FolderList.SelectedItem as string ?? "全部文件";
-        RefreshItems();
+        if(FolderList.SelectedItem is not string filter)return;
+        _activeFolder=filter;
+        if(!_libraryMode&&!_figureMode&&!_showManuscripts)RefreshItems();
     }
 
     private void Search_Changed(object sender, TextChangedEventArgs e)
@@ -379,7 +382,7 @@ public partial class MainWindow : Window
         }
         var path=CurrentScopePath();
         var selected = _thumbnailMode ? ThumbnailList.SelectedItems.Count : FileList.SelectedItems.Count;
-        StatusText.Text = $"{path}  |  显示 {_visible.Count} / 共 {_all.Count} 个文件  |  已选 {selected} 项";
+        StatusText.Text = $"{path}  |  筛选：{_activeFolder}  |  显示 {_visible.Count} / 共 {_all.Count} 个文件  |  已选 {selected} 项";
     }
 
     private List<AssetRow> SelectedAssets() =>
