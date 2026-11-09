@@ -486,16 +486,30 @@ public partial class MainWindow
 
     private void ProjectTree_PreviewMouseRightButtonDown(object sender,MouseButtonEventArgs e)
     {
-        if(e.OriginalSource is DependencyObject src && TreeItemFrom(src) is { } node)
-            node.IsSelected=true;
+        _rightClickedTreeItem=e.OriginalSource is DependencyObject src?
+            TreeItemFrom(src):null;
+        if(_rightClickedTreeItem is not null)
+            _rightClickedTreeItem.IsSelected=true;
     }
 
     private void ProjectTree_ContextMenuOpening(object sender,ContextMenuEventArgs e)
     {
         if(_libraryMode)return;
         var menu=new ContextMenu();
-        menu.Items.Add(Action("新建论文项目",CreatePaper_Click));
-        if(ProjectTree.SelectedItem is not TreeViewItem node){ProjectTree.ContextMenu=menu;return;}
+        var node=_rightClickedTreeItem;
+        if(node is null)
+        {
+            // Background menu is deliberately limited to three creation actions.
+            menu.Items.Add(Action("新建论文项目",CreatePaper_Click));
+            var project=Action("新建实验项目",CreateProject_Click);
+            project.IsEnabled=_activePaper is not null;
+            menu.Items.Add(project);
+            var result=Action("新建结果单元",CreateResult_Click);
+            result.IsEnabled=_activeProject is not null;
+            menu.Items.Add(result);
+            ProjectTree.ContextMenu=menu;
+            return;
+        }
         if(node.Tag is PaperProject)
         {
             menu.Items.Add(Action("新建实验项目",CreateProject_Click));
@@ -581,7 +595,7 @@ public partial class MainWindow
     {
         var header=sender as GridViewColumnHeader;
         var column=header?.Content?.ToString()??"";
-        if(column is not ("名称" or "阶段" or "数据组" or "所在目录" or "大小" or "论文位置"))return;
+        if(column is not ("名称" or "阶段" or "数据组" or "所属实验结果" or "所在目录" or "大小" or "论文位置"))return;
         var menu=new ContextMenu();
         menu.Items.Add(Action("全部（清除该列筛选）",(_,_)=>{_columnFilters.Remove(column);RefreshItems();}));
         if(column=="阶段")
@@ -589,6 +603,9 @@ public partial class MainWindow
                 menu.Items.Add(Action(value,(_,_)=>{_columnFilters[column]=value;RefreshItems();}));
         else if(column=="数据组")
             foreach(var value in _all.Select(x=>x.GroupPrefix).Distinct().OrderBy(x=>x).Take(80))
+                menu.Items.Add(Action(value,(_,_)=>{_columnFilters[column]=value;RefreshItems();}));
+        else if(column=="所属实验结果")
+            foreach(var value in _all.Select(x=>x.ResultLabel).Distinct().OrderBy(x=>x).Take(80))
                 menu.Items.Add(Action(value,(_,_)=>{_columnFilters[column]=value;RefreshItems();}));
         else if(column=="论文位置")
         {
@@ -623,6 +640,7 @@ public partial class MainWindow
                 case "名称" when !row.FileName.Contains(value,StringComparison.OrdinalIgnoreCase):return false;
                 case "阶段" when !row.StageLabel.Equals(value,StringComparison.OrdinalIgnoreCase):return false;
                 case "数据组" when !row.GroupPrefix.Equals(value,StringComparison.OrdinalIgnoreCase):return false;
+                case "所属实验结果" when !row.ResultLabel.Contains(value,StringComparison.OrdinalIgnoreCase):return false;
                 case "所在目录" when !row.RelativePath.Contains(value,StringComparison.OrdinalIgnoreCase):return false;
                 case "论文位置" when value=="*" && row.UsageLabel=="—":return false;
                 case "论文位置" when value!="*" && !row.UsageLabel.Contains(value,StringComparison.OrdinalIgnoreCase):return false;
@@ -644,6 +662,7 @@ public partial class MainWindow
         {
             "阶段"=>r=>r.Asset.Stage switch {"raw"=>0,"process"=>1,"show"=>2,"statistics"=>3,_=>4},
             "数据组"=>r=>r.GroupPrefix,
+            "所属实验结果"=>r=>r.ResultLabel,
             "所在目录"=>r=>Path.GetDirectoryName(r.RelativePath)?.Replace('\\','/')??"",
             "大小"=>r=>r.Asset.Size,
             "论文位置"=>r=>FigureOrder(r.UsageLabel),

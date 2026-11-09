@@ -136,13 +136,22 @@ public partial class MainWindow : Window
             var papers=_workspace.ListPaperProjects();
             foreach(var paper in papers)
             {
-                var paperNode=new TreeViewItem{Header=paper.Name,Tag=paper,IsExpanded=true};
-                foreach(var project in _workspace.ListProjectsForPaper(paper.Id))
+                var projects=_workspace.ListProjectsForPaper(paper.Id);
+                var paperCount=projects.Sum(p=>_workspace.ListResults(p.Id).Sum(r=>r.FileCount));
+                var paperNode=new TreeViewItem{
+                    Header=TreeLabel(paper.Name,"\uE8A5",paperCount),
+                    Tag=paper,IsExpanded=true};
+                foreach(var project in projects)
                 {
-                    var projectNode=new TreeViewItem{Header=project.Name,Tag=project,IsExpanded=true};
-                    foreach(var result in _workspace.ListResults(project.Id))
+                    var units=_workspace.ListResults(project.Id);
+                    var projectCount=units.Sum(x=>x.FileCount);
+                    var projectNode=new TreeViewItem{
+                        Header=TreeLabel(project.Name,"\uE8B7",projectCount),
+                        Tag=project,IsExpanded=true};
+                    foreach(var result in units)
                         projectNode.Items.Add(new TreeViewItem{
-                            Header=$"{result.Name} ({result.FileCount})",Tag=result
+                            Header=TreeLabel(result.Name,"\uE8B7",result.FileCount),
+                            Tag=result
                         });
                     paperNode.Items.Add(projectNode);
                 }

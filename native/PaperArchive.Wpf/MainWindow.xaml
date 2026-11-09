@@ -8,7 +8,8 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="49"/>
-            <RowDefinition Height="50"/>
+            <RowDefinition Height="42"/>
+            <RowDefinition Height="44"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="29"/>
         </Grid.RowDefinitions>
@@ -29,26 +30,59 @@
                            VerticalAlignment="Center" DockPanel.Dock="Right"/>
             </DockPanel>
         </Border>
-        <Border Grid.Row="1" Background="White" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="0,0,0,1">
-            <DockPanel Margin="14,8">
-                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
-                    <Button x:Name="CreatePaperButton" Content="新建论文项目" Click="CreatePaper_Click"/>
-                    <Button x:Name="CreateProjectButton" Content="新建实验项目" Click="CreateProject_Click"/>
-                    <Button x:Name="CreateResultButton" Content="新建结果单元" Click="CreateResult_Click"/>
-                    <Button x:Name="ImportButton" Content="导入实验结果…" Click="Import_Click"/>
-                    <Button x:Name="ImportProjectButton" Content="导入全部待整理数据…" Click="ImportProject_Click"/>
-                    <Button x:Name="MoveButton" Content="移动到…" Click="MoveSelected_Click"/>
-                    <Button x:Name="CopyButton" Content="复制" Click="Copy_Click"/>
-                    <Button x:Name="ExportButton" Content="导出原图…" Click="ExportOriginal_Click"/>
-                    <Button x:Name="FigureButton" Content="导出用于组图…" Click="Figure_Click"/>
-                    <Button x:Name="ConfirmUsageButton" Content="确认用于论文" Click="ConfirmUsage_Click"/>
+        <!-- File Explorer style: creation/import/export menus are separate
+             from selection-specific commands. -->
+        <Border Grid.Row="1" Background="White" BorderBrush="{StaticResource BorderBrushSoft}"
+                BorderThickness="0,0,0,1">
+            <DockPanel Margin="13,4" LastChildFill="True">
+                <StackPanel x:Name="WorkflowMenus" DockPanel.Dock="Left" Orientation="Horizontal">
+                    <Menu Background="Transparent" BorderThickness="0" VerticalAlignment="Center">
+                        <MenuItem Header="新建 ▾" Padding="14,5">
+                            <MenuItem x:Name="CreatePaperButton" Header="论文项目" Click="CreatePaper_Click"/>
+                            <MenuItem x:Name="CreateProjectButton" Header="实验项目" Click="CreateProject_Click"/>
+                            <MenuItem x:Name="CreateResultButton" Header="实验结果单元" Click="CreateResult_Click"/>
+                            <Separator/>
+                            <MenuItem Header="Figure / Panel…" Click="FigureTemplate_Click"/>
+                        </MenuItem>
+                        <MenuItem Header="导入 ▾" Padding="14,5">
+                            <MenuItem x:Name="ImportButton" Header="单个实验结果…" Click="Import_Click"/>
+                            <MenuItem x:Name="ImportProjectButton" Header="完整实验项目（待整理）…" Click="ImportProject_Click"/>
+                            <MenuItem Header="论文文档…" IsEnabled="False" ToolTip="随论文归档阅读器实现"/>
+                        </MenuItem>
+                        <MenuItem Header="导出 ▾" Padding="14,5">
+                            <MenuItem x:Name="ExportButton" Header="原始文件…" Click="ExportOriginal_Click"/>
+                            <MenuItem Header="当前结果文件夹…" Click="ExportResultFolder_Click"/>
+                            <MenuItem x:Name="FigureButton" Header="用于组图…" Click="Figure_Click"/>
+                            <Separator/>
+                            <MenuItem Header="论文归档包…" IsEnabled="False"/>
+                        </MenuItem>
+                    </Menu>
                 </StackPanel>
-                <TextBox x:Name="SearchBox" DockPanel.Dock="Right" Width="290"
-                         VerticalContentAlignment="Center" ToolTip="搜索文件名称、路径或数据组"
+                <TextBox x:Name="SearchBox" DockPanel.Dock="Right" Width="292"
+                         VerticalContentAlignment="Center" ToolTip="在当前选中项目范围中搜索"
                          TextChanged="Search_Changed"/>
             </DockPanel>
         </Border>
-        <Grid Grid.Row="2" x:Name="ContentGrid">
+        <Border Grid.Row="2" Background="#FFFAFAFA" BorderBrush="{StaticResource BorderBrushSoft}"
+                BorderThickness="0,0,0,1">
+            <DockPanel Margin="12,5">
+                <StackPanel x:Name="FileCommands" DockPanel.Dock="Left" Orientation="Horizontal">
+                    <Button Content="剪切" ToolTip="Ctrl+X" Click="CutAssets_Click"/>
+                    <Button x:Name="CopyButton" Content="复制" Click="Copy_Click"/>
+                    <Button Content="粘贴" ToolTip="Ctrl+V" Click="PasteAssets_Click"/>
+                    <Button Content="重命名" ToolTip="F2" Click="RenameSelected_Click"/>
+                    <Button Content="删除" ToolTip="Delete" Click="DeleteAssets_Click"/>
+                    <Button x:Name="MoveButton" Content="移动到 ▾" Click="MoveSelected_Click"/>
+                    <Separator Margin="5,4" Width="1" Background="#FFDEDEDE"/>
+                    <Button Content="排序 ▾" Click="SortMenu_Click"/>
+                    <Button Content="查看 ▾" Click="ViewMenu_Click"/>
+                    <Button Content="更多 ▾" Click="MoreMenu_Click"/>
+                </StackPanel>
+                <Button x:Name="ConfirmUsageButton" DockPanel.Dock="Right"
+                        Content="确认用于论文" Click="ConfirmUsage_Click"/>
+            </DockPanel>
+        </Border>
+        <Grid Grid.Row="3" x:Name="ContentGrid">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="240" MinWidth="180"/>
                 <ColumnDefinition Width="5"/>
@@ -56,22 +90,34 @@
                 <ColumnDefinition Width="18"/>
                 <ColumnDefinition x:Name="DetailsColumn" Width="280" MinWidth="200"/>
             </Grid.ColumnDefinitions>
-            <Border Grid.Column="0" Background="White" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="0,0,1,0">
+            <Border Grid.Column="0" Background="#FFFBFBFB" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="0,0,1,0">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="220"/>
+                        <RowDefinition Height="*" MinHeight="100"/>
+                        <RowDefinition Height="5"/>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="236" MinHeight="125"/>
                     </Grid.RowDefinitions>
-                    <TextBlock x:Name="SidebarHeading" Text="实验项目" FontWeight="SemiBold" Margin="14,13,0,10"/>
-                    <TreeView Grid.Row="1" x:Name="ProjectTree" Margin="8,0,8,4"
-                              BorderThickness="0" SelectedItemChanged="ProjectTree_SelectedItemChanged"
+                    <TextBlock x:Name="SidebarHeading" Text="论文项目" FontWeight="SemiBold"
+                               Margin="12,12,0,9" Foreground="#FF404040"/>
+                    <TreeView Grid.Row="1" x:Name="ProjectTree" Margin="5,0,5,4"
+                              Background="Transparent" BorderThickness="0"
+                              AllowDrop="True"
                               PreviewMouseRightButtonDown="ProjectTree_PreviewMouseRightButtonDown"
-                              ContextMenuOpening="ProjectTree_ContextMenuOpening"/>
-                    <TextBlock Grid.Row="2" Text="浏览位置" FontWeight="SemiBold" Margin="14,14,0,10"/>
-                    <ListBox Grid.Row="3" x:Name="FolderList" Margin="7,0,7,8"
-                             BorderThickness="0" SelectionChanged="FolderList_SelectionChanged"
+                              ContextMenuOpening="ProjectTree_ContextMenuOpening"
+                              PreviewDragOver="ProjectTree_PreviewDragOver"
+                              PreviewDrop="ProjectTree_PreviewDrop"
+                              DragLeave="ProjectTree_DragLeave"
+                              SelectedItemChanged="ProjectTree_SelectedItemChanged"/>
+                    <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch"
+                                  Background="#FFE6E6E6" ResizeDirection="Rows"
+                                  ResizeBehavior="PreviousAndNext"/>
+                    <TextBlock Grid.Row="3" Text="浏览位置" FontWeight="SemiBold"
+                               Margin="12,11,0,8" Foreground="#FF555555"/>
+                    <ListBox Grid.Row="4" x:Name="FolderList" Margin="5,0,5,4"
+                             Background="Transparent" BorderThickness="0"
+                             SelectionChanged="FolderList_SelectionChanged"
                              ContextMenuOpening="FolderList_ContextMenuOpening"/>
                 </Grid>
             </Border>
@@ -98,6 +144,8 @@
                     <ListView x:Name="FileList" SelectionMode="Extended"
                               SelectionChanged="AssetSelection_Changed"
                               MouseDoubleClick="Files_DoubleClick"
+                              PreviewMouseLeftButtonDown="Files_PreviewMouseLeftButtonDown"
+                              PreviewMouseMove="Files_PreviewMouseMove"
                               PreviewMouseRightButtonDown="Files_PreviewMouseRightButtonDown"
                               ContextMenuOpening="Files_ContextMenuOpening"
                               Background="White" BorderThickness="0">
@@ -115,6 +163,7 @@
                                 <GridViewColumn Header="名称" Width="230" DisplayMemberBinding="{Binding FileName}"/>
                                 <GridViewColumn Header="阶段" Width="94" DisplayMemberBinding="{Binding StageLabel}"/>
                                 <GridViewColumn Header="数据组" Width="112" DisplayMemberBinding="{Binding GroupPrefix}"/>
+                                <GridViewColumn Header="所属实验结果" Width="155" DisplayMemberBinding="{Binding ResultLabel}"/>
                                 <GridViewColumn Header="所在目录" Width="240" DisplayMemberBinding="{Binding DirectoryLabel}"/>
                                 <GridViewColumn Header="大小" Width="92" DisplayMemberBinding="{Binding SizeLabel}"/>
                                 <GridViewColumn Header="论文位置" Width="130" DisplayMemberBinding="{Binding UsageLabel}"/>
@@ -125,6 +174,8 @@
                              SelectionMode="Extended" BorderThickness="0"
                              SelectionChanged="AssetSelection_Changed"
                              MouseDoubleClick="Files_DoubleClick"
+                             PreviewMouseLeftButtonDown="Files_PreviewMouseLeftButtonDown"
+                             PreviewMouseMove="Files_PreviewMouseMove"
                              ContextMenuOpening="Files_ContextMenuOpening"
                              PreviewMouseRightButtonDown="Files_PreviewMouseRightButtonDown"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
@@ -207,7 +258,7 @@
                 </ScrollViewer>
             </Border>
         </Grid>
-        <Border Grid.Row="3" Background="White" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="0,1,0,0">
+        <Border Grid.Row="4" Background="White" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="0,1,0,0">
             <DockPanel Margin="12,0">
                 <TextBlock x:Name="StatusText" VerticalAlignment="Center"
                            Text="当前位置  |  显示 0 / 共 0 个文件  |  已选 0 项"

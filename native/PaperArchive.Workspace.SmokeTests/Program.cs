@@ -104,6 +104,19 @@ try
            repo.ListDeletedProjects(paperId).Any(x=>x.Id==blankProject),"project soft delete");
     repo.SetProjectDeleted(blankProject,false);
     Assert(repo.ListProjectsForPaper(paperId).Any(x=>x.Id==blankProject),"restore project");
+    var scopedPaper=repo.ListScopeAssets(paperId:paperId);
+    Assert(scopedPaper.Any(x=>x.Asset.ResultId==destination &&
+        x.ResultName=="ROS 汇总"),"paper scope lists nested result assets");
+    var scopedProject=repo.ListScopeAssets(projectId:workingProject);
+    Assert(scopedProject.Count==repo.ListResults(workingProject).Sum(
+        x=>repo.ListAssets(x.Id).Count),"project scope file count");
+    Assert(repo.ListScopeAssets(resultId:destination).Count==4,"result scope");
+    var pending=repo.GetOrCreateUnsortedResult(workingProject);
+    Assert(pending==repo.GetOrCreateUnsortedResult(workingProject) &&
+        repo.ListResults(workingProject).Any(x=>x.Id==pending&&x.Name=="待整理数据"),
+        "project drop targets stable unsorted result");
+    var pendingPaper=repo.ListScopeAssets(paperId:paperId);
+    Assert(pendingPaper.All(x=>x.Asset.Sha256.Length==64),"scoped hashes");
     Assert(repo.ListPaperProjects().Any(x=>x.Id==paperId),"paper persists");
     repo.AssignUsageToPaper(usage.Id,paperId);
     Assert(repo.ListUsages(show.Id).Single().PaperTitle=="Paper A",
