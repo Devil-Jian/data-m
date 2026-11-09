@@ -185,7 +185,7 @@ public partial class MainWindow : Window
                                 _workspace.ListPanelAssets(panel.Id).Count),
                             Tag=new PanelNode(paper.Id,figure.Id,panel.Id)});
                     fNode.Items.Add(new TreeViewItem{
-                        Header=TreeLabel("完整组图","folder",
+                        Header=TreeLabel("show_data","folder",
                             _workspace.ListFigureComposites(figure.Id).Count),
                         Tag=new FigureCompositesNode(paper.Id,figure.Id)});
                     figuresNode.Items.Add(fNode);
