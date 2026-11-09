@@ -14,7 +14,19 @@ public sealed partial class ExperimentWorkspace
     public void MoveResult(string resultId,string targetProjectId)
     {
         using var db=Connect();
+        using var tx=db.BeginTransaction();
+        string original;
+        using(var query=db.CreateCommand())
+        {
+            query.Transaction=tx;
+            query.CommandText="SELECT project_id FROM experiment_results WHERE id=$id AND is_deleted=0";
+            query.Parameters.AddWithValue("$id",resultId);
+            original=query.ExecuteScalar() as string ??
+                throw new KeyNotFoundException("源结果单元不存在。");
+        }
+        if(original==targetProjectId)return;
         using var cmd=db.CreateCommand();
+        cmd.Transaction=tx;
         cmd.CommandText="""
             UPDATE experiment_results SET project_id=$target WHERE id=$result AND is_deleted=0
             AND EXISTS(SELECT 1 FROM experiment_projects WHERE id=$target AND is_deleted=0)
@@ -22,6 +34,9 @@ public sealed partial class ExperimentWorkspace
         cmd.Parameters.AddWithValue("$target",targetProjectId);
         cmd.Parameters.AddWithValue("$result",resultId);
         if(cmd.ExecuteNonQuery()!=1)throw new InvalidOperationException("目标实验项目或源结果单元不存在。");
+        RecordUndo(db,tx,"result",System.Text.Json.JsonSerializer.Serialize(
+            new UndoResultMove(resultId,original,targetProjectId)));
+        tx.Commit();
     }
 
     public string CopyResult(string resultId,string targetProjectId,string? newName=null)

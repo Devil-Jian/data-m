@@ -44,6 +44,8 @@ public sealed partial class ExperimentWorkspace
         workspace.Initialize();
         workspace.InitializeV13();
         workspace.InitializeV13Tree();
+        workspace.InitializeUndo();
+        workspace.InitializePaperDocuments();
         return workspace;
     }
 

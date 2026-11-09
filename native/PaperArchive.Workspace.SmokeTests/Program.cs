@@ -121,6 +121,33 @@ try
     repo.AssignUsageToPaper(usage.Id,paperId);
     Assert(repo.ListUsages(show.Id).Single().PaperTitle=="Paper A",
            "usage association retains prior Figure label");
+    // PDF and Word manuscripts are stored independently of experimental results.
+    var pdfPath=Path.Combine(root,"mock-manuscript.pdf");
+    var wordPath=Path.Combine(root,"mock-revision.docx");
+    File.WriteAllBytes(pdfPath,new byte[]{37,80,68,70,45,49,46,55});
+    File.WriteAllBytes(wordPath,new byte[]{80,75,3,4,0});
+    var pdfDoc=repo.ImportPaperDocument(paperId,pdfPath);
+    var wordDoc=repo.ImportPaperDocument(paperId,wordPath);
+    Assert(repo.ListPaperDocuments(paperId).Count==2,"manuscript storage independent of results");
+    Assert(File.ReadAllBytes(repo.GetPaperDocumentPath(pdfDoc))
+        .SequenceEqual(File.ReadAllBytes(pdfPath)),"PDF bytes preserved");
+    Assert(File.ReadAllBytes(repo.GetPaperDocumentPath(wordDoc))
+        .SequenceEqual(File.ReadAllBytes(wordPath)),"DOCX bytes preserved");
+    var firstMoveResult=repo.CreateResult(workingProject,"CtrlZ target");
+    var beforeUndo=repo.ListAssets(destination).First(x=>x.Stage=="raw");
+    Assert(repo.MoveAssets(new[]{beforeUndo.Id},firstMoveResult)==1,"undo setup move");
+    Assert(repo.CanUndoMove,"move is journaled");
+    Assert(repo.UndoLastMove(),"Ctrl+Z can undo last move");
+    Assert(repo.ListAssets(destination).Any(x=>x.Id==beforeUndo.Id),
+           "undo restores original result and Asset ID");
+    Assert(!repo.ListAssets(firstMoveResult).Any(x=>x.Id==beforeUndo.Id),
+           "undo removes asset from target result");
+    var undoResultUnit=repo.CreateResult(workingProject,"Move result CtrlZ");
+    repo.MoveResult(undoResultUnit,project);
+    Assert(repo.UndoLastMove(),"undo result unit move");
+    Assert(repo.ListResults(workingProject).Any(x=>x.Id==undoResultUnit),
+           "result unit restored to project");
+    Console.WriteLine("PASS: Manuscript PDF/DOCX snapshot and persistent logical move undo.");
     Console.WriteLine("PASS: V1.3 papers, figures, panels, move, copy, stable IDs, rename, delete/restore.");
     Console.WriteLine("PASS: workspace import, naming, SHA-256, source safety, no overwrite, Figure usage, reopen, group separation.");
 }

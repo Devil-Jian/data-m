@@ -290,6 +290,7 @@ public sealed partial class ExperimentWorkspace
             if(Convert.ToInt64(conflict.ExecuteScalar())>0)
                 throw new IOException("目标实验结果已有同名路径："+item.Relative);
         }
+        var oldOwners=inputs.Select(x=>x.Group).Distinct().ToDictionary(g=>g,g=>GetGroupOwner(db,tx,g));
         foreach(var group in inputs.GroupBy(x=>x.Group,StringComparer.Ordinal))
         {
             var original=group.First();
@@ -346,6 +347,20 @@ public sealed partial class ExperimentWorkspace
                 move.ExecuteNonQuery();
             }
         }
+        var moved=inputs.Select(x=>
+        {
+            using var locate=db.CreateCommand();
+            locate.Transaction=tx;
+            locate.CommandText="SELECT result_id,group_id FROM experiment_assets WHERE id=$id";
+            locate.Parameters.AddWithValue("$id",x.Id);
+            using var rd=locate.ExecuteReader();
+            if(!rd.Read())throw new InvalidDataException("移动记录丢失。");
+            return new UndoAssetMove(x.Id,x.Result,x.Group,rd.GetString(0),rd.GetString(1),x.Relative);
+        }).ToArray();
+        var owners=oldOwners.Where(x=>GetGroupOwner(db,tx,x.Key)!=x.Value)
+            .Select(x=>new UndoGroupOwner(x.Key,x.Value)).ToArray();
+        RecordUndo(db,tx,"assets",System.Text.Json.JsonSerializer.Serialize(
+            new UndoAssetBatch(moved,owners)));
         tx.Commit();
         return inputs.Count;
     }
