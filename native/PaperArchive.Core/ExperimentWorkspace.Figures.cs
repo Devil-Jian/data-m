@@ -434,6 +434,11 @@ public sealed partial class ExperimentWorkspace
         return list;
     }
 
+    // The Figure-level show_data view is a logical projection of its immutable
+    // composite versions. No experiment_assets row or duplicate blob is created.
+    public IReadOnlyList<FigureComposite> ListFigureShowData(string figureId) =>
+        ListFigureComposites(figureId);
+
     public FigureComposite ImportFigureComposite(string figureId,string sourcePath)
     {
         var source=Path.GetFullPath(sourcePath);
