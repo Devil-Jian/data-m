@@ -554,6 +554,68 @@ public partial class MainWindow
         catch(Exception ex){ShowError(ex);}
     }
 
+
+    private void RenameFigurePlaceholder_Click(object sender,RoutedEventArgs e)
+    {
+        if(_workspace is null||_activePaper is null||FigureFiles.SelectedItem is not FigureRow row)return;
+        try
+        {
+            if(row.Item is FigureTemplate figure)
+            {
+                var value=Prompt("重命名 Figure","输入新的 Figure 编号",figure.Number.ToString());
+                if(value is null)return;
+                if(!int.TryParse(value,out var number)||number<1)
+                    throw new ArgumentException("Figure 编号必须是正整数。");
+                _workspace.RenameFigureNumber(figure.Id,number);
+            }
+            else if(row.Item is PanelTemplate panel)
+            {
+                var value=Prompt("重命名 Panel","输入新的 Panel 标签（A–Z）",panel.Label);
+                if(value is null)return;
+                _workspace.RenamePanelLabel(panel.Id,value);
+            }
+            else return;
+            LoadProjectTree();
+            SelectTreeTag(_currentFigure is null?
+                new PaperFiguresNode(_activePaper.Id):new FigureNode(_activePaper.Id,_currentFigure.Id));
+            RefreshFigureView();
+        }
+        catch(Exception ex){ShowError(ex);}
+    }
+
+    private void DeleteFigurePlaceholder_Click(object sender,RoutedEventArgs e)
+    {
+        if(_workspace is null||_activePaper is null||FigureFiles.SelectedItem is not FigureRow row)return;
+        try
+        {
+            if(row.Item is FigureTemplate figure)
+            {
+                var impact=_workspace.GetFigureDeletionImpact(figure.Id);
+                var message=$"删除 Figure {figure.Number} 及其全部 Panel 占位？\\n"+
+                    $"将解除 {impact.LinkedImages} 个素材关联，并移除 {impact.Composites} 个完整成图版本记录。\\n"+
+                    "实验原始图片及仓库中的原始字节不会删除。";
+                if(System.Windows.MessageBox.Show(this,message,"删除 Figure",
+                    MessageBoxButton.YesNo,MessageBoxImage.Warning)!=MessageBoxResult.Yes)return;
+                _workspace.DeleteFigurePlaceholder(figure.Id);
+            }
+            else if(row.Item is PanelTemplate panel)
+            {
+                var links=_workspace.GetPanelDeletionImpact(panel.Id);
+                if(System.Windows.MessageBox.Show(this,
+                    $"删除 Panel {panel.Label}？将解除 {links} 个素材关联。\\n实验原始图片不会删除。",
+                    "删除 Panel",MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning)!=MessageBoxResult.Yes)return;
+                _workspace.DeletePanelPlaceholder(panel.Id);
+            }
+            else return;
+            LoadProjectTree();
+            SelectTreeTag(_currentFigure is null?
+                new PaperFiguresNode(_activePaper.Id):new FigureNode(_activePaper.Id,_currentFigure.Id));
+            RefreshFigureView();
+        }
+        catch(Exception ex){ShowError(ex);}
+    }
+
     private void FigureFiles_ContextMenuOpening(object sender,ContextMenuEventArgs e)
     {
         if(!_figureMode)return;
@@ -579,6 +641,12 @@ public partial class MainWindow
             menu.Items.Add(Action("导出完整 Figure…",ExportComposite_Click));
             menu.Items.Add(Action("设为当前正式成图（所选版本）",SetCurrentComposite_Click));
         }
+        if(FigureFiles.SelectedItem is FigureRow{Item:FigureTemplate or PanelTemplate})
+        {
+            menu.Items.Add(new Separator());
+            menu.Items.Add(Action("重命名 (F2)",RenameFigurePlaceholder_Click));
+            menu.Items.Add(Action("删除 (Delete)",DeleteFigurePlaceholder_Click));
+        }
         FigureFiles.ContextMenu=menu;
     }
 
@@ -586,6 +654,16 @@ public partial class MainWindow
     {
         if(_libraryMode||!_figureMode||SearchBox.IsKeyboardFocusWithin||
             e.OriginalSource is TextBox)return false;
+        if(Keyboard.Modifiers==ModifierKeys.None && FigureFiles.IsKeyboardFocusWithin &&
+            e.Key==Key.F2 && FigureFiles.SelectedItem is FigureRow{Item:FigureTemplate or PanelTemplate})
+        {
+            RenameFigurePlaceholder_Click(this,new RoutedEventArgs());return true;
+        }
+        if(Keyboard.Modifiers==ModifierKeys.None && FigureFiles.IsKeyboardFocusWithin &&
+            e.Key==Key.Delete && FigureFiles.SelectedItem is FigureRow{Item:FigureTemplate or PanelTemplate})
+        {
+            DeleteFigurePlaceholder_Click(this,new RoutedEventArgs());return true;
+        }
         if(Keyboard.Modifiers==ModifierKeys.None && e.Key==Key.Enter &&
             FigureFiles.IsKeyboardFocusWithin && FigureFiles.SelectedItem is FigureRow selected)
         {
