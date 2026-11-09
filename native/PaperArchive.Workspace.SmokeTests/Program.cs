@@ -213,6 +213,18 @@ try
     repo.SetCurrentComposite(figuresNew[0].Id,v2.Id);
     Assert(repo.ListFigureComposites(figuresNew[0].Id).Single(x=>x.IsCurrent).Id==v2.Id,
         "new composite can be chosen as current version");
+    // V15-14: Figure show_data is the same versioned source of truth,
+    // not a copied experiment SHOW asset or a newly owned experiment result.
+    var showData=repo.ListFigureShowData(figuresNew[0].Id);
+    Assert(showData.Count==2 && showData[0].Id==v2.Id &&
+        showData.Single(x=>x.IsCurrent).Id==v2.Id,
+        "completed Figure imported into logical show_data with current version");
+    Assert(repo.ListPanelAssets(aPanel.Id).Single().AssetId==show.Id &&
+        repo.ListPanelAssets(aPanel.Id).Single().Sha256==show.Sha256,
+        "Figure import does not replace source Panel SHOW image");
+    Assert(ExperimentWorkspace.Open(repo.Root).ListFigureShowData(figuresNew[0].Id)
+        .Select(x=>x.Id).SequenceEqual(showData.Select(x=>x.Id)),
+        "Figure show_data versions survive workspace reopen");
     var compositeOut=repo.ExportComposite(v2,Path.Combine(root,"completed-figures"));
     Assert(File.ReadAllBytes(compositeOut).SequenceEqual(File.ReadAllBytes(composPath)),
         "composite export preserves original image bytes");
