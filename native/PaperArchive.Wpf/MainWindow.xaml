@@ -133,20 +133,20 @@
                                                             <ToggleButton.Template>
                                                                 <ControlTemplate TargetType="{x:Type ToggleButton}">
                                                                     <Grid Background="Transparent" Width="19" Height="26">
-                                                                        <Path Stroke="#FF555555" StrokeThickness="1.5"
+                                                                        <Path x:Name="ArrowPath" Stroke="#FF555555"
+                                                                              StrokeThickness="1.5"
                                                                               StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                                                              Data="M 6,5 L 10,9 L 6,13"
-                                                                              HorizontalAlignment="Center"
-                                                                              VerticalAlignment="Center">
-                                                                            <Path.RenderTransform>
-                                                                                <RotateTransform x:Name="ArrowRotation" Angle="0"
-                                                                                                 CenterX="8" CenterY="9"/>
-                                                                            </Path.RenderTransform>
-                                                                        </Path>
+                                                                              Data="M 5,3 L 9,7 L 5,11" Width="16" Height="16"
+                                                                              Stretch="None" HorizontalAlignment="Center"
+                                                                              VerticalAlignment="Center"/>
                                                                     </Grid>
                                                                     <ControlTemplate.Triggers>
                                                                         <Trigger Property="IsChecked" Value="True">
-                                                                            <Setter TargetName="ArrowRotation" Property="Angle" Value="90"/>
+                                                                            <Setter TargetName="ArrowPath" Property="RenderTransform">
+                                                                                <Setter.Value>
+                                                                                    <RotateTransform Angle="90" CenterX="7" CenterY="7"/>
+                                                                                </Setter.Value>
+                                                                            </Setter>
                                                                         </Trigger>
                                                                     </ControlTemplate.Triggers>
                                                                 </ControlTemplate>
