@@ -142,6 +142,17 @@ try
            "undo restores original result and Asset ID");
     Assert(!repo.ListAssets(firstMoveResult).Any(x=>x.Id==beforeUndo.Id),
            "undo removes asset from target result");
+    var wholeGroupResult=repo.CreateResult(workingProject,"Whole group undo target");
+    var groupBefore=repo.ListAssets(destination).Where(x=>x.GroupPrefix=="ROS01").ToArray();
+    var stableGroupId=groupBefore[0].GroupId;
+    Assert(repo.MoveAssets(groupBefore.Select(x=>x.Id),wholeGroupResult)==4,
+        "whole Data Group moved");
+    Assert(repo.ListAssets(wholeGroupResult).All(x=>x.GroupId==stableGroupId),
+        "whole-group move retains Data Group ID");
+    Assert(repo.UndoLastMove(),"whole Data Group can be undone");
+    Assert(repo.ListAssets(destination).Count(x=>x.GroupId==stableGroupId)==4,
+        "whole Data Group restored with same ID");
+    Assert(repo.ListAssets(wholeGroupResult).Count==0,"whole group target emptied by undo");
     var undoResultUnit=repo.CreateResult(workingProject,"Move result CtrlZ");
     repo.MoveResult(undoResultUnit,project);
     Assert(repo.UndoLastMove(),"undo result unit move");

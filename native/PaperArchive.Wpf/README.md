@@ -137,3 +137,23 @@ not a pixel-perfect replica of the Windows 11 Explorer shell.
 - A green GitHub Actions build proves compilation and basic Core tests, **not** manual WPF interaction correctness or a full production release.
 - Multi-operation undo, per-file conflict-preview wizard and arbitrary nested virtual folders remain later milestones.
 - PDF/DOCX inline reading, paper finalization and transfer packages remain later milestones.
+
+## 2026-11: Paper manuscripts, native selection contrast, move undo
+
+- Paper projects now contain **two separate categories**:
+  `论文全文` and `实验项目`. The former imports and lists PDF, DOC, and
+  DOCX manuscripts without mixing them into experimental result folders.
+  Manuscripts are immutable SHA-256 snapshots in the same blob vault but have
+  their own `paper_documents` metadata table.
+- Double-click a manuscript to open a temporary original-byte copy with the
+  Windows default application. **Inline PDF/DOCX rendering is not yet
+  available.** An imported document is a historical snapshot, not a live
+  link to the source; reimport a newer revision to save it independently.
+- The light tree view uses an explicit template and pale blue selection with
+  dark readable labels, avoiding the dark system-highlight screenshot bug.
+- **Ctrl+Z** or `更多 → 撤销上次移动` reverses the latest successful logical
+  file or result-unit move. Undo logs persist across app restarts. Undo is
+  transactional and refuses ambiguous changes or conflicting destination
+  paths. Ctrl+Z is not triggered while editing the search box.
+- Undo currently applies to **moves** (not imports, copies, deletions, exports
+  or document revisions). No Redo (Ctrl+Y) support yet.
