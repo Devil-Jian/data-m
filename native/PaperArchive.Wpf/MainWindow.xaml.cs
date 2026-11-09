@@ -17,6 +17,7 @@ public sealed class AssetRow
     public ExperimentAsset Asset { get; }
     public string FileName => Asset.FileName;
     public string RelativePath => Asset.RelativePath;
+    public string DirectoryLabel => Path.GetDirectoryName(Asset.RelativePath)?.Replace('\\', '/') ?? ".";
     public string GroupPrefix => Asset.GroupPrefix;
     public string StageLabel => Asset.Stage switch
     {
@@ -107,6 +108,9 @@ public partial class MainWindow : Window
         {
             var warehouse = DefaultWarehouse();
             _workspace = ExperimentWorkspace.Open(warehouse);
+            if(File.Exists(Path.Combine(warehouse,"details-pane.pref")) &&
+                File.ReadAllText(Path.Combine(warehouse,"details-pane.pref")).Trim()=="0")
+                ToggleDetails();
             WarehouseLabel.Text = warehouse;
             LoadProjectTree();
         }
@@ -120,40 +124,46 @@ public partial class MainWindow : Window
     private void LoadProjectTree()
     {
         if (_workspace is null) return;
-        _refreshingTree = true;
+        _refreshingTree=true;
         try
         {
             ProjectTree.Items.Clear();
-            foreach (var project in _workspace.ListProjects())
+            var papers=_workspace.ListPaperProjects();
+            foreach(var paper in papers)
             {
-                var parent = new TreeViewItem { Header = project.Name, Tag = project, IsExpanded = true };
-                foreach (var result in _workspace.ListResults(project.Id))
-                    parent.Items.Add(new TreeViewItem
-                    {
-                        Header = $"{result.Name} ({result.FileCount})",
-                        Tag = result
-                    });
-                ProjectTree.Items.Add(parent);
+                var paperNode=new TreeViewItem{Header=paper.Name,Tag=paper,IsExpanded=true};
+                foreach(var project in _workspace.ListProjectsForPaper(paper.Id))
+                {
+                    var projectNode=new TreeViewItem{Header=project.Name,Tag=project,IsExpanded=true};
+                    foreach(var result in _workspace.ListResults(project.Id))
+                        projectNode.Items.Add(new TreeViewItem{
+                            Header=$"{result.Name} ({result.FileCount})",Tag=result
+                        });
+                    paperNode.Items.Add(projectNode);
+                }
+                ProjectTree.Items.Add(paperNode);
             }
-            if (_activeResult is not null)
+            foreach(TreeViewItem paperNode in ProjectTree.Items)
             {
-                foreach (TreeViewItem projectNode in ProjectTree.Items)
-                    foreach (TreeViewItem resultNode in projectNode.Items)
-                        if (resultNode.Tag is ExperimentResult r && r.Id == _activeResult.Id)
-                        {
-                            projectNode.IsExpanded = true;
-                            resultNode.IsSelected = true;
-                            return;
-                        }
+                if(_activePaper?.Id==(paperNode.Tag as PaperProject)?.Id&&
+                   _activeResult is null&&_activeProject is null){paperNode.IsSelected=true;return;}
+                foreach(TreeViewItem projectNode in paperNode.Items)
+                {
+                    if(_activeProject?.Id==(projectNode.Tag as ExperimentProject)?.Id &&
+                        _activeResult is null){projectNode.IsSelected=true;return;}
+                    foreach(TreeViewItem resultNode in projectNode.Items)
+                        if(_activeResult?.Id==(resultNode.Tag as ExperimentResult)?.Id)
+                        {paperNode.IsExpanded=true;projectNode.IsExpanded=true;resultNode.IsSelected=true;return;}
+                }
             }
-            if (ProjectTree.Items.Count > 0 && _activeProject is null)
+            if(ProjectTree.Items.Count>0)
             {
-                var first = (TreeViewItem)ProjectTree.Items[0];
-                _activeProject = first.Tag as ExperimentProject;
-                first.IsSelected = true;
+                var first=(TreeViewItem)ProjectTree.Items[0];
+                _activePaper=first.Tag as PaperProject;
+                first.IsSelected=true;
             }
         }
-        finally { _refreshingTree = false; }
+        finally{_refreshingTree=false;}
     }
 
     private void ProjectTree_SelectedItemChanged(object sender,
@@ -167,28 +177,25 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (ProjectTree.SelectedItem is not TreeViewItem node) return;
-        if (node.Tag is ExperimentProject project)
+        if(ProjectTree.SelectedItem is not TreeViewItem node)return;
+        if(node.Tag is PaperProject paper)
         {
-            _activeProject = project;
-            _activeResult = null;
-            _all.Clear();
-            _visible.Clear();
+            _activePaper=paper;_activeProject=null;_activeResult=null;
+            _all.Clear();_visible.Clear();
         }
-        else if (node.Tag is ExperimentResult result && _workspace is not null)
+        else if(node.Tag is ExperimentProject project)
         {
-            _activeResult = result;
-            _activeProject = _workspace.ListProjects()
-                .FirstOrDefault(p => p.Id == result.ProjectId);
-            _all.Clear();
-            foreach (var asset in _workspace.ListAssets(result.Id))
-            {
-                var uses = _workspace.ListUsages(asset.Id);
-                var usage = uses.FirstOrDefault(u => u.State == "confirmed")
-                    ?? uses.FirstOrDefault(u => u.State == "exported");
-                var label = usage is null ? "—" : $"Fig {usage.Figure}{usage.Panel}";
-                _all.Add(new AssetRow(_workspace, asset, label));
-            }
+            _activeProject=project;_activeResult=null;
+            _activePaper=(node.Parent as TreeViewItem)?.Tag as PaperProject;
+            _all.Clear();_visible.Clear();
+        }
+        else if(node.Tag is ExperimentResult result && _workspace is not null)
+        {
+            _activeResult=result;
+            var parent=node.Parent as TreeViewItem;
+            _activeProject=parent?.Tag as ExperimentProject;
+            _activePaper=(parent?.Parent as TreeViewItem)?.Tag as PaperProject;
+            LoadSelectedResult();
             RebuildFolderList();
         }
         RefreshItems();
@@ -242,9 +249,9 @@ public partial class MainWindow : Window
             _ => query
         };
         _visible.Clear();
-        foreach (var row in query) _visible.Add(row);
+        foreach (var row in ApplyTableSort(query.Where(AcceptColumnFilters))) _visible.Add(row);
         CurrentLocation.Text = _activeResult is null ? "请选择实验结果单元"
-            : $"{_activeProject?.Name}  >  {_activeResult.Name}  >  {_activeFolder}";
+            : $"{_activePaper?.Name}  >  {_activeProject?.Name}  >  {_activeResult.Name}  >  {_activeFolder}";
         UpdateStatus();
         UpdateDetails();
     }
@@ -258,7 +265,7 @@ public partial class MainWindow : Window
             return;
         }
         var path = _activeResult is null
-            ? _activeProject?.Name ?? "实验项目"
+            ? _activePaper?.Name ?? "论文项目"
             : $"{_activeProject?.Name}  >  {_activeResult.Name}  >  {_activeFolder}";
         var selected = _thumbnailMode ? ThumbnailList.SelectedItems.Count : FileList.SelectedItems.Count;
         StatusText.Text = $"{path}  |  显示 {_visible.Count} / 共 {_all.Count} 个文件  |  已选 {selected} 项";
@@ -305,14 +312,18 @@ public partial class MainWindow : Window
         if (ProjectTree is null || LibraryArea is null) return;
         _libraryMode = LibraryTab.IsChecked == true;
         var editor = _libraryMode ? Visibility.Collapsed : Visibility.Visible;
+        CreatePaperButton.Visibility = editor;
         CreateProjectButton.Visibility = editor;
+        CreateResultButton.Visibility = editor;
+        ImportProjectButton.Visibility = editor;
+        MoveButton.Visibility = editor;
         ImportButton.Visibility = editor;
         CopyButton.Visibility = editor;
         ExportButton.Visibility = editor;
         FigureButton.Visibility = editor;
         ConfirmUsageButton.Visibility = editor;
         SearchBox.Visibility = editor;
-        SidebarHeading.Text = _libraryMode ? "论文" : "实验项目";
+        SidebarHeading.Text = _libraryMode ? "论文" : "论文项目";
         LibraryArea.Visibility = _libraryMode ? Visibility.Visible : Visibility.Collapsed;
         FolderList.Visibility = editor;
         FileList.Visibility = _libraryMode || _thumbnailMode ? Visibility.Collapsed : Visibility.Visible;
@@ -412,20 +423,20 @@ public partial class MainWindow : Window
     private void CreateProject_Click(object sender, RoutedEventArgs e)
     {
         if (_workspace is null) return;
+        if(_activePaper is null){System.Windows.MessageBox.Show(this,"请先创建或选择论文项目。","新建实验项目");return;}
         var name = Prompt("新建实验项目", "输入实验项目名称");
         if (name is null) return;
         try
         {
-            var id = _workspace.CreateProject(name);
+            var id = _workspace.CreateProjectForPaper(_activePaper.Id,name);
             _activeProject = _workspace.ListProjects().First(p => p.Id == id);
             _activeResult = null;
             LoadProjectTree();
-            foreach (TreeViewItem node in ProjectTree.Items)
-                if (node.Tag is ExperimentProject project && project.Id == id)
-                {
-                    node.IsSelected = true;
-                    break;
-                }
+            // The tree is hierarchical: Paper -> Experiment -> Result.
+            foreach(TreeViewItem paperNode in ProjectTree.Items)
+                foreach(TreeViewItem projectNode in paperNode.Items)
+                    if(projectNode.Tag is ExperimentProject p && p.Id==id)
+                    {projectNode.IsSelected=true;return;}
         }
         catch (Exception ex) { ShowError(ex); }
     }
@@ -467,7 +478,9 @@ public partial class MainWindow : Window
         DetailsColumn.MinWidth = _detailsVisible ? 200 : 0;
         DetailsPane.Visibility = _detailsVisible ? Visibility.Visible : Visibility.Collapsed;
         DetailSplitter.Visibility = _detailsVisible ? Visibility.Visible : Visibility.Collapsed;
-        DetailsButton.Content = _detailsVisible ? "隐藏详细信息" : "显示详细信息";
+        DetailsChevron.Content=_detailsVisible?"‹":"›";
+        try{File.WriteAllText(Path.Combine(_workspace?.Root??DefaultWarehouse(),"details-pane.pref"),
+            _detailsVisible?"1":"0");}catch{}
     }
 
     private void DetailsView_Click(object sender, RoutedEventArgs e)
@@ -542,6 +555,11 @@ public partial class MainWindow : Window
 
     private void Figure_Click(object sender, RoutedEventArgs e)
     {
+        ShowFigureDialog();
+    }
+
+    private void Figure_Old_Click(object sender, RoutedEventArgs e)
+    {
         if (_workspace is null) return;
         var rows = SelectedAssets();
         if (rows.Count == 0) return;
@@ -599,26 +617,38 @@ public partial class MainWindow : Window
     {
         if (_activeResult is null || _workspace is null) return;
         _all.Clear();
-        foreach (var a in _workspace.ListAssets(_activeResult.Id))
+        foreach(var a in _workspace.ListAssets(_activeResult.Id))
         {
-            var u = _workspace.ListUsages(a.Id).FirstOrDefault(x => x.State is "exported" or "confirmed");
-            _all.Add(new AssetRow(_workspace, a, u is null ? "—" : $"Fig {u.Figure}{u.Panel}"));
+            var uses=_workspace.ListUsages(a.Id).Where(x=>x.State is "exported" or "confirmed")
+                .Select(x=>$"Fig {x.Figure}{x.Panel}").Distinct().ToArray();
+            _all.Add(new AssetRow(_workspace,a,uses.Length==0?"—":string.Join(", ",uses)));
         }
         RefreshItems();
     }
 
-    private void Files_DoubleClick(object sender, MouseButtonEventArgs e)
+    private void Files_DoubleClick(object sender,MouseButtonEventArgs e)
     {
-        if (_workspace is null || SelectedAsset() is not { } row) return;
+        // GridView headers and empty area bubble MouseDoubleClick to ListView.
+        // Only open the *actual clicked row*, not a stale SelectedItem.
+        if(e.OriginalSource is not DependencyObject origin||sender is not ItemsControl control)return;
+        var container=ItemsControl.ContainerFromElement(control,origin) as ListBoxItem;
+        if(container?.Content is not AssetRow row)return;
+        e.Handled=true;
+        OpenSelectedAsset(row);
+    }
+
+    private void OpenSelectedAsset(AssetRow? chosen=null)
+    {
+        if(_workspace is null|| (chosen??SelectedAsset()) is not { } row)return;
         try
         {
-            var cache = Path.Combine(Path.GetTempPath(), "PaperArchive", "Open");
+            var cache=Path.Combine(Path.GetTempPath(),"PaperArchive","Open",row.Asset.Id);
             Directory.CreateDirectory(cache);
-            var target = Path.Combine(cache, row.Asset.Id + Path.GetExtension(row.FileName));
-            File.Copy(_workspace.GetBlobPath(row.Asset), target, overwrite: true);
-            Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
+            var target=Path.Combine(cache,row.FileName);
+            File.Copy(_workspace.GetBlobPath(row.Asset),target,overwrite:true);
+            Process.Start(new ProcessStartInfo(target){UseShellExecute=true});
         }
-        catch (Exception ex) { ShowError(ex); }
+        catch(Exception ex){ShowError(ex);}
     }
 
     private void Window_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
@@ -628,6 +658,14 @@ public partial class MainWindow : Window
             ToggleDetails();
             e.Handled = true;
         }
+        else if(!_libraryMode && Keyboard.Modifiers==ModifierKeys.Control && e.Key==Key.X &&
+            !SearchBox.IsKeyboardFocusWithin){CutAssets_Click(sender,new RoutedEventArgs());e.Handled=true;}
+        else if(!_libraryMode && Keyboard.Modifiers==ModifierKeys.Control && e.Key==Key.V &&
+            !SearchBox.IsKeyboardFocusWithin){PasteAssets_Click(sender,new RoutedEventArgs());e.Handled=true;}
+        else if(!_libraryMode && e.Key==Key.F2){RenameSelected_Click(sender,new RoutedEventArgs());e.Handled=true;}
+        else if(!_libraryMode && e.Key==Key.Delete){DeleteAssets_Click(sender,new RoutedEventArgs());e.Handled=true;}
+        else if(!_libraryMode && e.Key==Key.Enter && Keyboard.Modifiers==ModifierKeys.Alt)
+            {Properties_Click(sender,new RoutedEventArgs());e.Handled=true;}
         else if (!_libraryMode && Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.C
                  && !SearchBox.IsKeyboardFocusWithin)
         {

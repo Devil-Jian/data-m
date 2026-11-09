@@ -32,13 +32,16 @@
         <Border Grid.Row="1" Background="White" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="0,0,0,1">
             <DockPanel Margin="14,8">
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                    <Button x:Name="CreatePaperButton" Content="新建论文项目" Click="CreatePaper_Click"/>
                     <Button x:Name="CreateProjectButton" Content="新建实验项目" Click="CreateProject_Click"/>
+                    <Button x:Name="CreateResultButton" Content="新建结果单元" Click="CreateResult_Click"/>
                     <Button x:Name="ImportButton" Content="导入实验结果…" Click="Import_Click"/>
+                    <Button x:Name="ImportProjectButton" Content="导入全部待整理数据…" Click="ImportProject_Click"/>
+                    <Button x:Name="MoveButton" Content="移动到…" Click="MoveSelected_Click"/>
                     <Button x:Name="CopyButton" Content="复制" Click="Copy_Click"/>
                     <Button x:Name="ExportButton" Content="导出原图…" Click="ExportOriginal_Click"/>
                     <Button x:Name="FigureButton" Content="导出用于组图…" Click="Figure_Click"/>
                     <Button x:Name="ConfirmUsageButton" Content="确认用于论文" Click="ConfirmUsage_Click"/>
-                    <Button x:Name="DetailsButton" Content="隐藏详细信息" Click="Details_Click"/>
                 </StackPanel>
                 <TextBox x:Name="SearchBox" DockPanel.Dock="Right" Width="290"
                          VerticalContentAlignment="Center" ToolTip="搜索文件名称、路径或数据组"
@@ -50,7 +53,7 @@
                 <ColumnDefinition Width="240" MinWidth="180"/>
                 <ColumnDefinition Width="5"/>
                 <ColumnDefinition Width="*" MinWidth="350"/>
-                <ColumnDefinition Width="5"/>
+                <ColumnDefinition Width="18"/>
                 <ColumnDefinition x:Name="DetailsColumn" Width="280" MinWidth="200"/>
             </Grid.ColumnDefinitions>
             <Border Grid.Column="0" Background="White" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="0,0,1,0">
@@ -63,10 +66,13 @@
                     </Grid.RowDefinitions>
                     <TextBlock x:Name="SidebarHeading" Text="实验项目" FontWeight="SemiBold" Margin="14,13,0,10"/>
                     <TreeView Grid.Row="1" x:Name="ProjectTree" Margin="8,0,8,4"
-                              BorderThickness="0" SelectedItemChanged="ProjectTree_SelectedItemChanged"/>
+                              BorderThickness="0" SelectedItemChanged="ProjectTree_SelectedItemChanged"
+                              PreviewMouseRightButtonDown="ProjectTree_PreviewMouseRightButtonDown"
+                              ContextMenuOpening="ProjectTree_ContextMenuOpening"/>
                     <TextBlock Grid.Row="2" Text="浏览位置" FontWeight="SemiBold" Margin="14,14,0,10"/>
                     <ListBox Grid.Row="3" x:Name="FolderList" Margin="7,0,7,8"
-                             BorderThickness="0" SelectionChanged="FolderList_SelectionChanged"/>
+                             BorderThickness="0" SelectionChanged="FolderList_SelectionChanged"
+                             ContextMenuOpening="FolderList_ContextMenuOpening"/>
                 </Grid>
             </Border>
             <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch"
@@ -92,13 +98,21 @@
                     <ListView x:Name="FileList" SelectionMode="Extended"
                               SelectionChanged="AssetSelection_Changed"
                               MouseDoubleClick="Files_DoubleClick"
+                              PreviewMouseRightButtonDown="Files_PreviewMouseRightButtonDown"
+                              ContextMenuOpening="Files_ContextMenuOpening"
                               Background="White" BorderThickness="0">
+                        <ListView.Resources>
+                            <Style TargetType="{x:Type GridViewColumnHeader}">
+                                <EventSetter Event="Click" Handler="ColumnHeader_Click"/>
+                                <EventSetter Event="ContextMenuOpening" Handler="ColumnHeader_ContextMenuOpening"/>
+                            </Style>
+                        </ListView.Resources>
                         <ListView.View>
                             <GridView>
                                 <GridViewColumn Header="名称" Width="230" DisplayMemberBinding="{Binding FileName}"/>
                                 <GridViewColumn Header="阶段" Width="94" DisplayMemberBinding="{Binding StageLabel}"/>
                                 <GridViewColumn Header="数据组" Width="112" DisplayMemberBinding="{Binding GroupPrefix}"/>
-                                <GridViewColumn Header="所在目录" Width="240" DisplayMemberBinding="{Binding RelativePath}"/>
+                                <GridViewColumn Header="所在目录" Width="240" DisplayMemberBinding="{Binding DirectoryLabel}"/>
                                 <GridViewColumn Header="大小" Width="92" DisplayMemberBinding="{Binding SizeLabel}"/>
                                 <GridViewColumn Header="论文位置" Width="130" DisplayMemberBinding="{Binding UsageLabel}"/>
                             </GridView>
@@ -107,7 +121,10 @@
                     <ListBox x:Name="ThumbnailList" Visibility="Collapsed" Background="White"
                              SelectionMode="Extended" BorderThickness="0"
                              SelectionChanged="AssetSelection_Changed"
-                             MouseDoubleClick="Files_DoubleClick" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                             MouseDoubleClick="Files_DoubleClick"
+                             ContextMenuOpening="Files_ContextMenuOpening"
+                             PreviewMouseRightButtonDown="Files_PreviewMouseRightButtonDown"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <ListBox.ItemsPanel>
                             <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
                         </ListBox.ItemsPanel>
@@ -146,8 +163,14 @@
                     </Grid>
                 </Grid>
             </Grid>
-            <GridSplitter Grid.Column="3" Width="5" HorizontalAlignment="Stretch"
+            <GridSplitter Grid.Column="3" Width="5" HorizontalAlignment="Left"
                           Background="#FFEDEDED" ResizeBehavior="PreviousAndNext" x:Name="DetailSplitter"/>
+            <Button Grid.Column="3" x:Name="DetailsChevron" Content="‹"
+                    Width="13" Height="46" Padding="0" Margin="0"
+                    HorizontalAlignment="Right" VerticalAlignment="Center"
+                    Background="#FFF4F4F4" BorderBrush="#FFD5D5D5"
+                    BorderThickness="1" ToolTip="折叠 / 展开详细信息 (Alt+Shift+P)"
+                    Click="Details_Click" Panel.ZIndex="2"/>
             <Border x:Name="DetailsPane" Grid.Column="4" Background="White"
                     BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="1,0,0,0">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
