@@ -231,6 +231,21 @@ try
     Assert(repo.ListFigureOverview(paperId).Any(x=>x.Figure.Id==figuresNew[0].Id&&
         x.LinkedAssetCount==1&&x.CompositeCount==2),
         "Figure overview counts linked materials and full versions");
+    // V15-14 composite filename changes are metadata-only; removal promotes
+    // the previous version without touching shared content-addressed bytes.
+    var sourceHash=v2.Sha256;
+    repo.RenameFigureComposite(v2.Id,"Figure1_revision.tif");
+    Assert(repo.ListFigureShowData(figuresNew[0].Id).Single(x=>x.Id==v2.Id)
+        .FileName=="Figure1_revision.tif",
+        "Figure composite rename updates only display filename");
+    var storedBlob=Path.Combine(repo.Root,"blobs","sha256",sourceHash[..2],sourceHash);
+    repo.DeleteFigureCompositeVersion(v2.Id);
+    Assert(repo.ListFigureShowData(figuresNew[0].Id).Count==1 &&
+        repo.ListFigureShowData(figuresNew[0].Id).Single().Id==v1.Id &&
+        repo.ListFigureShowData(figuresNew[0].Id).Single().IsCurrent,
+        "delete current Figure version promotes the remaining version");
+    Assert(File.Exists(storedBlob) && repo.ListPanelAssets(aPanel.Id).Single().AssetId==show.Id,
+        "version removal preserves blob and original Panel association");
     var expectedNoFile=repo.CreateFiguresFast(paperId,1,1);
     Assert(repo.ListFigureComposites(expectedNoFile.Single().Id).Count==0 &&
         repo.ListPanelAssets(repo.ListPanels(expectedNoFile.Single().Id)[0].Id).Count==0,
