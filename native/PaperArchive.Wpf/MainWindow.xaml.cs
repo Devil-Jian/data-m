@@ -132,65 +132,68 @@ public partial class MainWindow : Window
 
     private void LoadProjectTree()
     {
-        if (_workspace is null) return;
+        if(_workspace is null)return;
+        var previousPaper=_activePaper;
+        var previousProject=_activeProject;
+        var previousResult=_activeResult;
+        var manuscripts=_showManuscripts;
         _refreshingTree=true;
         try
         {
             ProjectTree.Items.Clear();
-            var papers=_workspace.ListPaperProjects();
-            foreach(var paper in papers)
+            foreach(var paper in _workspace.ListPaperProjects())
             {
                 var projects=_workspace.ListProjectsForPaper(paper.Id);
                 var paperCount=projects.Sum(p=>_workspace.ListResults(p.Id).Sum(r=>r.FileCount));
-                var paperNode=new TreeViewItem{
-                    Header=TreeLabel(paper.Name,"\uE8A5",paperCount),
+                var parent=new TreeViewItem{
+                    Header=TreeLabel(paper.Name,"paper",paperCount),
                     Tag=paper,IsExpanded=true};
+                var manuscriptCount=_workspace.ListPaperDocuments(paper.Id).Count;
+                parent.Items.Add(new TreeViewItem{
+                    Header=TreeLabel("论文全文","doc",manuscriptCount),
+                    Tag=new PaperDocumentsNode(paper.Id)});
+                var experiments=new TreeViewItem{
+                    Header=TreeLabel("实验项目","folder",paperCount),
+                    Tag=new PaperExperimentsNode(paper.Id),
+                    IsExpanded=true};
                 foreach(var project in projects)
                 {
-                    var units=_workspace.ListResults(project.Id);
-                    var projectCount=units.Sum(x=>x.FileCount);
+                    var results=_workspace.ListResults(project.Id);
+                    var count=results.Sum(x=>x.FileCount);
                     var projectNode=new TreeViewItem{
-                        Header=TreeLabel(project.Name,"\uE8B7",projectCount),
+                        Header=TreeLabel(project.Name,"folder",count),
                         Tag=project,IsExpanded=true};
-                    foreach(var result in units)
+                    foreach(var result in results)
                         projectNode.Items.Add(new TreeViewItem{
-                            Header=TreeLabel(result.Name,"\uE8B7",result.FileCount),
-                            Tag=result
-                        });
-                    paperNode.Items.Add(projectNode);
+                            Header=TreeLabel(result.Name,"folder",result.FileCount),
+                            Tag=result});
+                    experiments.Items.Add(projectNode);
                 }
-                ProjectTree.Items.Add(paperNode);
-            }
-            foreach(TreeViewItem paperNode in ProjectTree.Items)
-            {
-                if(_activePaper?.Id==(paperNode.Tag as PaperProject)?.Id&&
-                   _activeResult is null&&_activeProject is null){paperNode.IsSelected=true;return;}
-                foreach(TreeViewItem projectNode in paperNode.Items)
-                {
-                    if(_activeProject?.Id==(projectNode.Tag as ExperimentProject)?.Id &&
-                        _activeResult is null){projectNode.IsSelected=true;return;}
-                    foreach(TreeViewItem resultNode in projectNode.Items)
-                        if(_activeResult?.Id==(resultNode.Tag as ExperimentResult)?.Id)
-                        {paperNode.IsExpanded=true;projectNode.IsExpanded=true;resultNode.IsSelected=true;return;}
-                }
-            }
-            if(ProjectTree.Items.Count>0)
-            {
-                var first=(TreeViewItem)ProjectTree.Items[0];
-                _activePaper=first.Tag as PaperProject;
-                first.IsSelected=true;
+                parent.Items.Add(experiments);
+                ProjectTree.Items.Add(parent);
             }
         }
         finally{_refreshingTree=false;}
+        if(manuscripts&&previousPaper is not null)
+            SelectTreeTag(new PaperDocumentsNode(previousPaper.Id));
+        else if(previousResult is not null&&SelectTreeTag(previousResult)){}
+        else if(previousProject is not null&&SelectTreeTag(previousProject)){}
+        else if(previousPaper is not null&&SelectTreeTag(previousPaper)){}
+        else if(ProjectTree.Items.Count>0)
+        {
+            var first=(TreeViewItem)ProjectTree.Items[0];
+            if(first.Tag is PaperProject paper)_activePaper=paper;
+            first.IsSelected=true;
+        }
     }
 
     private void ProjectTree_SelectedItemChanged(object sender,
         RoutedPropertyChangedEventArgs<object> e)
     {
-        if (_refreshingTree) return;
-        if (_libraryMode)
+        if(_refreshingTree)return;
+        if(_libraryMode)
         {
-            if (ProjectTree.SelectedItem is TreeViewItem { Tag: PaperEntry paper })
+            if(ProjectTree.SelectedItem is TreeViewItem {Tag:PaperEntry paper})
                 LoadPaper(paper);
             return;
         }
@@ -198,18 +201,34 @@ public partial class MainWindow : Window
         if(node.Tag is PaperProject paperProject)
         {
             _activePaper=paperProject;_activeProject=null;_activeResult=null;
+            CloseManuscripts();
+        }
+        else if(node.Tag is PaperDocumentsNode docs)
+        {
+            _activePaper=_workspace?.ListPaperProjects().FirstOrDefault(p=>p.Id==docs.PaperId);
+            LoadManuscripts(docs.PaperId);
+            UpdateActionAvailability();
+            return;
+        }
+        else if(node.Tag is PaperExperimentsNode group)
+        {
+            _activePaper=_workspace?.ListPaperProjects().FirstOrDefault(p=>p.Id==group.PaperId);
+            _activeProject=null;_activeResult=null;
+            CloseManuscripts();
         }
         else if(node.Tag is ExperimentProject project)
         {
             _activeProject=project;_activeResult=null;
-            _activePaper=(node.Parent as TreeViewItem)?.Tag as PaperProject;
+            _activePaper=((node.Parent as TreeViewItem)?.Parent as TreeViewItem)?.Tag as PaperProject;
+            CloseManuscripts();
         }
         else if(node.Tag is ExperimentResult result)
         {
             _activeResult=result;
             var parent=node.Parent as TreeViewItem;
             _activeProject=parent?.Tag as ExperimentProject;
-            _activePaper=(parent?.Parent as TreeViewItem)?.Tag as PaperProject;
+            _activePaper=((parent?.Parent as TreeViewItem)?.Parent as TreeViewItem)?.Tag as PaperProject;
+            CloseManuscripts();
         }
         LoadScopeAssets();
         UpdateActionAvailability();
@@ -231,7 +250,11 @@ public partial class MainWindow : Window
         RefreshItems();
     }
 
-    private void Search_Changed(object sender, TextChangedEventArgs e) => RefreshItems();
+    private void Search_Changed(object sender, TextChangedEventArgs e)
+    {
+        if(_showManuscripts)UpdateManuscriptList();
+        else RefreshItems();
+    }
 
     private void RefreshItems()
     {
@@ -269,6 +292,12 @@ public partial class MainWindow : Window
         if (_libraryMode)
         {
             StatusText.Text = $"论文资源库  |  显示 {LibraryFiles?.Items.Count ?? 0} / 共 {LibraryFiles?.Items.Count ?? 0} 个文件";
+            return;
+        }
+        if(_showManuscripts)
+        {
+            var count=ManuscriptList.Items.Count;
+            StatusText.Text=$"{CurrentScopePath()}  |  显示 {count} / 共 {_paperDocs.Count} 个文件  |  已选 {ManuscriptList.SelectedItems.Count} 项";
             return;
         }
         var path=CurrentScopePath();
@@ -324,10 +353,17 @@ public partial class MainWindow : Window
         SidebarHeading.Text = _libraryMode ? "已归档论文" : "论文项目";
         LibraryArea.Visibility = _libraryMode ? Visibility.Visible : Visibility.Collapsed;
         FolderList.Visibility = editor;
+        ManuscriptArea.Visibility=Visibility.Collapsed;
+        _showManuscripts=false;
         FileList.Visibility = _libraryMode || _thumbnailMode ? Visibility.Collapsed : Visibility.Visible;
         ThumbnailList.Visibility = _libraryMode || !_thumbnailMode ? Visibility.Collapsed : Visibility.Visible;
         if (_libraryMode) LoadPaperTree();
-        else {LoadProjectTree();LoadScopeAssets();}
+        else
+        {
+            LoadProjectTree();
+            if(_showManuscripts&&_activePaper is not null)LoadManuscripts(_activePaper.Id);
+            else LoadScopeAssets();
+        }
         UpdateActionAvailability();
         UpdateStatus();
     }
@@ -431,11 +467,7 @@ public partial class MainWindow : Window
             _activeProject = _workspace.ListProjects().First(p => p.Id == id);
             _activeResult = null;
             LoadProjectTree();
-            // The tree is hierarchical: Paper -> Experiment -> Result.
-            foreach(TreeViewItem paperNode in ProjectTree.Items)
-                foreach(TreeViewItem projectNode in paperNode.Items)
-                    if(projectNode.Tag is ExperimentProject p && p.Id==id)
-                    {projectNode.IsSelected=true;return;}
+            SelectTreeTag(_activeProject);
         }
         catch (Exception ex) { ShowError(ex); }
     }
@@ -655,6 +687,9 @@ public partial class MainWindow : Window
             ToggleDetails();
             e.Handled = true;
         }
+        else if(!_libraryMode && Keyboard.Modifiers==ModifierKeys.Control &&
+                e.Key==Key.Z && !SearchBox.IsKeyboardFocusWithin)
+            {UndoMove_Click(sender,new RoutedEventArgs());e.Handled=true;}
         else if(!_libraryMode && Keyboard.Modifiers==ModifierKeys.Control && e.Key==Key.X &&
             !SearchBox.IsKeyboardFocusWithin){CutAssets_Click(sender,new RoutedEventArgs());e.Handled=true;}
         else if(!_libraryMode && Keyboard.Modifiers==ModifierKeys.Control && e.Key==Key.V &&

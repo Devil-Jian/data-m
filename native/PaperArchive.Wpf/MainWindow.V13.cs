@@ -510,6 +510,18 @@ public partial class MainWindow
             ProjectTree.ContextMenu=menu;
             return;
         }
+        if(node.Tag is PaperDocumentsNode)
+        {
+            menu.Items.Add(Action("导入 PDF / Word 全文…",ImportPaperDocument_Click));
+            ProjectTree.ContextMenu=menu;
+            return;
+        }
+        if(node.Tag is PaperExperimentsNode)
+        {
+            menu.Items.Add(Action("新建实验项目",CreateProject_Click));
+            ProjectTree.ContextMenu=menu;
+            return;
+        }
         if(node.Tag is PaperProject)
         {
             menu.Items.Add(Action("新建实验项目",CreateProject_Click));

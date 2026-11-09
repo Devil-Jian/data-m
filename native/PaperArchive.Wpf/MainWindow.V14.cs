@@ -25,12 +25,12 @@ public partial class MainWindow
         string path=_activePaper?.Name??"论文项目";
         if(_activeProject is not null)path+=" > "+_activeProject.Name;
         if(_activeResult is not null)path+=" > "+_activeResult.Name;
-        return path+" > "+_activeFolder;
+        return _showManuscripts ? path+" > 论文全文" : path+" > "+_activeFolder;
     }
 
     private void LoadScopeAssets()
     {
-        if(_workspace is null)return;
+        if(_workspace is null||_showManuscripts)return;
         _all.Clear();
         var assets=_workspace.ListScopeAssets(_activePaper?.Id,
             _activeProject?.Id,_activeResult?.Id);
@@ -54,14 +54,32 @@ public partial class MainWindow
     private FrameworkElement TreeLabel(string label,string glyph,int count=-1)
     {
         var row=new StackPanel{Orientation=Orientation.Horizontal};
+        // Vector icon; avoids missing-glyph boxes on some Windows installations.
+        var folder=new System.Windows.Shapes.Path
+        {
+            Data=Geometry.Parse("M2,6 L8,6 L10,8 L21,8 L21,19 L2,19 Z"),
+            Fill=new SolidColorBrush(Color.FromRgb(246,205,116)),
+            Stroke=new SolidColorBrush(Color.FromRgb(179,133,49)),
+            StrokeThickness=1,
+            Width=16,Height=16,Stretch=Stretch.Uniform,
+            Margin=new Thickness(3,0,7,0),VerticalAlignment=VerticalAlignment.Center
+        };
+        var docIcon=new System.Windows.Shapes.Path
+        {
+            Data=Geometry.Parse("M4,2 L14,2 L19,7 L19,21 L4,21 Z M14,2 L14,7 L19,7"),
+            Fill=new SolidColorBrush(Color.FromRgb(230,240,249)),
+            Stroke=new SolidColorBrush(Color.FromRgb(62,110,161)),
+            StrokeThickness=1,
+            Width=16,Height=16,Stretch=Stretch.Uniform,
+            Margin=new Thickness(3,0,7,0),VerticalAlignment=VerticalAlignment.Center
+        };
+        row.Children.Add(glyph=="doc"||glyph=="paper"?docIcon:folder);
         row.Children.Add(new TextBlock{
-            Text=glyph, FontFamily=new FontFamily("Segoe MDL2 Assets"),
-            FontSize=14,Foreground=new SolidColorBrush(Color.FromRgb(210,151,34)),
-            Width=23,VerticalAlignment=VerticalAlignment.Center});
-        row.Children.Add(new TextBlock{Text=label,FontSize=12,
+            Text=label,FontSize=12,Foreground=new SolidColorBrush(Color.FromRgb(37,37,37)),
             VerticalAlignment=VerticalAlignment.Center});
         if(count>=0)row.Children.Add(new TextBlock{
-            Text=$" ({count})",FontSize=12,Foreground=Brushes.DimGray,
+            Text=$" ({count})",FontSize=12,
+            Foreground=new SolidColorBrush(Color.FromRgb(83,83,83)),
             VerticalAlignment=VerticalAlignment.Center});
         return row;
     }
@@ -310,6 +328,10 @@ public partial class MainWindow
     private void MoreMenu_Click(object sender,RoutedEventArgs e)
     {
         var menu=new ContextMenu();
+        var undo=Action("撤销上次移动    Ctrl+Z",UndoMove_Click);
+        undo.IsEnabled=_workspace?.CanUndoMove==true;
+        menu.Items.Add(undo);
+        menu.Items.Add(new Separator());
         menu.Items.Add(Action("复制到实验结果单元…",CopyToResult_Click));
         menu.Items.Add(Action("确认用于论文",ConfirmUsage_Click));
         menu.Items.Add(Action("复制文件路径",CopyPath_Click));
