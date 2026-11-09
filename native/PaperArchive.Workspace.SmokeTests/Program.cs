@@ -53,6 +53,46 @@ try
     var another=repo.ImportResult(project,source2);
     Assert(another.DataGroupCount==1 && repo.ListAssets(another.ResultId).Single().GroupId!=show.GroupId,
         "identical prefix in different results must remain distinct");
+    // PRD v1.3: paper -> experiment -> result, stable move/copy IDs, trash and templates.
+    var paperId=repo.CreatePaperProject("氧化应激论文工作区");
+    var workingProject=repo.CreateProjectForPaper(paperId,"新实验项目");
+    Assert(repo.ListProjectsForPaper(paperId).Single().Id==workingProject,"paper/project hierarchy");
+    var figures=repo.CreateFigure(paperId);
+    var fig=repo.ListFigures(paperId).Single();
+    Assert(fig.Id==figures && fig.Number==1,"Figure auto numbering");
+    repo.CreatePanel(fig.Id,"a");
+    Assert(repo.ListPanels(fig.Id).Single().Label=="A","Panel template");
+    var destination=repo.CreateResult(workingProject,"重新整理的 ROS");
+    var moved=repo.MoveAssets(ros.Select(x=>x.Id),destination);
+    Assert(moved==4 && repo.ListAssets(destination).Count==4,"logical move entire group");
+    var movedRos=repo.ListAssets(destination);
+    Assert(movedRos.Single(x=>x.Stage=="raw").Id==raw.Id &&
+           movedRos.Single(x=>x.Stage=="show").Sha256==show.Sha256,
+           "move preserves asset identity and contents");
+    Assert(movedRos.All(x=>x.GroupId==show.GroupId),"complete group move preserves group id");
+    var copiedResult=repo.CreateResult(workingProject,"复制实验结果");
+    repo.CopyAssets(movedRos.Select(x=>x.Id),copiedResult);
+    var copies=repo.ListAssets(copiedResult);
+    Assert(copies.Count==4 && copies.All(x=>!movedRos.Any(y=>y.Id==x.Id)),
+           "logical copy creates independent Asset IDs");
+    Assert(copies.Select(x=>x.Sha256).Order().SequenceEqual(
+           movedRos.Select(x=>x.Sha256).Order()),"logical copy shares immutable bytes");
+    repo.RenameAsset(copies[0].Id,"renamed.tif");
+    Assert(repo.ListAssets(copiedResult).Any(x=>x.Id==copies[0].Id&&x.FileName=="renamed.tif"),
+           "rename preserves ID");
+    repo.SetAssetDeleted([copies[0].Id],true);
+    Assert(repo.ListAssets(copiedResult).Count==3 &&
+           repo.ListDeletedAssets(copiedResult).Count==1,"soft delete");
+    repo.SetAssetDeleted([copies[0].Id],false);
+    Assert(repo.ListAssets(copiedResult).Count==4,"restore");
+    repo.RenameResult(destination,"ROS 汇总");
+    Assert(repo.ListResults(workingProject).Any(x=>x.Id==destination&&x.Name=="ROS 汇总"),
+           "result rename");
+    Assert(repo.ListPaperProjects().Any(x=>x.Id==paperId),"paper persists");
+    repo.AssignUsageToPaper(usage.Id,paperId);
+    Assert(repo.ListUsages(show.Id).Single().PaperTitle=="Paper A",
+           "usage association retains prior Figure label");
+    Console.WriteLine("PASS: V1.3 papers, figures, panels, move, copy, stable IDs, rename, delete/restore.");
     Console.WriteLine("PASS: workspace import, naming, SHA-256, source safety, no overwrite, Figure usage, reopen, group separation.");
 }
 finally

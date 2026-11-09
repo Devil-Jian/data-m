@@ -17,7 +17,7 @@ public sealed record WorkspaceImportResult(string ResultId, int FileCount, int D
 /// Separate experimental workspace. Legacy paper archive database and migrations are untouched.
 /// Imported content is copied byte-for-byte into the existing content-addressed blob store.
 /// </summary>
-public sealed class ExperimentWorkspace
+public sealed partial class ExperimentWorkspace
 {
     private readonly string _root;
     private readonly string _connectionString;
@@ -42,6 +42,7 @@ public sealed class ExperimentWorkspace
         Directory.CreateDirectory(Path.Combine(root, "blobs", "sha256"));
         var workspace = new ExperimentWorkspace(root);
         workspace.Initialize();
+        workspace.InitializeV13();
         return workspace;
     }
 
@@ -144,7 +145,7 @@ public sealed class ExperimentWorkspace
         cmd.CommandText = """
             SELECT a.id,a.result_id,a.group_id,g.prefix,a.stage,a.relative_path,a.filename,a.size,a.sha256
             FROM experiment_assets a JOIN experiment_groups g ON g.id=a.group_id
-            WHERE a.result_id=$id
+            WHERE a.result_id=$id AND a.is_deleted=0
             ORDER BY a.relative_path COLLATE NOCASE
             """;
         cmd.Parameters.AddWithValue("$id", resultId);
