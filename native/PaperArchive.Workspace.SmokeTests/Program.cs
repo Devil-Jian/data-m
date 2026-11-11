@@ -373,8 +373,11 @@ try
     Assert(repo.ListAssetUpstream(show.Id).Single().SourceAssetId==process.Id &&
         repo.ListAssetUpstream(process.Id).Single().SourceAssetId==raw.Id,
         "explicit SHOW to PROCESS to RAW provenance");
-    Assert(repo.ListSameGroupUpstreamCandidates(show.Id).Count==2,
-        "same-group PROCESS files remain unverified candidates");
+    var downstreamCandidates=repo.ListSameGroupUpstreamCandidates(show.Id);
+    Assert(downstreamCandidates.Count>=2 &&
+        downstreamCandidates.Count(x=>x.Asset.GroupId==show.GroupId)==2 &&
+        downstreamCandidates.All(x=>x.Relation.Contains("未确认")),
+        "existing and cross-import PROCESS files remain unverified candidates");
     repo.SetPaperFigureLink(pdfDoc.Id,figuresNew[0].Id,v1.Id,true);
     var pinned=repo.ListPaperFigureLinks(pdfDoc.Id).Single();
     Assert(pinned.Version==1 && pinned.Status=="confirmed",
