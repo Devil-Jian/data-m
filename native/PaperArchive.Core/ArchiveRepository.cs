@@ -10,7 +10,7 @@ public sealed record ImportPlan(string SourceRelativePath, string LogicalRelativ
     int? Figure, string? Panel, int? Sequence);
 public sealed record ImportSummary(string PaperId, int Files, int Figures, int Warnings);
 
-public sealed class ArchiveRepository
+public sealed partial class ArchiveRepository
 {
     private readonly string _root;
     private readonly string _connectionString;
@@ -36,6 +36,7 @@ public sealed class ArchiveRepository
         Directory.CreateDirectory(Path.Combine(root, "blobs", "sha256"));
         var repo = new ArchiveRepository(root);
         repo.Initialize();
+        repo.InitializeWorkspaceArchives();
         return repo;
     }
 
