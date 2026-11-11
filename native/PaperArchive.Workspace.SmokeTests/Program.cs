@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using PaperArchive.Core.Workspace;
+using PaperArchive.Core;
 
 static void Assert(bool condition,string description)
 {
@@ -305,6 +306,40 @@ try
         "unlinking current Panel SHOW preserves confirmed historical composite source");
     Assert(repo.DescribeDocumentProvenance(pdfDoc.Id).Contains(show.FileName),
         "manuscript lineage remains readable after live Panel unlink");
+    // V15-16: archive only the exact confirmed manuscript Figure graph.
+    var archive=ArchiveRepository.Open(repo.Root);
+    var preview=archive.PrepareWorkspaceArchive(repo,paperId,pdfDoc.Id);
+    Assert(preview.CanPublish && preview.FigureCount==1 &&
+        preview.Resources.Any(x=>x.Role=="manuscript") &&
+        preview.Resources.Any(x=>x.Role=="composite") &&
+        preview.Resources.Any(x=>x.Role=="show") &&
+        preview.Resources.Any(x=>x.Role=="process") &&
+        preview.Resources.Any(x=>x.Role=="raw"),
+        "archive preflight includes a complete verified paper-to-RAW graph");
+    var archived=archive.PublishWorkspaceArchive(preview);
+    Assert(!archived.AlreadyArchived && archived.Revision==1 &&
+        archive.ListPapers().Any(p=>p.Id==archived.PaperId&&p.Status=="archived"),
+        "workspace paper published in resource library");
+    Assert(archive.ListResources(archived.PaperId).Count==preview.Resources.Count &&
+        archive.GetWorkspaceArchiveManifest(archived.PaperId,1)==preview.ManifestJson,
+        "archive has immutable resource list and exact relation manifest");
+    Assert(archive.PublishWorkspaceArchive(preview).AlreadyArchived &&
+        archive.ListWorkspaceRevisions(archived.PaperId).Count==1,
+        "repeated archive of same manifest is idempotent");
+    repo.SetPaperFigureLink(pdfDoc.Id,figuresNew[0].Id,v2.Id,true);
+    var revisionPreview=archive.PrepareWorkspaceArchive(repo,paperId,pdfDoc.Id);
+    var revision=archive.PublishWorkspaceArchive(revisionPreview,true);
+    Assert(revision.PaperId==archived.PaperId && revision.Revision==2 &&
+        archive.ListWorkspaceRevisions(archived.PaperId).Count==2 &&
+        archive.GetWorkspaceArchiveManifest(archived.PaperId,1)==preview.ManifestJson,
+        "subsequent edits create revision 2 without changing revision 1");
+    var incomplete=archive.PrepareWorkspaceArchive(repo,paperId,wordDoc.Id);
+    Assert(!incomplete.CanPublish,"manuscript without Figure links blocks archive");
+    bool blocked=false;
+    try{archive.PublishWorkspaceArchive(incomplete);}catch(InvalidOperationException){blocked=true;}
+    Assert(blocked,"blocked archive cannot be published");
+    Assert(ArchiveRepository.Open(repo.Root).ListWorkspaceArchiveResources(archived.PaperId,1).Count==
+        preview.Resources.Count,"archived revision persists after reopen");
     var expectedNoFile=repo.CreateFiguresFast(paperId,1,1);
     Assert(repo.ListFigureComposites(expectedNoFile.Single().Id).Count==0 &&
         repo.ListPanelAssets(repo.ListPanels(expectedNoFile.Single().Id)[0].Id).Count==0,
