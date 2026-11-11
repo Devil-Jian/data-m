@@ -48,6 +48,7 @@ public sealed partial class ExperimentWorkspace
         workspace.InitializePaperDocuments();
         workspace.InitializeFigureWorkspace();
         workspace.InitializeProvenance();
+        workspace.InitializePaperWorkPreferences();
         return workspace;
     }
 
