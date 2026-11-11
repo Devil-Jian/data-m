@@ -71,25 +71,6 @@ try
     var cropTag=repo.GetAssetSystemTags(ros.Single(x=>x.FileName=="ROS01_crop.tif").Id);
     Assert(cropTag is {SampleName:"ROS01",Stage:"process",ProcessSubtype:"crop"},
         "unknown PROCESS suffix is stored as an automatic subtype");
-    // A flat root folder requires no raw_data/show_data directory convention.
-    var flat=Path.Combine(root,"source","平铺ROS实验");
-    Directory.CreateDirectory(flat);
-    File.WriteAllBytes(Path.Combine(flat,"ROS010_raw.tif"),[31]);
-    File.WriteAllBytes(Path.Combine(flat,"ROS010_crop.tif"),[32]);
-    File.WriteAllBytes(Path.Combine(flat,"ROS010_show.png"),[33]);
-    File.WriteAllBytes(Path.Combine(flat,"ROS01_raw.tif"),[34]);
-    File.WriteAllBytes(Path.Combine(flat,"ROS01_adjusted_v2.tif"),[35]);
-    File.WriteAllBytes(Path.Combine(flat,"ROS01_quant.tif"),[36]);
-    var flatResult=repo.ImportResult(project,flat);
-    var flatAssets=repo.ListAssets(flatResult.ResultId);
-    Assert(flatAssets.Count(x=>x.Stage=="process")==2 &&
-        repo.GetAssetSystemTags(flatAssets.Single(x=>x.FileName=="ROS01_adjusted_v2.tif").Id)
-        is {SampleName:"ROS01",ProcessSubtype:"adjusted",FileVersion:2} &&
-        repo.GetAssetSystemTags(flatAssets.Single(x=>x.FileName=="ROS010_crop.tif").Id)
-        is {SampleName:"ROS010",ProcessSubtype:"crop"} &&
-        repo.GetAssetSystemTags(flatAssets.Single(x=>x.FileName=="ROS01_raw.tif").Id)
-        ?.ExperimentName=="平铺ROS实验",
-        "flat root stage inference respects ROS01 and ROS010 sample boundaries");
     var exports=Path.Combine(root,"figures");
     var usage=repo.ExportForFigure(show,"Paper A",2,"a",exports);
     Assert(usage.State=="exported" && usage.Panel=="A","usage created");
@@ -713,6 +694,25 @@ try
     var afterDelete=repo.CreateFiguresFast(emptyPaper,1);
     Assert(afterDelete.Single().Number==6,
         "next Figure uses max current number after deleting renamed Figure 7");
+    // A flat root folder requires no raw_data/show_data directory convention.
+    var flat=Path.Combine(root,"source","平铺ROS实验");
+    Directory.CreateDirectory(flat);
+    File.WriteAllBytes(Path.Combine(flat,"ROS010_raw.tif"),[31]);
+    File.WriteAllBytes(Path.Combine(flat,"ROS010_crop.tif"),[32]);
+    File.WriteAllBytes(Path.Combine(flat,"ROS010_show.png"),[33]);
+    File.WriteAllBytes(Path.Combine(flat,"ROS01_raw.tif"),[34]);
+    File.WriteAllBytes(Path.Combine(flat,"ROS01_adjusted_v2.tif"),[35]);
+    File.WriteAllBytes(Path.Combine(flat,"ROS01_quant.tif"),[36]);
+    var flatResult=repo.ImportResult(project,flat);
+    var flatAssets=repo.ListAssets(flatResult.ResultId);
+    Assert(flatAssets.Count(x=>x.Stage=="process")==2 &&
+        repo.GetAssetSystemTags(flatAssets.Single(x=>x.FileName=="ROS01_adjusted_v2.tif").Id)
+        is {SampleName:"ROS01",ProcessSubtype:"adjusted",FileVersion:2} &&
+        repo.GetAssetSystemTags(flatAssets.Single(x=>x.FileName=="ROS010_crop.tif").Id)
+        is {SampleName:"ROS010",ProcessSubtype:"crop"} &&
+        repo.GetAssetSystemTags(flatAssets.Single(x=>x.FileName=="ROS01_raw.tif").Id)
+        ?.ExperimentName=="平铺ROS实验",
+        "flat root stage inference respects ROS01 and ROS010 sample boundaries");
     Console.WriteLine("PASS: V1.5 figure placeholders, batch numbering, linking, material manifest, versioning, verified exports.");
     Console.WriteLine("PASS: Manuscript PDF/DOCX snapshot and persistent logical move undo.");
     Console.WriteLine("PASS: V1.3 papers, figures, panels, move, copy, stable IDs, rename, delete/restore.");
