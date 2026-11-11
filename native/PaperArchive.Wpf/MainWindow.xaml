@@ -231,6 +231,9 @@
                 </Border>
                 <Grid Grid.Row="1">
                     <ListView x:Name="FileList" SelectionMode="Extended"
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  VirtualizingPanel.VirtualizationMode="Recycling"
+                                  ScrollViewer.CanContentScroll="True"
                               SelectionChanged="AssetSelection_Changed"
                               MouseDoubleClick="Files_DoubleClick"
                               PreviewMouseLeftButtonDown="Files_PreviewMouseLeftButtonDown"
@@ -260,6 +263,9 @@
                         </ListView.View>
                     </ListView>
                     <ListBox x:Name="ThumbnailList" Visibility="Collapsed" Background="White"
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  VirtualizingPanel.VirtualizationMode="Recycling"
+                                  ScrollViewer.CanContentScroll="True"
                              SelectionMode="Extended" BorderThickness="0"
                              SelectionChanged="AssetSelection_Changed"
                              MouseDoubleClick="Files_DoubleClick"
@@ -400,6 +406,9 @@
                             </DockPanel>
                         </Border>
                         <ListView x:Name="FigureFiles" Grid.Row="2" BorderThickness="0"
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  VirtualizingPanel.VirtualizationMode="Recycling"
+                                  ScrollViewer.CanContentScroll="True"
                                   SelectionMode="Extended"
                                   SelectionChanged="FigureFiles_SelectionChanged"
                                   MouseDoubleClick="FigureFiles_DoubleClick"
@@ -506,6 +515,9 @@
                             <GridSplitter Grid.Column="1" Width="5"
                                           HorizontalAlignment="Stretch" Background="#FFEDEDED"/>
                             <ListView x:Name="LibraryFiles" Grid.Column="2"
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  VirtualizingPanel.VirtualizationMode="Recycling"
+                                  ScrollViewer.CanContentScroll="True"
                                       BorderThickness="0"
                                       SelectionChanged="LibraryFiles_SelectionChanged">
                                 <ListView.View>
