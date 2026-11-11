@@ -11,7 +11,7 @@ public sealed record AssetPaperReference(
     string AssetId, string ShowAssetId, string FigureId, int FigureNumber,
     string PanelId, string PanelLabel, string? CompositeId, int? CompositeVersion,
     string? DocumentId, string? DocumentName, string ReferenceKind,
-    string SourceStatus, string ProcessingStatus);
+    string SourceStatus, string ProcessingStatus, string? DocumentLinkStatus);
 
 public sealed partial class ExperimentWorkspace
 {
@@ -45,7 +45,7 @@ public sealed partial class ExperimentWorkspace
               FROM downstream GROUP BY id
             )
             SELECT $asset, s.id, f.id, f.number, p.id, p.label,
-                   NULL,NULL,NULL,NULL,'working','current',s.confidence
+                   NULL,NULL,NULL,NULL,'working','current',s.confidence,NULL
             FROM target_shows s
             JOIN experiment_assets a ON a.id=s.id AND a.stage='show'
             JOIN figure_panel_assets l ON l.asset_id=s.id
@@ -55,7 +55,7 @@ public sealed partial class ExperimentWorkspace
             SELECT $asset,s.id,f.id,f.number,
                    COALESCE(h.panel_id,''),h.panel_label,
                    c.id,c.version,doc.id,doc.filename,
-                   'snapshot',h.status,s.confidence
+                   'snapshot',h.status,s.confidence,ref.status
             FROM target_shows s
             JOIN experiment_assets a ON a.id=s.id AND a.stage='show'
             JOIN figure_composite_source_snapshots h ON h.asset_id=s.id
@@ -76,7 +76,8 @@ public sealed partial class ExperimentWorkspace
                 rd.IsDBNull(7)?null:rd.GetInt32(7),
                 rd.IsDBNull(8)?null:rd.GetString(8),
                 rd.IsDBNull(9)?null:rd.GetString(9),
-                rd.GetString(10),rd.GetString(11),rd.GetString(12)));
+                rd.GetString(10),rd.GetString(11),rd.GetString(12),
+                rd.IsDBNull(13)?null:rd.GetString(13)));
         return result;
     }
 
@@ -92,7 +93,7 @@ public sealed partial class ExperimentWorkspace
             SELECT h.asset_id,h.asset_id,f.id,f.number,
                    COALESCE(h.panel_id,''),h.panel_label,
                    c.id,c.version,d.id,d.filename,
-                   'snapshot',h.status,link.status
+                   'snapshot',h.status,link.status,link.status
             FROM paper_document_figure_versions link
             JOIN paper_documents d ON d.id=link.document_id
             JOIN figure_templates f ON f.id=link.figure_id
@@ -108,7 +109,8 @@ public sealed partial class ExperimentWorkspace
             result.Add(new(rd.GetString(0),rd.GetString(1),rd.GetString(2),
                 rd.GetInt32(3),rd.GetString(4),rd.GetString(5),
                 rd.GetString(6),rd.GetInt32(7),rd.GetString(8),rd.GetString(9),
-                rd.GetString(10),rd.GetString(11),rd.GetString(12)));
+                rd.GetString(10),rd.GetString(11),rd.GetString(12),
+                rd.GetString(13)));
         return result;
     }
 }
