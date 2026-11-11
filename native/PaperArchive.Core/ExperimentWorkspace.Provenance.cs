@@ -196,14 +196,14 @@ public sealed partial class ExperimentWorkspace
 
     // Captured at import; changing live Panel links never rewrites history.
     private static void CaptureCompositeSources(SqliteConnection db,
-        SqliteTransaction tx,string figureId,string compositeId)
+        SqliteTransaction tx,string figureId,string compositeId,string status="candidate")
     {
         using var cmd=db.CreateCommand();
         cmd.Transaction=tx;
         cmd.CommandText="""
             INSERT INTO figure_composite_source_snapshots(
                 composite_id,panel_id,panel_label,asset_id,asset_sha256,status,captured_at)
-            SELECT $composite,p.id,p.label,a.id,a.sha256,'candidate',$now
+            SELECT $composite,p.id,p.label,a.id,a.sha256,$status,$now
             FROM figure_panel_assets l
             JOIN panel_templates p ON p.id=l.panel_id
             JOIN experiment_assets a ON a.id=l.asset_id
@@ -212,7 +212,36 @@ public sealed partial class ExperimentWorkspace
         cmd.Parameters.AddWithValue("$composite",compositeId);
         cmd.Parameters.AddWithValue("$figure",figureId);
         cmd.Parameters.AddWithValue("$now",UtcNow());
+        cmd.Parameters.AddWithValue("$status",status);
         cmd.ExecuteNonQuery();
+    }
+
+    // Old composite versions have no captured inputs. Never silently turn live
+    // Panel links into historical evidence: backfill is explicitly review-only.
+    public int SuggestLegacyCompositeSources(string compositeId)
+    {
+        using var db=Connect();
+        using var tx=db.BeginTransaction();
+        using var check=db.CreateCommand();
+        check.Transaction=tx;
+        check.CommandText="SELECT figure_id FROM figure_composites WHERE id=$id";
+        check.Parameters.AddWithValue("$id",compositeId);
+        var figureId=check.ExecuteScalar() as string ??
+            throw new KeyNotFoundException("完整成图版本不存在。");
+        using var existing=db.CreateCommand();
+        existing.Transaction=tx;
+        existing.CommandText="SELECT COUNT(*) FROM figure_composite_source_snapshots WHERE composite_id=$id";
+        existing.Parameters.AddWithValue("$id",compositeId);
+        if(Convert.ToInt32(existing.ExecuteScalar())>0)
+            throw new InvalidOperationException("此版本已有来源记录，不能覆盖历史快照。");
+        CaptureCompositeSources(db,tx,figureId,compositeId,"review");
+        using var count=db.CreateCommand();
+        count.Transaction=tx;
+        count.CommandText="SELECT COUNT(*) FROM figure_composite_source_snapshots WHERE composite_id=$id";
+        count.Parameters.AddWithValue("$id",compositeId);
+        var result=Convert.ToInt32(count.ExecuteScalar());
+        tx.Commit();
+        return result;
     }
 
     public void ConfirmCompositeSources(string compositeId)
