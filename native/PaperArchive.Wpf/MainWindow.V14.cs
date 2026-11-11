@@ -37,14 +37,11 @@ public partial class MainWindow
         _all.Clear();
         var assets=_workspace.ListScopeAssets(_activePaper?.Id,
             _activeProject?.Id,_activeResult?.Id);
+        var usages=_workspace.ListScopeUsageLabels(_activePaper?.Id,
+            _activeProject?.Id,_activeResult?.Id);
         foreach(var entry in assets)
-        {
-            var usage=_workspace.ListUsages(entry.Asset.Id)
-                .Where(x=>x.State is "confirmed" or "exported")
-                .Select(x=>$"Fig {x.Figure}{x.Panel}").Distinct().ToArray();
             _all.Add(new AssetRow(_workspace,entry.Asset,
-                usage.Length==0?"—":string.Join(", ",usage),entry.ResultName));
-        }
+                usages.TryGetValue(entry.Asset.Id,out var label)?label:"—",entry.ResultName));
         // The result name column is needed only for aggregate views.
         if(FileList?.View is GridView gv)
         {
