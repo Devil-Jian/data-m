@@ -342,6 +342,23 @@ try
     try{repo.LinkShowAssets(aPanel.Id,new[]{raw.Id});}
     catch(InvalidOperationException){rejectsRaw=true;}
     Assert(rejectsRaw,"RAW asset cannot be bound as panel material");
+    // V1.6: dropping multiple SHOW assets on Figure creates consecutive
+    // Panels atomically; data stays in its experiment and hashes are preserved.
+    var newPanelShows=new[]{show.Id,copies.Single(x=>x.Stage=="show").Id};
+    var droppedPanels=repo.LinkShowAssetsToNewPanels(latest.Single().Id,newPanelShows);
+    Assert(droppedPanels.Select(x=>x.Label).SequenceEqual(new[]{"D","E"}) &&
+        repo.ListPanels(latest.Single().Id).Count==5,
+        "Figure drop creates consecutive Panel slots for multiple SHOW assets");
+    Assert(droppedPanels.SelectMany(p=>repo.ListPanelAssets(p.Id))
+        .Select(x=>x.AssetId).SequenceEqual(newPanelShows),
+        "Figure drop makes stable references without copying SHOW bytes");
+    var beforeFailedDrop=repo.ListPanels(latest.Single().Id).Count;
+    var invalidDropRejected=false;
+    try{repo.LinkShowAssetsToNewPanels(latest.Single().Id,new[]{show.Id,quant.Id});}
+    catch(InvalidOperationException){invalidDropRejected=true;}
+    Assert(invalidDropRejected &&
+        repo.ListPanels(latest.Single().Id).Count==beforeFailedDrop,
+        "mixed SHOW and QUANT drag does not leave an orphan Panel");
     var exportRoot=Path.Combine(root,"figure-exports");
     var materialExport=repo.ExportFigureMaterials(figuresNew[0].Id,exportRoot);
     Assert(materialExport.ExportedCount==1 && File.Exists(materialExport.ManifestPath),
