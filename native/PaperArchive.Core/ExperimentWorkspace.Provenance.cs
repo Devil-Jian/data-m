@@ -285,7 +285,8 @@ public sealed partial class ExperimentWorkspace
             JOIN experiment_groups g ON g.id=a.group_id
             WHERE target.id=$id AND a.id<>target.id AND a.is_deleted=0 AND
                   ((target.stage='show' AND a.stage='process')
-                   OR (target.stage='process' AND a.stage='raw'))
+                   OR (target.stage='process' AND a.stage='raw')
+                   OR (target.stage='quant' AND a.stage IN ('raw','process')))
             ORDER BY a.stage,a.filename
             """;
         cmd.Parameters.AddWithValue("$id",assetId);
@@ -320,8 +321,9 @@ public sealed partial class ExperimentWorkspace
             throw new KeyNotFoundException("素材不存在。");
         if(source.Group!=target.Group||
            !(source.Stage=="raw"&&target.Stage=="process"||
-             source.Stage=="process"&&target.Stage=="show"))
-            throw new InvalidOperationException("只允许同组 RAW→PROCESS 或 PROCESS→SHOW 来源关联。");
+             source.Stage=="process"&&target.Stage=="show"||
+             (source.Stage=="raw"||source.Stage=="process")&&target.Stage=="quant"))
+            throw new InvalidOperationException("只允许同组 RAW→PROCESS、PROCESS→SHOW，以及 RAW/PROCESS→QUANT 来源关联。");
         using var insert=db.CreateCommand();
         insert.Transaction=tx;
         insert.CommandText="""
