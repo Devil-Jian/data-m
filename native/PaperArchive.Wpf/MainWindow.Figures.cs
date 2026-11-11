@@ -834,6 +834,23 @@ public partial class MainWindow
         catch(Exception ex){ShowError(ex);}
     }
 
+    private void SuggestLegacySources_Click(object sender,RoutedEventArgs e)
+    {
+        if(_workspace is null||_figureContextTarget?.Item is not FigureComposite composite)return;
+        if(System.Windows.MessageBox.Show(this,
+            "将使用此刻的 Panel/SHOW 关联生成待核对的候选记录。\n"+
+            "这不能证明历史版本当时使用了这些素材。确定继续？",
+            "补录历史来源候选",MessageBoxButton.YesNo,MessageBoxImage.Warning)!=
+            MessageBoxResult.Yes)return;
+        try
+        {
+            var count=_workspace.SuggestLegacyCompositeSources(composite.Id);
+            System.Windows.MessageBox.Show(this,
+                $"已补录 {count} 条待核对来源。请核对实际使用图片后再确认。");
+        }
+        catch(Exception ex){ShowError(ex);}
+    }
+
     private void ConfirmCompositeSources_Click(object sender,RoutedEventArgs e)
     {
         if(_workspace is null||_figureContextTarget?.Item is not FigureComposite composite)return;
@@ -920,6 +937,7 @@ public partial class MainWindow
                 menu.Items.Add(new Separator());
                 menu.Items.Add(Action("导出完整 Figure…",ExportComposite_Click));
                 menu.Items.Add(Action("设为当前版本",SetCurrentComposite_Click));
+                menu.Items.Add(Action("补录历史来源候选…",SuggestLegacySources_Click));
                 menu.Items.Add(Action("核对此版本的 Panel/SHOW 来源…",ConfirmCompositeSources_Click));
                 break;
         }
