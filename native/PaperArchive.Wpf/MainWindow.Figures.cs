@@ -17,6 +17,7 @@ public partial class MainWindow
     private static string FigureImageSlotName(int figureNumber)=>$"Figure{figureNumber}";
     private sealed record FigureRow(string Name,string Type,string Count,
         string Status,string Detail,object Item);
+    private sealed record CompositeSourceCard(string Title,string Status,BitmapImage? Thumbnail);
     private bool _figureMode;
     private FigureTemplate? _currentFigure;
     private PanelTemplate? _currentPanel;
@@ -54,6 +55,9 @@ public partial class MainWindow
         ThumbnailList.Visibility=Visibility.Collapsed;
         FolderList.IsEnabled=false;
         RelatedHeading.Text="同组文件";
+        RelatedHeading.Visibility=Visibility.Visible;
+        RelatedFiles.Visibility=Visibility.Visible;
+        CompositeSourcesPanel.Visibility=Visibility.Collapsed;
         UsageHeading.Text="论文用途";
         RefreshFigureView();
     }
@@ -63,6 +67,9 @@ public partial class MainWindow
         _figureMode=false;
         _currentFigure=null;_currentPanel=null;_showOnlyComposites=false;
         if(FigureArea is not null)FigureArea.Visibility=Visibility.Collapsed;
+        if(CompositeSourcesPanel is not null)CompositeSourcesPanel.Visibility=Visibility.Collapsed;
+        if(RelatedHeading is not null)RelatedHeading.Visibility=Visibility.Visible;
+        if(RelatedFiles is not null)RelatedFiles.Visibility=Visibility.Visible;
         if(FolderList is not null)FolderList.IsEnabled=true;
         if(!_libraryMode&&!_showManuscripts)
         {
@@ -124,6 +131,9 @@ public partial class MainWindow
         BatchPanelButton.IsEnabled=QuickPanelButton.IsEnabled;
         UpdateStatus();
         PreviewImage.Source=null;
+        CompositeSourcesPanel.Visibility=Visibility.Collapsed;
+        RelatedHeading.Visibility=Visibility.Visible;
+        RelatedFiles.Visibility=Visibility.Visible;
         DetailName.Text=_currentPanel is not null?"Panel "+_currentPanel.Label:
             _currentFigure is not null?"Figure "+_currentFigure.Number:"组图项目";
         DetailMeta.Text=_currentPanel is not null?"占位引用实验项目中的 SHOW 图片，不移动原始文件。":
@@ -133,6 +143,10 @@ public partial class MainWindow
 
     private void FigureFiles_SelectionChanged(object sender,SelectionChangedEventArgs e)
     {
+        CompositeSourcesPanel.Visibility=Visibility.Collapsed;
+        CompositeSourceCards.ItemsSource=null;
+        RelatedHeading.Visibility=Visibility.Visible;
+        RelatedFiles.Visibility=Visibility.Visible;
         if(FigureFiles?.SelectedItem is not FigureRow row)
         {
             PreviewImage.Source=null;
@@ -157,13 +171,51 @@ public partial class MainWindow
         if(row.Item is PanelAssetLink link)
         {
             DetailMeta.Text+=$"\nAsset ID：{link.AssetId}\nSHA-256：{link.Sha256}";
-            RelatedFiles.ItemsSource=new[]{"同组 RAW / PROCESS 可在实验项目内查看。"};
+            RelatedHeading.Text="同样本上游（候选，未确认）";
+            RelatedFiles.ItemsSource=_workspace?.ListSameGroupUpstreamCandidates(link.AssetId)
+                .Select(x=>$"{x.Asset.Stage.ToUpperInvariant()} · {x.Asset.FileName}（未确认）")
+                .ToArray();
             if(PreviewImage.Source is null)
                 DetailMeta.Text+="\n图片无法预览：文件可能缺失、损坏或格式不受支持。";
         }
         else RelatedFiles.ItemsSource=null;
-        if(row.Item is FigureComposite && PreviewImage.Source is null)
-            DetailMeta.Text+="\n图片无法预览：文件可能缺失、损坏或格式不受支持。";
+        if(row.Item is FigureComposite compositeRow && _workspace is not null)
+        {
+            if(PreviewImage.Source is null)
+                DetailMeta.Text+="\n成图无法预览：文件可能缺失、损坏或格式不受支持。";
+            try
+            {
+                var review=_workspace.PreviewCompositeSourceReview(compositeRow.Id);
+                var cards=new List<CompositeSourceCard>();
+                bool allReadable=true;
+                foreach(var source in review.Sources)
+                {
+                    var asset=_workspace.GetProvenanceAsset(source.AssetId);
+                    if(asset is null || !source.AssetSha256.Equals(asset.Sha256,
+                        StringComparison.OrdinalIgnoreCase)) allReadable=false;
+                    cards.Add(new(
+                        $"Panel {source.PanelLabel} · {asset?.FileName??"素材已缺失"}",
+                        review.IsLivePanelCandidate?"当前 Panel 候选 · 历史未核实":
+                            source.Status=="confirmed"?"已确认的版本来源":"此版本来源待核对",
+                        asset is null?null:new AssetRow(_workspace,asset,"").Thumbnail));
+                }
+                CompositeSourceCards.ItemsSource=cards;
+                CompositeSourcesNotice.Text=review.IsLivePanelCandidate?
+                    "此成图版本没有历史来源快照。下方仅是当前 Panel 的候选，不代表过去实际使用。":
+                    "下方为这个成图版本保存的历史来源快照，不随当前 Panel 的修改而变化。";
+                if(review.Sources.Count==0)
+                    CompositeSourcesNotice.Text+="\n尚无 SHOW 素材，请先关联到 Panel。";
+                if(!allReadable)
+                    CompositeSourcesNotice.Text+="\n存在来源缺失或哈希不匹配，暂不可确认。";
+                ConfirmCompositeSourceButton.IsEnabled=review.Sources.Count>0 &&
+                    allReadable && review.Sources.Any(x=>x.Status!="confirmed");
+                CompositeSourcesPanel.Visibility=Visibility.Visible;
+                RelatedHeading.Visibility=Visibility.Collapsed;
+                RelatedFiles.Visibility=Visibility.Collapsed;
+            }
+            catch(Exception ex){ShowError(ex);}
+        }
+        else RelatedHeading.Text="同组文件";
         UpdateStatus();
     }
 
