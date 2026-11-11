@@ -61,6 +61,10 @@
                 <Button x:Name="ArchivePaperButton" DockPanel.Dock="Right"
                         Content="归档到论文资源库…" Margin="14,0,0,0"
                         Click="ArchivePaper_Click"/>
+                <Button x:Name="GlobalSearchButton" DockPanel.Dock="Right"
+                        Content="全库查找…" Margin="0,0,8,0"
+                        ToolTip="跨论文搜索实验素材，支持直接定位到文件"
+                        Click="GlobalSearch_Click"/>
                 <TextBox x:Name="SearchBox" DockPanel.Dock="Right" Width="292"
                          VerticalContentAlignment="Center" ToolTip="在当前选中项目范围中搜索"
                          TextChanged="Search_Changed"/>
