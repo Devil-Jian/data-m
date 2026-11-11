@@ -310,6 +310,23 @@ public sealed partial class ExperimentWorkspace
         tx.Commit();
     }
 
+    public ExperimentAsset? GetProvenanceAsset(string assetId)
+    {
+        using var db=Connect();
+        using var cmd=db.CreateCommand();
+        cmd.CommandText="""
+            SELECT a.id,a.result_id,a.group_id,g.prefix,a.stage,
+                   a.relative_path,a.filename,a.size,a.sha256
+            FROM experiment_assets a JOIN experiment_groups g ON a.group_id=g.id
+            WHERE a.id=$id
+            """;
+        cmd.Parameters.AddWithValue("$id",assetId);
+        using var rd=cmd.ExecuteReader();
+        return rd.Read()?new ExperimentAsset(rd.GetString(0),rd.GetString(1),
+            rd.GetString(2),rd.GetString(3),rd.GetString(4),rd.GetString(5),
+            rd.GetString(6),rd.GetInt64(7),rd.GetString(8)):null;
+    }
+
     private string ProvenanceAssetName(string assetId)
     {
         using var db=Connect();
