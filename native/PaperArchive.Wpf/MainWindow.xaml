@@ -277,6 +277,74 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
+                    <!-- V1.6 task-driven paper home, shown when the paper root is selected. -->
+                    <ScrollViewer x:Name="PaperHomeArea" Visibility="Collapsed"
+                                  VerticalScrollBarVisibility="Auto" Background="White">
+                        <StackPanel Margin="24,18,24,20" MaxWidth="1020"
+                                    HorizontalAlignment="Stretch">
+                            <TextBlock x:Name="PaperHomeTitle" FontSize="19"
+                                       FontWeight="SemiBold" Margin="0,0,0,8"/>
+                            <TextBlock x:Name="PaperHomeStatus" FontSize="13"
+                                       Foreground="#FF385E7E" Margin="0,0,0,16"/>
+                            <Border BorderBrush="#FFE1E7EC" BorderThickness="1"
+                                    Background="#FFF9FBFD" Padding="16,12"
+                                    Margin="0,0,0,18">
+                                <StackPanel>
+                                    <TextBlock Text="项目进度" FontWeight="SemiBold"
+                                               FontSize="13" Margin="0,0,0,9"/>
+                                    <TextBlock x:Name="PaperHomeProgress" LineHeight="24"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="PaperHomePrimary" Foreground="#FF555555"
+                                               TextWrapping="Wrap" Margin="0,7,0,0"/>
+                                </StackPanel>
+                            </Border>
+                            <DockPanel LastChildFill="False" Margin="0,0,0,14">
+                                <TextBlock Text="需要处理" FontSize="15" FontWeight="SemiBold"
+                                           VerticalAlignment="Center" DockPanel.Dock="Left"/>
+                                <Button DockPanel.Dock="Right" Content="更新检查"
+                                        Click="PaperHomeRefresh_Click"/>
+                            </DockPanel>
+                            <ItemsControl x:Name="PaperHomeTasks">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="#FFE6E6E6" BorderThickness="0,0,0,1"
+                                                Padding="7,12">
+                                            <DockPanel LastChildFill="True">
+                                                <Button Content="{Binding ActionLabel}"
+                                                        Tag="{Binding}" Click="PaperHomeTask_Click"
+                                                        DockPanel.Dock="Right" MinWidth="82"
+                                                        Margin="12,0,0,0"
+                                                        VerticalAlignment="Center"/>
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Title}"
+                                                               FontWeight="SemiBold"
+                                                               TextWrapping="Wrap"/>
+                                                    <TextBlock Text="{Binding Description}"
+                                                               Margin="0,5,0,0"
+                                                               TextWrapping="Wrap"
+                                                               Foreground="#FF666666"/>
+                                                </StackPanel>
+                                            </DockPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock x:Name="PaperHomeEmpty" Visibility="Collapsed"
+                                       Text="没有必须处理的事项。可以继续编辑，或直接归档。"
+                                       Foreground="#FF47775B" Margin="6,12,0,20"/>
+                            <WrapPanel Margin="0,20,0,0">
+                                <Button Content="导入全文" Click="PaperHomeImportDocument_Click"
+                                        Margin="0,0,10,8"/>
+                                <Button Content="进入组图" Click="PaperHomeFigures_Click"
+                                        Margin="0,0,10,8"/>
+                                <Button Content="论文关联" Click="PaperHomeDocuments_Click"
+                                        Margin="0,0,10,8"/>
+                                <Button x:Name="PaperHomeArchiveAction" Content="归档论文…"
+                                        Click="ArchivePaper_Click"
+                                        Margin="10,0,0,8" MinWidth="115"/>
+                            </WrapPanel>
+                        </StackPanel>
+                    </ScrollViewer>
                     <!-- Figure workspace; placeholder rows are not image files. -->
                     <Grid x:Name="FigureArea" Visibility="Collapsed" Background="White">
                         <Grid.RowDefinitions>
