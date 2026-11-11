@@ -13,7 +13,8 @@ public partial class MainWindow
         public string FileName=>Hit.Asset.FileName;
         public string Stage=>Hit.Asset.Stage.ToUpperInvariant();
         public string Sample=>Hit.Asset.GroupPrefix;
-        public string Paper=>Hit.PaperName??"未关联论文";
+        public string Paper=>string.IsNullOrWhiteSpace(Hit.PaperName)?
+            "未关联论文":Hit.PaperName;
         public string Location=>Hit.ProjectName+" / "+Hit.ResultName;
         public string RelativePath=>Hit.Asset.RelativePath;
     }
