@@ -89,6 +89,65 @@ try
     Assert(cannotPublishQuant,"quantitative images cannot be exported as final SHOW material");
     Assert(ExperimentWorkspace.Open(repo.Root).ListAssets(quantImport.ResultId)
         .Count(x=>x.Stage=="quant")==2,"quant stage survives reopening");
+    // Opening an older warehouse rebuilds the restrictive SQLite CHECK in a
+    // transaction without changing any existing asset identity or usage FK.
+    var oldWarehouse=Path.Combine(root,"warehouse-v15-schema");
+    var oldDatabase=Path.Combine(oldWarehouse,"database","workspace.db");
+    Directory.CreateDirectory(Path.GetDirectoryName(oldDatabase)!);
+    using(var legacyDb=new Microsoft.Data.Sqlite.SqliteConnection(
+        new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder{
+            DataSource=oldDatabase}.ToString()))
+    {
+        legacyDb.Open();
+        using var command=legacyDb.CreateCommand();
+        command.CommandText="""
+            CREATE TABLE experiment_projects(
+                id TEXT PRIMARY KEY,name TEXT NOT NULL,created_at TEXT NOT NULL);
+            CREATE TABLE experiment_results(
+                id TEXT PRIMARY KEY,
+                project_id TEXT NOT NULL REFERENCES experiment_projects(id),
+                name TEXT NOT NULL,imported_at TEXT NOT NULL);
+            CREATE TABLE experiment_groups(
+                id TEXT PRIMARY KEY,
+                result_id TEXT NOT NULL REFERENCES experiment_results(id),
+                prefix TEXT NOT NULL COLLATE NOCASE,UNIQUE(result_id,prefix));
+            CREATE TABLE experiment_assets(
+                id TEXT PRIMARY KEY,
+                result_id TEXT NOT NULL REFERENCES experiment_results(id),
+                group_id TEXT NOT NULL REFERENCES experiment_groups(id),
+                stage TEXT NOT NULL CHECK(stage IN ('raw','process','show','statistics','other')),
+                relative_path TEXT NOT NULL,filename TEXT NOT NULL,
+                size INTEGER NOT NULL,sha256 TEXT NOT NULL,imported_at TEXT NOT NULL,
+                UNIQUE(result_id,relative_path));
+            CREATE TABLE experiment_usages(
+                id TEXT PRIMARY KEY,
+                asset_id TEXT NOT NULL REFERENCES experiment_assets(id),
+                paper_title TEXT NOT NULL,
+                figure INTEGER NOT NULL CHECK(figure>0),panel TEXT NOT NULL,
+                state TEXT NOT NULL CHECK(state IN ('exported','confirmed','cancelled')),
+                export_path TEXT NOT NULL,created_at TEXT NOT NULL);
+            INSERT INTO experiment_projects VALUES('old-project','旧实验','2020');
+            INSERT INTO experiment_results VALUES('old-result','old-project','旧结果','2020');
+            INSERT INTO experiment_groups VALUES('old-group','old-result','CV01');
+            INSERT INTO experiment_assets VALUES(
+                'old-asset','old-result','old-group','show','show_data/CV01_show.png',
+                'CV01_show.png',42,
+                'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','2020');
+            INSERT INTO experiment_usages VALUES(
+                'old-usage','old-asset','旧论文',1,'A','confirmed','old-export','2020');
+            """;
+        command.ExecuteNonQuery();
+    }
+    var upgraded=ExperimentWorkspace.Open(oldWarehouse);
+    var oldAsset=upgraded.ListAssets("old-result").Single();
+    Assert(oldAsset.Id=="old-asset"&&oldAsset.GroupId=="old-group"&&
+        oldAsset.Stage=="show"&&oldAsset.Size==42,
+        "quant schema migration keeps existing asset and group metadata");
+    Assert(upgraded.ListUsages("old-asset").Single().Id=="old-usage",
+        "quant schema migration keeps existing figure-usage foreign keys");
+    Assert(ExperimentWorkspace.Open(oldWarehouse).ListAssets("old-result").Single().Id=="old-asset",
+        "quant stage migration is idempotent on repeated open");
+
 
     var source2=Path.Combine(root,"source","独立实验");
     Directory.CreateDirectory(Path.Combine(source2,"show_data"));
