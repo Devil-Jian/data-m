@@ -176,6 +176,9 @@ public sealed partial class ExperimentWorkspace
             add.Parameters.AddWithValue("$kind", row.MatchKind);
             add.ExecuteNonQuery();
         }
+        // Keep the derived labels in the same transaction as index changes,
+        // including explicit rebuild/undo and imports. No archive edits.
+        RefreshSystemTags(db,tx,projectId);
     }
 
     /// <summary>Read-only preview, including unmatched PROCESS assets.</summary>
