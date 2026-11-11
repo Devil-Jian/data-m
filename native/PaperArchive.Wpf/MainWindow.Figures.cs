@@ -64,6 +64,7 @@ public partial class MainWindow
         _currentPanel=panelId is null||_currentFigure is null?null:
             _workspace.ListPanels(_currentFigure.Id).FirstOrDefault(x=>x.Id==panelId);
         FigureArea.Visibility=Visibility.Visible;
+        AssetLocateUsageButton.Visibility=Visibility.Collapsed;
         ManuscriptArea.Visibility=Visibility.Collapsed;
         FileList.Visibility=Visibility.Collapsed;
         ThumbnailList.Visibility=Visibility.Collapsed;
