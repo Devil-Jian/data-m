@@ -182,6 +182,106 @@ public partial class MainWindow
         catch(Exception ex){ShowError(ex);}
     }
 
+    private void ViewManuscriptProvenance_Click(object sender,RoutedEventArgs e)
+    {
+        if(_workspace is null||ManuscriptList.SelectedItem is not PaperDocument document)return;
+        try
+        {
+            var window=new Window{Title="论文数据溯源 · "+document.FileName,
+                Owner=this,Width=860,Height=590,MinWidth=640,MinHeight=400,
+                WindowStartupLocation=WindowStartupLocation.CenterOwner};
+            var dock=new DockPanel{Margin=new Thickness(12)};
+            var explanation=new TextBlock{Text="已确认关系与同组候选严格区分；选择素材可预览仓库原始字节。",
+                Margin=new Thickness(4,0,4,10)};
+            DockPanel.SetDock(explanation,Dock.Top);dock.Children.Add(explanation);
+            var close=new Button{Content="关闭",IsCancel=true,MinWidth=75,
+                HorizontalAlignment=HorizontalAlignment.Right,Margin=new Thickness(0,8,0,0)};
+            close.Click+=(_,_)=>window.Close();
+            DockPanel.SetDock(close,Dock.Bottom);dock.Children.Add(close);
+            var grid=new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(3,GridUnitType.Star)});
+            grid.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(2,GridUnitType.Star)});
+            var tree=new TreeView{Margin=new Thickness(3),BorderThickness=new Thickness(1)};
+            Grid.SetColumn(tree,0);grid.Children.Add(tree);
+            var details=new StackPanel{Margin=new Thickness(15,4,4,4)};
+            var image=new Image{Height=230,Stretch=System.Windows.Media.Stretch.Uniform};
+            var text=new TextBlock{Text="选择左侧 Figure、Panel 或素材。",
+                TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,12,0,0)};
+            details.Children.Add(image);details.Children.Add(text);
+            Grid.SetColumn(details,1);grid.Children.Add(details);
+            TreeViewItem Add(TreeViewItem? parent,string label,object? item=null)
+            {
+                var node=new TreeViewItem{Header=label,Tag=item,IsExpanded=true};
+                if(parent is null)tree.Items.Add(node);
+                else parent.Items.Add(node);
+                return node;
+            }
+            foreach(var link in _workspace.ListPaperFigureLinks(document.Id))
+            {
+                var figure=Add(null,$"Figure {link.FigureNumber} · "+
+                    (link.Version is null?"未指定版本":"v"+link.Version)+
+                    (link.Status=="confirmed"?" [已确认]":" [待核对]"));
+                if(link.CompositeId is null)continue;
+                var composite=_workspace.ListFigureComposites(link.FigureId)
+                    .FirstOrDefault(x=>x.Id==link.CompositeId);
+                var version=Add(figure,composite is null?"成图版本不可用":
+                    composite.FileName+" [SHA-256 已归档]",composite);
+                foreach(var snapshot in _workspace.ListCompositeSources(link.CompositeId))
+                {
+                    var panel=Add(version,$"Panel {snapshot.PanelLabel}"+
+                        (snapshot.Status=="confirmed"?" [已确认来源]":" [来源候选]"));
+                    var show=_workspace.GetProvenanceAsset(snapshot.AssetId);
+                    var showNode=Add(panel,show is null?"SHOW [来源记录缺失]":
+                        "SHOW · "+show.FileName,show);
+                    var processes=_workspace.ListAssetUpstream(snapshot.AssetId);
+                    foreach(var process in processes)
+                    {
+                        var processAsset=_workspace.GetProvenanceAsset(process.SourceAssetId);
+                        var processNode=Add(showNode,processAsset is null?"PROCESS [缺失]":
+                            "PROCESS · "+processAsset.FileName+
+                            (process.Status=="confirmed"?" [已确认]":" [待核对]"),processAsset);
+                        foreach(var raw in _workspace.ListAssetUpstream(process.SourceAssetId))
+                        {
+                            var rawAsset=_workspace.GetProvenanceAsset(raw.SourceAssetId);
+                            Add(processNode,rawAsset is null?"RAW [缺失]":
+                                "RAW · "+rawAsset.FileName+
+                                (raw.Status=="confirmed"?" [已确认]":" [待核对]"),rawAsset);
+                        }
+                    }
+                    if(processes.Count==0)
+                        foreach(var candidate in _workspace.ListSameGroupUpstreamCandidates(snapshot.AssetId))
+                        {
+                            var processNode=Add(showNode,"? PROCESS · "+candidate.Asset.FileName+
+                                " [同组候选]",candidate.Asset);
+                            foreach(var raw in _workspace.ListSameGroupUpstreamCandidates(candidate.Asset.Id))
+                                Add(processNode,"? RAW · "+raw.Asset.FileName+" [同组候选]",raw.Asset);
+                        }
+                }
+            }
+            if(tree.Items.Count==0)Add(null,"尚未关联 Figure。请使用“关联 Figure…”设置实际引用。");
+            tree.SelectedItemChanged+=(_,_)=>{
+                if(tree.SelectedItem is not TreeViewItem selected)return;
+                image.Source=null;
+                if(selected.Tag is ExperimentAsset asset)
+                {
+                    text.Text=$"文件：{asset.FileName}\n阶段：{asset.Stage}\n数据组：{asset.GroupPrefix}"+
+                        $"\nAsset ID：{asset.Id}\nSHA-256：{asset.Sha256}";
+                    image.Source=PreviewFromFile(()=>_workspace.GetBlobPath(asset));
+                }
+                else if(selected.Tag is FigureComposite composite)
+                {
+                    text.Text=$"完整成图：{composite.FileName}\n版本：v{composite.Version}"+
+                        $"\nSHA-256：{composite.Sha256}";
+                    image.Source=PreviewFromFile(()=>Path.Combine(_workspace.Root,"blobs",
+                        "sha256",composite.Sha256[..2],composite.Sha256));
+                }
+                else text.Text=selected.Header?.ToString()??"";
+            };
+            dock.Children.Add(grid);window.Content=dock;window.ShowDialog();
+        }
+        catch(Exception ex){ShowError(ex);}
+    }
+
     private void Manuscript_DoubleClick(object sender,MouseButtonEventArgs e)
     {
         if(_workspace is null||e.OriginalSource is not DependencyObject source)return;
