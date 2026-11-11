@@ -31,6 +31,7 @@ public partial class MainWindow
     private void LoadScopeAssets()
     {
         if(_workspace is null||_showManuscripts||_figureMode)return;
+        HidePaperTaskHome();
         RelatedHeading.Text="同组文件";
         UsageHeading.Text="论文用途";
         _all.Clear();
