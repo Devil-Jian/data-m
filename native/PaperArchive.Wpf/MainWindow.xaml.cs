@@ -23,7 +23,7 @@ public sealed class AssetRow
     public string StageLabel => Asset.Stage switch
     {
         "raw" => "RAW", "process" => "PROCESS", "show" => "SHOW",
-        "quant" => "QUANT · 定量分析", "statistics" => "统计表", _ => "其他"
+        "quant" => "QUANT", "statistics" => "统计表", _ => "其他"
     };
     public string UsageLabel { get; }
     public string SizeLabel => Asset.Size >= 1048576
