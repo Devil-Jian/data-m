@@ -142,8 +142,10 @@ public partial class MainWindow
                     AddAsset(panel,source,"SHOW","show","AssetSha256");
                 }
             }
+            var manifestHash=_archive.ListWorkspaceRevisions(paper.Id)
+                .First(x=>x.Revision==revision).ManifestSha256;
             DetailMeta.Text="归档资源与来源关系以当前 Revision 的 Manifest 为准。"+
-                "\nSHA-256："+(selected?.Revision.ToString()??revision.ToString());
+                "\nManifest SHA-256："+manifestHash;
         }
         catch(Exception ex)
         {
