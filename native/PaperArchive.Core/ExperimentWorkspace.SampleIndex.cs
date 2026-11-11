@@ -269,6 +269,37 @@ public sealed partial class ExperimentWorkspace
             WriteSampleIndex(db, tx, projectId, plan.Proposed);
     }
 
+    private static void RefreshSampleIndexForResults(
+        SqliteConnection db, SqliteTransaction tx, IEnumerable<string> resultIds)
+    {
+        var projects = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var resultId in resultIds.Distinct(StringComparer.Ordinal))
+        {
+            using var cmd = db.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = "SELECT project_id FROM experiment_results WHERE id=$id";
+            cmd.Parameters.AddWithValue("$id", resultId);
+            if (cmd.ExecuteScalar() is string projectId) projects.Add(projectId);
+        }
+        foreach (var projectId in projects)
+            RefreshSampleIndex(db, tx, projectId);
+    }
+
+    private static void RefreshSampleIndexForAssets(
+        SqliteConnection db, SqliteTransaction tx, IEnumerable<string> assetIds)
+    {
+        var results = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var assetId in assetIds.Distinct(StringComparer.Ordinal))
+        {
+            using var cmd = db.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = "SELECT result_id FROM experiment_assets WHERE id=$id";
+            cmd.Parameters.AddWithValue("$id", assetId);
+            if (cmd.ExecuteScalar() is string resultId) results.Add(resultId);
+        }
+        RefreshSampleIndexForResults(db, tx, results);
+    }
+
     public IReadOnlyList<ExperimentAsset> ListSameSampleAssets(string assetId)
     {
         using var db = Connect();
