@@ -23,7 +23,7 @@ public sealed class AssetRow
     public string StageLabel => Asset.Stage switch
     {
         "raw" => "RAW", "process" => "PROCESS", "show" => "SHOW",
-        "statistics" => "统计表", _ => "其他"
+        "quant" => "QUANT · 定量分析", "statistics" => "统计表", _ => "其他"
     };
     public string UsageLabel { get; }
     public string SizeLabel => Asset.Size >= 1048576
@@ -80,7 +80,7 @@ public partial class MainWindow : Window
     private string _activeFolder = "全部文件";
 
     private static readonly string[] FolderNames =
-        ["全部文件", "全部图片", "raw_data", "process_data", "show_data", "统计表"];
+        ["全部文件", "全部图片", "raw_data", "process_data", "show_data", "quant_data", "统计表"];
 
     public MainWindow()
     {
@@ -337,6 +337,7 @@ public partial class MainWindow : Window
             "raw_data" => query.Where(x => x.Asset.Stage == "raw"),
             "process_data" => query.Where(x => x.Asset.Stage == "process"),
             "show_data" => query.Where(x => x.Asset.Stage == "show"),
+            "quant_data" => query.Where(x => x.Asset.Stage == "quant"),
             "统计表" => query.Where(x => x.Asset.Stage == "statistics"),
             _ => query
         };
@@ -573,7 +574,7 @@ public partial class MainWindow : Window
             System.Windows.MessageBox.Show(this, "请先新建或选择一个实验项目。", "导入实验结果");
             return;
         }
-        var folder = SelectFolder("选择包含 raw_data / process_data / show_data 的实验结果根目录");
+        var folder = SelectFolder("选择包含 raw_data / process_data / show_data / quant_data 的实验结果根目录");
         if (folder is null) return;
         var projectId = _activeProject.Id;
         try
