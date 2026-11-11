@@ -94,6 +94,8 @@ public sealed partial class ExperimentWorkspace
             cmd.Parameters.AddWithValue("$new",item.NewProject);
             if(cmd.ExecuteNonQuery()!=1)
                 throw new InvalidOperationException("结果单元已再次变化，无法安全撤销。");
+            RefreshSampleIndex(db,tx,item.OldProject);
+            RefreshSampleIndex(db,tx,item.NewProject);
         }
         else if(kind=="assets")
         {
@@ -162,6 +164,8 @@ public sealed partial class ExperimentWorkspace
                 cmd.Parameters.AddWithValue("$id",item.Id);
                 cmd.ExecuteNonQuery();
             }
+            RefreshSampleIndexForResults(db,tx,
+                batch.Assets.SelectMany(x=>new[]{x.OldResult,x.NewResult}));
         }
         else throw new InvalidDataException("未知撤销类型。");
         using(var done=db.CreateCommand())
