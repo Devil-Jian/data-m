@@ -59,6 +59,25 @@ public sealed partial class ArchiveRepository
         cmd.ExecuteNonQuery();
     }
 
+    public (string ArchivePaperId,WorkspaceArchiveRevision Revision)?
+        GetLatestWorkspaceArchive(string workspacePaperId)
+    {
+        using var db=Connect();
+        using var cmd=db.CreateCommand();
+        cmd.CommandText="""
+            SELECT m.archive_paper_id,r.revision,r.manifest_sha256,r.archived_at
+            FROM workspace_archive_papers m
+            JOIN workspace_archive_revisions r ON r.archive_paper_id=m.archive_paper_id
+            WHERE m.workspace_paper_id=$paper
+            ORDER BY r.revision DESC LIMIT 1
+            """;
+        cmd.Parameters.AddWithValue("$paper",workspacePaperId);
+        using var reader=cmd.ExecuteReader();
+        return reader.Read()?
+            (reader.GetString(0),new WorkspaceArchiveRevision(
+                reader.GetInt32(1),reader.GetString(2),reader.GetString(3))):null;
+    }
+
     public IReadOnlyList<WorkspaceArchiveRevision> ListWorkspaceRevisions(string archivePaperId)
     {
         using var db=Connect();
