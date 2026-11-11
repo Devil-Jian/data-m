@@ -101,12 +101,20 @@ public sealed partial class ArchiveRepository
         using var db=Connect();
         using var cmd=db.CreateCommand();
         cmd.CommandText="""
-            SELECT manifest_json FROM workspace_archive_revisions
+            SELECT manifest_json,manifest_sha256 FROM workspace_archive_revisions
             WHERE archive_paper_id=$paper AND revision=$revision
             """;
         cmd.Parameters.AddWithValue("$paper",archivePaperId);
         cmd.Parameters.AddWithValue("$revision",revision);
-        return cmd.ExecuteScalar() as string;
+        using var reader=cmd.ExecuteReader();
+        if(!reader.Read())return null;
+        var json=reader.GetString(0);
+        var expected=reader.GetString(1);
+        var computed=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json)))
+            .ToLowerInvariant();
+        if(computed!=expected)
+            throw new InvalidDataException("归档清单的完整性校验失败。");
+        return json;
     }
 
     public WorkspaceArchivePreview PrepareWorkspaceArchive(ExperimentWorkspace workspace,
