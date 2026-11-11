@@ -72,7 +72,13 @@ public partial class MainWindow
         try
         {
             foreach(var path in dialog.FileNames)
-                _workspace.ImportPaperDocument(_activePaper.Id,path);
+            {
+                var doc=_workspace.ImportPaperDocument(_activePaper.Id,path);
+                // DOCX references are review candidates, never confirmed links.
+                try{_workspace.SuggestDocumentFigures(doc);}
+                catch(System.IO.InvalidDataException){/* damaged DOCX remains importable */}
+                catch(System.Xml.XmlException){/* malformed document text is not trusted */}
+            }
             LoadProjectTree();
             LoadManuscripts(_activePaper.Id);
             SelectTreeTag(new PaperDocumentsNode(_activePaper.Id));
@@ -87,8 +93,93 @@ public partial class MainWindow
             DetailName.Text=doc.FileName;
             DetailMeta.Text=$"大小：{doc.Size:N0} 字节\n导入：{doc.ImportedAt}\n文档 ID：{doc.Id}\nSHA-256：{doc.Sha256}";
             PreviewImage.Source=null;
+            var links=_workspace?.ListPaperFigureLinks(doc.Id)??[];
+            var confirmed=links.Count(x=>x.Status=="confirmed");
+            DetailMeta.Text+=$"\n论文关联：{links.Count} 个 Figure（已确认 {confirmed}）";
+            RelatedFiles.ItemsSource=links.Select(x=>
+                $"Figure {x.FigureNumber} · {(x.Version is null?"未指定版本":"v"+x.Version)} · "+
+                (x.Status=="confirmed"?"已确认":"待核对")).ToArray();
+            UsageList.ItemsSource=(_workspace?.DescribeDocumentProvenance(doc.Id)??"")
+                .Split(Environment.NewLine,StringSplitOptions.RemoveEmptyEntries);
+        }
+        else
+        {
+            RelatedFiles.ItemsSource=null;
+            UsageList.ItemsSource=null;
         }
         UpdateStatus();
+    }
+
+    private sealed record DocumentVersionChoice(string Name,string? Id)
+    {
+        public override string ToString()=>Name;
+    }
+
+    private void LinkManuscriptFigures_Click(object sender,RoutedEventArgs e)
+    {
+        if(_workspace is null||ManuscriptList.SelectedItem is not PaperDocument doc)return;
+        try
+        {
+            var figures=_workspace.ListFigures(doc.PaperId);
+            if(figures.Count==0)
+            {
+                System.Windows.MessageBox.Show(this,"当前论文项目还没有 Figure。","论文关联");return;
+            }
+            var old=_workspace.ListPaperFigureLinks(doc.Id).ToDictionary(x=>x.FigureId);
+            var window=new Window{Title="论文 Figure 关联 · "+doc.FileName,Owner=this,
+                Width=560,Height=540,MinWidth=460,MinHeight=320,
+                WindowStartupLocation=WindowStartupLocation.CenterOwner};
+            var layout=new DockPanel{Margin=new Thickness(16)};
+            var explanation=new TextBlock{
+                Text="请选择论文实际使用的 Figure 及完整成图版本。未指定版本的关联只能标记为待核对。",
+                TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,0,0,12)};
+            DockPanel.SetDock(explanation,Dock.Top);layout.Children.Add(explanation);
+            var footer=new StackPanel{Orientation=Orientation.Horizontal,
+                HorizontalAlignment=HorizontalAlignment.Right,Margin=new Thickness(0,12,0,0)};
+            var save=new Button{Content="保存关联",IsDefault=true,MinWidth=95,Margin=new Thickness(5,0,0,0)};
+            var cancel=new Button{Content="取消",IsCancel=true,MinWidth=75,Margin=new Thickness(5,0,0,0)};
+            footer.Children.Add(cancel);footer.Children.Add(save);
+            DockPanel.SetDock(footer,Dock.Bottom);layout.Children.Add(footer);
+            var scroll=new ScrollViewer{VerticalScrollBarVisibility=ScrollBarVisibility.Auto};
+            var rows=new StackPanel();
+            var inputs=new List<(FigureTemplate Figure,CheckBox Enabled,ComboBox Versions)>();
+            foreach(var figure in figures)
+            {
+                old.TryGetValue(figure.Id,out var existing);
+                var line=new DockPanel{Margin=new Thickness(0,4,0,10)};
+                var box=new CheckBox{Content="Figure "+figure.Number,
+                    IsChecked=existing is not null,Width=145,VerticalAlignment=VerticalAlignment.Center};
+                DockPanel.SetDock(box,Dock.Left);line.Children.Add(box);
+                var choices=new List<DocumentVersionChoice>{
+                    new("尚未指定成图版本（待核对）",null)};
+                choices.AddRange(_workspace.ListFigureComposites(figure.Id)
+                    .Select(v=>new DocumentVersionChoice(
+                        $"v{v.Version} · {v.FileName}"+(v.IsCurrent?"（工作区当前）":""),v.Id)));
+                var versions=new ComboBox{ItemsSource=choices,MinWidth=240,
+                    SelectedItem=choices.FirstOrDefault(v=>v.Id==existing?.CompositeId)??choices[0]};
+                line.Children.Add(versions);rows.Children.Add(line);
+                inputs.Add((figure,box,versions));
+            }
+            scroll.Content=rows;layout.Children.Add(scroll);window.Content=layout;
+            save.Click+=(_,_)=>{window.DialogResult=true;window.Close();};
+            if(window.ShowDialog()!=true)return;
+            foreach(var input in inputs)
+            {
+                if(input.Enabled.IsChecked==true)
+                {
+                    var chosen=(DocumentVersionChoice)input.Versions.SelectedItem;
+                    _workspace.SetPaperFigureLink(doc.Id,input.Figure.Id,chosen.Id,
+                        confirmed:chosen.Id is not null);
+                }
+                else if(old.ContainsKey(input.Figure.Id))
+                    _workspace.RemovePaperFigureLink(doc.Id,input.Figure.Id);
+            }
+            Manuscript_SelectionChanged(ManuscriptList,
+                new SelectionChangedEventArgs(
+                    System.Windows.Controls.Primitives.Selector.SelectionChangedEvent,
+                    new System.Collections.IList[0],new System.Collections.IList[0]));
+        }
+        catch(Exception ex){ShowError(ex);}
     }
 
     private void Manuscript_DoubleClick(object sender,MouseButtonEventArgs e)
