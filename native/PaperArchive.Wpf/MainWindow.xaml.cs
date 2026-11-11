@@ -147,9 +147,11 @@ public partial class MainWindow : Window
         try
         {
             ProjectTree.Items.Clear();
+            var linkedProjectIds=new HashSet<string>(StringComparer.Ordinal);
             foreach(var paper in _workspace.ListPaperProjects())
             {
                 var projects=_workspace.ListProjectsForPaper(paper.Id);
+                foreach(var linked in projects)linkedProjectIds.Add(linked.Id);
                 var paperCount=projects.Sum(p=>_workspace.ListResults(p.Id).Sum(r=>r.FileCount));
                 var parent=new TreeViewItem{
                     Header=TreeLabel(paper.Name,"paper",paperCount),
@@ -203,9 +205,7 @@ public partial class MainWindow : Window
             // Imported legacy projects may not yet belong to a paper. Keep
             // them navigable; assigning them to a paper remains an explicit act.
             var orphanProjects=_workspace.ListProjects()
-                .Where(p=>!_workspace.ListPaperProjects()
-                    .Any(paper=>_workspace.ListProjectsForPaper(paper.Id)
-                        .Any(linked=>linked.Id==p.Id))).ToArray();
+                .Where(p=>!linkedProjectIds.Contains(p.Id)).ToArray();
             if(orphanProjects.Length>0)
             {
                 var orphanRoot=new TreeViewItem{
@@ -292,6 +292,11 @@ public partial class MainWindow : Window
         {
             ShowFigures(comp.PaperId,comp.FigureId,compositesOnly:true);
             UpdateActionAvailability();return;
+        }
+        else if(node.Tag is UnassignedProjectsNode)
+        {
+            _activePaper=null;_activeProject=null;_activeResult=null;
+            CloseFigures();CloseManuscripts();
         }
         else if(node.Tag is PaperExperimentsNode group)
         {
