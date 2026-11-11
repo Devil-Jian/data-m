@@ -263,6 +263,15 @@ public sealed partial class ExperimentWorkspace
             command.Parameters.AddWithValue("$id",figureId);
             command.ExecuteNonQuery();
         }
+        using(var check=db.CreateCommand())
+        {
+            check.Transaction=tx;
+            check.CommandText="SELECT COUNT(*) FROM paper_document_figure_versions WHERE figure_id=$id";
+            check.Parameters.AddWithValue("$id",figureId);
+            if(Convert.ToInt64(check.ExecuteScalar())>0)
+                throw new InvalidOperationException("Figure 已关联论文，请先解除论文引用。");
+        }
+        Execute("DELETE FROM figure_composite_source_snapshots WHERE composite_id IN (SELECT id FROM figure_composites WHERE figure_id=$id)");
         Execute("DELETE FROM figure_composite_sources WHERE composite_id IN (SELECT id FROM figure_composites WHERE figure_id=$id)");
         Execute("DELETE FROM figure_composites WHERE figure_id=$id");
         Execute("DELETE FROM figure_panel_assets WHERE panel_id IN (SELECT id FROM panel_templates WHERE figure_id=$id)");
@@ -504,6 +513,7 @@ public sealed partial class ExperimentWorkspace
                 cmd.Parameters.AddWithValue("$now",result.ImportedAt);
                 cmd.ExecuteNonQuery();
             }
+            CaptureCompositeSources(db,tx,figureId,result.Id);
             tx.Commit();
             return result;
         }
@@ -540,6 +550,21 @@ public sealed partial class ExperimentWorkspace
             if(!reader.Read())throw new KeyNotFoundException("完整成图版本不存在。");
             figureId=reader.GetString(0);
             wasCurrent=reader.GetInt32(1)==1;
+        }
+        using(var referenced=db.CreateCommand())
+        {
+            referenced.Transaction=tx;
+            referenced.CommandText="SELECT COUNT(*) FROM paper_document_figure_versions WHERE composite_id=$id";
+            referenced.Parameters.AddWithValue("$id",compositeId);
+            if(Convert.ToInt64(referenced.ExecuteScalar())>0)
+                throw new InvalidOperationException("此完整成图版本已被论文引用，请先调整论文关联。");
+        }
+        using(var snapshots=db.CreateCommand())
+        {
+            snapshots.Transaction=tx;
+            snapshots.CommandText="DELETE FROM figure_composite_source_snapshots WHERE composite_id=$id";
+            snapshots.Parameters.AddWithValue("$id",compositeId);
+            snapshots.ExecuteNonQuery();
         }
         using(var sources=db.CreateCommand())
         {
