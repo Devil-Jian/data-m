@@ -57,6 +57,22 @@ try
     Assert(second!=usage.ExportPath && File.Exists(second),"no silent overwrite");
     repo.SetUsageState(usage.Id,"confirmed");
     Assert(repo.ListUsages(show.Id).Single().State=="confirmed","confirmation saved");
+    // V1.6-C: global search must never depend on the selected UI scope.
+    Assert(repo.SearchAssetsGlobal("ROS01").Count==4 &&
+        repo.SearchAssetsGlobal("ROS01",2,0).Count==2 &&
+        repo.SearchAssetsGlobal("ROS01",2,2).Count==2,
+        "global asset search provides deterministic bounded pagination");
+    Assert(repo.SearchAssetsGlobal("实验项目 A").Count==5 &&
+        repo.SearchAssetsGlobal("ROS01_show").Single().Asset.Id==show.Id &&
+        repo.SearchAssetsGlobal("ROS01_show").Single().ProjectId==project,
+        "global lookup searches project and filename while returning navigation IDs");
+    Assert(repo.SearchAssetsGlobal("%_").Count==0 &&
+        repo.SearchAssetsGlobal("\\\\%").Count==0,
+        "search wildcard characters are treated as literal text");
+    Assert(repo.ListScopeUsageLabels(projectId:project).TryGetValue(show.Id,out var useLabel)
+        && useLabel=="Fig 2A" &&
+        !repo.ListScopeUsageLabels(resultId:imported.ResultId).ContainsKey(raw.Id),
+        "batch presentation-use labels agree with confirmed usages");
     Assert(ExperimentWorkspace.Open(repo.Root).ListProjects().Single().Id==project,"reopen identity");
     Assert(ExperimentWorkspace.Open(repo.Root).ListResults(project).Single().FileCount==5,"reopen assets");
     // V1.6-B: quantitative images sit alongside SHOW but never become
