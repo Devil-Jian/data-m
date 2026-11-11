@@ -326,7 +326,8 @@ try
     Assert(archive.PublishWorkspaceArchive(preview).AlreadyArchived &&
         archive.ListWorkspaceRevisions(archived.PaperId).Count==1,
         "repeated archive of same manifest is idempotent");
-    repo.SetPaperFigureLink(pdfDoc.Id,figuresNew[0].Id,v2.Id,true);
+    var v3=repo.ImportFigureComposite(figuresNew[0].Id,composPath);
+    repo.SetPaperFigureLink(pdfDoc.Id,figuresNew[0].Id,v3.Id,true);
     var revisionPreview=archive.PrepareWorkspaceArchive(repo,paperId,pdfDoc.Id);
     var revision=archive.PublishWorkspaceArchive(revisionPreview,true);
     Assert(revision.PaperId==archived.PaperId && revision.Revision==2 &&
