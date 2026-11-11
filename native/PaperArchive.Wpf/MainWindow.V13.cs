@@ -523,11 +523,13 @@ public partial class MainWindow
             menu.Items.Add(Action("导入完整 Figure…",ImportComposite_Click));
             menu.Items.Add(Action("导出全部组图素材…",ExportFigureMaterials_Click));
             menu.Items.Add(Action("导出完整 Figure…",ExportComposite_Click));
+            menu.Items.Add(Action("撤销最近一次 SHOW 拖拽",UndoFigureDrop_Click));
             ProjectTree.ContextMenu=menu;return;
         }
         if(node.Tag is PanelNode)
         {
             menu.Items.Add(Action("关联 SHOW 素材…",LinkShowFromFigure_Click));
+            menu.Items.Add(Action("撤销最近一次 SHOW 拖拽",UndoFigureDrop_Click));
             ProjectTree.ContextMenu=menu;return;
         }
         if(node.Tag is FigureCompositesNode)
