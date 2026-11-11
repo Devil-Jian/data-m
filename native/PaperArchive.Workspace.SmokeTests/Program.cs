@@ -298,6 +298,13 @@ try
         x.CompositeCount==1), "Figure overview updates after version removal");
     Assert(File.Exists(storedBlob) && repo.ListPanelAssets(aPanel.Id).Single().AssetId==show.Id,
         "version removal preserves blob and original Panel association");
+    repo.UnlinkPanelAsset(links.Single().Id);
+    Assert(repo.ListPanelAssets(aPanel.Id).Count==0 &&
+        repo.ListCompositeSources(v1.Id).Single().AssetId==show.Id &&
+        repo.ListCompositeSources(v1.Id).Single().Status=="confirmed",
+        "unlinking current Panel SHOW preserves confirmed historical composite source");
+    Assert(repo.DescribeDocumentProvenance(pdfDoc.Id).Contains(show.FileName),
+        "manuscript lineage remains readable after live Panel unlink");
     var expectedNoFile=repo.CreateFiguresFast(paperId,1,1);
     Assert(repo.ListFigureComposites(expectedNoFile.Single().Id).Count==0 &&
         repo.ListPanelAssets(repo.ListPanels(expectedNoFile.Single().Id)[0].Id).Count==0,
