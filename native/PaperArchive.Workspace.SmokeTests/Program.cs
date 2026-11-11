@@ -367,6 +367,15 @@ try
     var singleDoc=repo.ImportPaperDocument(unfinished,pdfPath);
     Assert(repo.GetPrimaryPaperDocument(unfinished)?.Id==singleDoc.Id,
         "a project with one manuscript needs no manual primary selection");
+    var noFigureTask=repo.GetPaperWorkSummary(unfinished);
+    Assert(noFigureTask.Tasks.Any(x=>x.Code=="link_figures"&&x.BlocksArchive),
+        "single manuscript without Figure bindings gets a focused task");
+    var draftFigure=repo.CreateFiguresFast(unfinished,1).Single();
+    repo.SetPaperFigureLink(singleDoc.Id,draftFigure.Id,null,false,"detected");
+    var unfinishedFigure=repo.GetPaperWorkSummary(unfinished);
+    Assert(unfinishedFigure.Tasks.Any(x=>x.Code=="figure_version"&&x.FigureId==draftFigure.Id),
+        "document Figure candidate creates an actionable version task");
+
     var expectedNoFile=repo.CreateFiguresFast(paperId,1,1);
     Assert(repo.ListFigureComposites(expectedNoFile.Single().Id).Count==0 &&
         repo.ListPanelAssets(repo.ListPanels(expectedNoFile.Single().Id)[0].Id).Count==0,
