@@ -52,7 +52,6 @@ public partial class MainWindow
         dialog.Content=root;
         const int pageSize=100;
         var page=0;
-        var activeQuery="";
         var requestId=0;
         async System.Threading.Tasks.Task Search(int desiredPage)
         {
@@ -71,7 +70,7 @@ public partial class MainWindow
                 var results=await System.Threading.Tasks.Task.Run(()=>
                     workspace.SearchAssetsGlobal(query,pageSize+1,desiredPage*pageSize));
                 if(request!=requestId || !dialog.IsVisible)return;
-                page=desiredPage;activeQuery=query;
+                page=desiredPage;
                 list.ItemsSource=results.Take(pageSize).Select(x=>new GlobalSearchRow(x)).ToArray();
                 prev.IsEnabled=page>0;
                 next.IsEnabled=results.Count>pageSize;
