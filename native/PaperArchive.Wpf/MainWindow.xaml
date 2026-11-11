@@ -69,6 +69,10 @@
         <Border Grid.Row="2" Background="#FFFAFAFA" BorderBrush="{StaticResource BorderBrushSoft}"
                 BorderThickness="0,0,0,1">
             <DockPanel Margin="12,5" LastChildFill="False">
+                <TextBlock x:Name="PaperHomeToolbarHint" DockPanel.Dock="Left"
+                           Visibility="Collapsed" VerticalAlignment="Center"
+                           Foreground="#FF666666"
+                           Text="论文任务概览 · 只处理待办事项；关联和索引会随操作自动更新"/>
                 <StackPanel x:Name="FileCommands" DockPanel.Dock="Left" Orientation="Horizontal">
                     <Button Content="剪切" ToolTip="Ctrl+X" Click="CutAssets_Click"/>
                     <Button x:Name="CopyButton" Content="复制" Click="Copy_Click"/>
@@ -333,6 +337,8 @@
                                        Text="没有必须处理的事项。可以继续编辑，或直接归档。"
                                        Foreground="#FF47775B" Margin="6,12,0,20"/>
                             <WrapPanel Margin="0,20,0,0">
+                                <Button Content="导入实验数据" Click="PaperHomeImportExperiment_Click"
+                                        Margin="0,0,10,8"/>
                                 <Button Content="导入全文" Click="PaperHomeImportDocument_Click"
                                         Margin="0,0,10,8"/>
                                 <Button Content="进入组图" Click="PaperHomeFigures_Click"
