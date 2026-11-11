@@ -50,6 +50,7 @@ public sealed partial class ExperimentWorkspace
         workspace.InitializeFigureWorkspace();
         workspace.InitializeProvenance();
         workspace.InitializePaperWorkPreferences();
+        workspace.InitializeSampleIndex();
         return workspace;
     }
 
@@ -354,6 +355,8 @@ public sealed partial class ExperimentWorkspace
             cmd.Parameters.AddWithValue("$now",UtcNow());
             cmd.ExecuteNonQuery();
         }
+        // Keep cross-batch sample hints current without altering legacy group IDs.
+        RefreshSampleIndex(db,tx,projectId);
         tx.Commit();
         return new(resultId,prepared.Count,groups.Count);
     }
