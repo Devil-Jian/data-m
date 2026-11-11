@@ -194,6 +194,12 @@ public sealed partial class ExperimentWorkspace
     // This establishes SAME-GROUP membership, NOT an unverified processing sequence.
     public static string DetectStage(string relativePath)
     {
+        var ext = Path.GetExtension(relativePath);
+        // The dedicated suffix takes precedence over generic folders such
+        // as process_data; these images are for quantitative analysis only.
+        if (QuantImageSuffix.IsMatch(Path.GetFileNameWithoutExtension(relativePath)) &&
+            QuantImageExtensions.Contains(ext,StringComparer.OrdinalIgnoreCase))
+            return "quant";
         var parts = relativePath.Replace('\\','/').Split('/');
         for (int i = 0; i < parts.Length - 1; i++)
         {
@@ -202,12 +208,6 @@ public sealed partial class ExperimentWorkspace
             if (parts[i].Equals("show_data", StringComparison.OrdinalIgnoreCase)) return "show";
             if (parts[i].Equals("quant_data", StringComparison.OrdinalIgnoreCase)) return "quant";
         }
-        var ext = Path.GetExtension(relativePath);
-        // The explicit _quant suffix works even for images in mixed folders.
-        // It does not reclassify CSV/XLSX statistics into an image stage.
-        if (QuantImageSuffix.IsMatch(Path.GetFileNameWithoutExtension(relativePath)) &&
-            QuantImageExtensions.Contains(ext,StringComparer.OrdinalIgnoreCase))
-            return "quant";
         return ext.Equals(".csv",StringComparison.OrdinalIgnoreCase)
             || ext.Equals(".xlsx",StringComparison.OrdinalIgnoreCase)
             || ext.Equals(".xls",StringComparison.OrdinalIgnoreCase) ? "statistics" : "other";
