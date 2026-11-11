@@ -301,7 +301,7 @@ public sealed partial class ExperimentWorkspace
         var result=new List<SourceAssetCandidate>();
         while(rd.Read())result.Add(new(new ExperimentAsset(rd.GetString(0),rd.GetString(1),
             rd.GetString(2),rd.GetString(3),rd.GetString(4),rd.GetString(5),
-            rd.GetString(6),rd.GetInt64(7),rd.GetString(8)),"同组候选（未确认加工关系）"));
+            rd.GetString(6),rd.GetInt64(7),rd.GetString(8)),"同样本候选（未确认加工关系）"));
         return result;
     }
 
