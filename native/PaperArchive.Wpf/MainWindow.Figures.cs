@@ -774,6 +774,90 @@ public partial class MainWindow
         catch(Exception ex){ShowError(ex);}
     }
 
+    private sealed record UpstreamChoice(ExperimentAsset Asset)
+    {
+        public override string ToString()=>$"{Asset.Stage.ToUpperInvariant()} · {Asset.FileName}";
+    }
+
+    private ExperimentAsset? ChooseUpstream(ExperimentAsset target,string title)
+    {
+        if(_workspace is null)return null;
+        var choices=_workspace.ListSameGroupUpstreamCandidates(target.Id)
+            .Select(x=>new UpstreamChoice(x.Asset)).ToArray();
+        if(choices.Length==0)
+        {
+            System.Windows.MessageBox.Show(this,
+                "同数据组下没有符合阶段关系的上游素材。请先整理实验数据。",title);
+            return null;
+        }
+        var dialog=new Window{Title=title,Owner=this,Width=480,Height=330,
+            WindowStartupLocation=WindowStartupLocation.CenterOwner};
+        var root=new DockPanel{Margin=new Thickness(16)};
+        var heading=new TextBlock{Text="仅同组候选，不自动认定为真实加工关系。请核对后选择实际来源。",
+            TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,0,0,12)};
+        DockPanel.SetDock(heading,Dock.Top);root.Children.Add(heading);
+        var bottom=new StackPanel{Orientation=Orientation.Horizontal,
+            HorizontalAlignment=HorizontalAlignment.Right,Margin=new Thickness(0,10,0,0)};
+        var accept=new Button{Content="确认来源",MinWidth=90,IsDefault=true};
+        var cancel=new Button{Content="取消",MinWidth=65,IsCancel=true,
+            Margin=new Thickness(8,0,0,0)};
+        bottom.Children.Add(accept);bottom.Children.Add(cancel);
+        DockPanel.SetDock(bottom,Dock.Bottom);root.Children.Add(bottom);
+        var list=new ListBox{ItemsSource=choices,SelectedIndex=0};
+        root.Children.Add(list);dialog.Content=root;
+        accept.Click+=(_,_)=>{dialog.DialogResult=true;dialog.Close();};
+        return dialog.ShowDialog()==true?(list.SelectedItem as UpstreamChoice)?.Asset:null;
+    }
+
+    private void VerifyPanelUpstream_Click(object sender,RoutedEventArgs e)
+    {
+        if(_workspace is null||_figureContextTarget?.Item is not PanelAssetLink link)return;
+        try
+        {
+            var show=_workspace.GetProvenanceAsset(link.AssetId);
+            if(show is null)return;
+            var process=ChooseUpstream(show,"核对 SHOW 的 PROCESS 来源");
+            if(process is null)return;
+            _workspace.SetAssetProvenance(process.Id,show.Id,"人工核对",true);
+            if(System.Windows.MessageBox.Show(this,
+                "PROCESS 来源已确认。是否继续核对其 RAW 来源？","实验来源",
+                MessageBoxButton.YesNo,MessageBoxImage.Question)==MessageBoxResult.Yes)
+            {
+                var raw=ChooseUpstream(process,"核对 PROCESS 的 RAW 来源");
+                if(raw is not null)_workspace.SetAssetProvenance(raw.Id,process.Id,"人工核对",true);
+            }
+            FigureFiles_SelectionChanged(FigureFiles,
+                new SelectionChangedEventArgs(
+                    System.Windows.Controls.Primitives.Selector.SelectionChangedEvent,
+                    new System.Collections.IList[0],new System.Collections.IList[0]));
+        }
+        catch(Exception ex){ShowError(ex);}
+    }
+
+    private void ConfirmCompositeSources_Click(object sender,RoutedEventArgs e)
+    {
+        if(_workspace is null||_figureContextTarget?.Item is not FigureComposite composite)return;
+        try
+        {
+            var sources=_workspace.ListCompositeSources(composite.Id);
+            if(sources.Count==0)
+            {
+                System.Windows.MessageBox.Show(this,"此成图版本没有记录 Panel/SHOW 来源，无法确认。");return;
+            }
+            var description=string.Join("\n",sources.Select(x=>
+                $"Panel {x.PanelLabel} → "+(_workspace.GetProvenanceAsset(x.AssetId)?.FileName??"来源缺失")+
+                $" [{x.Status}]"));
+            if(System.Windows.MessageBox.Show(this,
+                "确认该完整 Figure 版本实际使用以下素材？\n\n"+description+
+                "\n\n确认后将锁定来源快照，不影响当前 Panel 的关联。",
+                "核对完整成图来源",MessageBoxButton.YesNo,MessageBoxImage.Question)!=
+                MessageBoxResult.Yes)return;
+            _workspace.ConfirmCompositeSources(composite.Id);
+            RefreshFigureView();
+        }
+        catch(Exception ex){ShowError(ex);}
+    }
+
     private void FigureFiles_ContextMenuOpening(object sender,ContextMenuEventArgs e)
     {
         if(!_figureMode)return;
@@ -825,6 +909,7 @@ public partial class MainWindow
                 break;
             case PanelAssetLink:
                 menu.Items.Add(Action("预览 / 详细信息",FigureContextPreview_Click));
+                menu.Items.Add(Action("核对 PROCESS / RAW 来源…",VerifyPanelUpstream_Click));
                 menu.Items.Add(Action("移除（仅取消关联）",UnlinkPanelAsset_Click));
                 break;
             case FigureComposite:
@@ -835,6 +920,7 @@ public partial class MainWindow
                 menu.Items.Add(new Separator());
                 menu.Items.Add(Action("导出完整 Figure…",ExportComposite_Click));
                 menu.Items.Add(Action("设为当前版本",SetCurrentComposite_Click));
+                menu.Items.Add(Action("核对此版本的 Panel/SHOW 来源…",ConfirmCompositeSources_Click));
                 break;
         }
         FigureFiles.ContextMenu=menu;
