@@ -209,3 +209,29 @@ WPF build and portable ZIP publish run on GitHub Actions.
   manuscript versions remains a later milestone.
 - The release requires hands-on Windows drag/drop and keyboard acceptance tests;
   a successful CI build is not a complete UI validation.
+
+## V1.5 paper workspace archive (V15-16)
+
+1. Select a paper project in **归档前工作台**. Confirm manuscript → Figure
+   composite version links and capture/verify relevant Panel/SHOW inputs.
+2. Click **归档到论文资源库…**; select the exact manuscript snapshot.
+3. Review the SHA-256 and relationship preflight. Missing/mismatched
+   blobs or unconfirmed manuscript Figure versions block publication.
+   Missing processing provenance is a visible review warning and requires
+   explicit acknowledgement before publication.
+4. Confirm. The repository stores one immutable manifest and all resource
+   references in `archive.db`, reusing the verified content-addressed blobs.
+   No workspace records or source files are moved or deleted.
+5. The app switches to **论文资源库** and selects the published paper.
+   The resource list shows the latest revision. Click
+   **查看归档溯源 / 版本…** to select an older immutable revision and browse
+   manuscript → Figure → Panel → SHOW → PROCESS → RAW, with previews.
+
+Publishing the exact same manifest is idempotent; a changed manuscript/Figure
+graph produces Revision 2, 3, etc., without altering earlier revisions. For
+legacy folder-based archive entries, the original archive view is preserved;
+revision lineage requires an archive created from the workspace.
+
+At present this operation archives the **selected manuscript's confirmed Figure
+scope**, not every unused experiment and draft in the workspace. The archive
+manifest and resource rows are immutable; the working project remains editable.
