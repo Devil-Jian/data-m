@@ -64,22 +64,25 @@ try
         Directory.CreateDirectory(Path.Combine(quantSource,folder));
     File.WriteAllBytes(Path.Combine(quantSource,"raw_data","CV01_raw.tif"),[23]);
     File.WriteAllBytes(Path.Combine(quantSource,"process_data","CV01_crop.tif"),[24]);
+    File.WriteAllBytes(Path.Combine(quantSource,"process_data","CV01_unknownProcessing.tif"),[28]);
     File.WriteAllBytes(Path.Combine(quantSource,"show_data","CV01_show.png"),[25]);
     File.WriteAllBytes(Path.Combine(quantSource,"quant_data","CV01_quant.tif"),[26]);
     File.WriteAllBytes(Path.Combine(quantSource,"quant_data","CV01_quant_v2.tif"),[27]);
     File.WriteAllText(Path.Combine(quantSource,"CV01_quant.csv"),"measurement,value\\nA,5");
     var quantImport=repo.ImportResult(project,quantSource);
     var quantAssets=repo.ListAssets(quantImport.ResultId);
-    Assert(quantImport.FileCount==6 && quantImport.DataGroupCount==1,
+    Assert(quantImport.FileCount==7 && quantImport.DataGroupCount==1,
         "quant RAW PROCESS SHOW and spreadsheet share the sample group");
     Assert(quantAssets.Count(x=>x.Stage=="quant")==2 &&
         quantAssets.Count(x=>x.Stage=="show")==1 &&
-        quantAssets.Count(x=>x.Stage=="statistics")==1,
+        quantAssets.Count(x=>x.Stage=="process")==2 &&
+        quantAssets.Count(x=>x.Stage=="statistics")==1 &&
+        quantAssets.Single(x=>x.FileName=="CV01_unknownProcessing.tif").GroupPrefix=="CV01",
         "quantitative images and presentation images and statistic tables stay separate");
     var quant=quantAssets.First(x=>x.Stage=="quant");
-    Assert(repo.ListSameGroupUpstreamCandidates(quant.Id).Count==2,
+    Assert(repo.ListSameGroupUpstreamCandidates(quant.Id).Count==3,
         "quant can suggest same-sample RAW and PROCESS upstream");
-    var cvProcess=quantAssets.Single(x=>x.Stage=="process");
+    var cvProcess=quantAssets.Single(x=>x.FileName=="CV01_crop.tif");
     repo.SetAssetProvenance(cvProcess.Id,quant.Id,"图像定量分析",true);
     Assert(repo.ListAssetUpstream(quant.Id).Single().SourceAssetId==cvProcess.Id,
         "PROCESS to QUANT provenance may be recorded explicitly");
