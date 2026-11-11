@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using PaperArchive.Core;
@@ -113,4 +115,121 @@ public partial class MainWindow
         }
         catch(Exception ex){ShowError(ex);}
     }
+    private sealed record ArchivePreviewTarget(string FileName,string Role,string Sha256);
+
+    private void ViewArchivedProvenance_Click(object sender,RoutedEventArgs e)
+    {
+        if(_archive is null || ProjectTree.SelectedItem is not TreeViewItem{Tag:PaperEntry paper})
+            return;
+        try
+        {
+            var revisions=_archive.ListWorkspaceRevisions(paper.Id);
+            if(revisions.Count==0)
+            {
+                System.Windows.MessageBox.Show(this,
+                    "此论文是旧版目录归档，尚没有工作台数据关系快照。","归档溯源");return;
+            }
+            var window=new Window{Title="归档溯源 · "+paper.Title,Owner=this,
+                Width=940,Height=650,MinWidth=670,MinHeight=430,
+                WindowStartupLocation=WindowStartupLocation.CenterOwner};
+            var dock=new DockPanel{Margin=new Thickness(12)};
+            var top=new StackPanel{Orientation=Orientation.Horizontal,Margin=new Thickness(0,0,0,10)};
+            top.Children.Add(new TextBlock{Text="归档版本：",
+                VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(0,0,8,0)});
+            var chooser=new ComboBox{MinWidth=200,ItemsSource=revisions,
+                DisplayMemberPath="Revision",SelectedIndex=0};
+            top.Children.Add(chooser);
+            var note=new TextBlock{Text="  历史快照只读，不跟随工作台变化。",
+                VerticalAlignment=VerticalAlignment.Center};
+            top.Children.Add(note);
+            DockPanel.SetDock(top,Dock.Top);dock.Children.Add(top);
+            var grid=new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(3,GridUnitType.Star)});
+            grid.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(2,GridUnitType.Star)});
+            var tree=new TreeView{Margin=new Thickness(0,0,10,0)};
+            Grid.SetColumn(tree,0);grid.Children.Add(tree);
+            var detail=new StackPanel{Margin=new Thickness(10,4,0,0)};
+            var preview=new Image{Height=250,Stretch=System.Windows.Media.Stretch.Uniform};
+            var label=new TextBlock{Text="选择 Figure 或素材查看归档详情。",
+                TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,14,0,0)};
+            detail.Children.Add(preview);detail.Children.Add(label);
+            Grid.SetColumn(detail,1);grid.Children.Add(detail);
+            dock.Children.Add(grid);window.Content=dock;
+
+            static string Property(JsonElement item,string key)=>
+                item.TryGetProperty(key,out var value)?value.ToString():"";
+            static IEnumerable<JsonElement> Children(JsonElement item,string key)=>
+                item.TryGetProperty(key,out var value)&&value.ValueKind==JsonValueKind.Array?
+                    value.EnumerateArray().ToArray():[];
+            TreeViewItem Add(TreeViewItem? parent,string title,ArchivePreviewTarget? target=null)
+            {
+                var child=new TreeViewItem{Header=title,Tag=target,IsExpanded=true};
+                if(parent is null)tree.Items.Add(child);
+                else parent.Items.Add(child);
+                return child;
+            }
+            void AddAsset(TreeViewItem parent,JsonElement item,string prefix,string role,
+                string shaField="Sha256")
+            {
+                var file=Property(item,"FileName");
+                var sha=Property(item,shaField);
+                var asset=Add(parent,prefix+" · "+file,new(file,role,sha));
+                foreach(var process in Children(item,"process"))
+                {
+                    AddAsset(asset,process,"PROCESS","process");
+                }
+                foreach(var raw in Children(item,"raw"))
+                {
+                    AddAsset(asset,raw,"RAW","raw");
+                }
+            }
+            void Refresh()
+            {
+                if(chooser.SelectedItem is not WorkspaceArchiveRevision revision)return;
+                var manifest=_archive.GetWorkspaceArchiveManifest(paper.Id,revision.Revision);
+                tree.Items.Clear();label.Text="请选择归档资源查看文件哈希与预览。";
+                preview.Source=null;
+                if(manifest is null)return;
+                using var json=JsonDocument.Parse(manifest);
+                var root=json.RootElement;
+                var manuscript=root.GetProperty("document");
+                var docName=Property(manuscript,"FileName");
+                Add(null,"论文全文 · "+docName,
+                    new(docName,"manuscript",Property(manuscript,"Sha256")));
+                foreach(var fig in Children(root,"figures"))
+                {
+                    var number=Property(fig,"FigureNumber");
+                    var version=Property(fig,"Version");
+                    var file=Property(fig,"FileName");
+                    var figureNode=Add(null,"Figure "+number+" · v"+version+" · "+file,
+                        new(file,"composite",Property(fig,"Sha256")));
+                    foreach(var source in Children(fig,"sources"))
+                    {
+                        var panel=Add(figureNode,"Panel "+Property(source,"PanelLabel")+
+                            " ["+Property(source,"Status")+"]");
+                        AddAsset(panel,source,"SHOW","show","AssetSha256");
+                    }
+                }
+                label.Text="归档 Revision "+revision.Revision+
+                    "\n归档时间："+revision.ArchivedAt+
+                    "\nManifest SHA-256："+revision.ManifestSha256;
+            }
+            chooser.SelectionChanged+=(_,_)=>Refresh();
+            tree.SelectedItemChanged+=(_,_)=>{
+                if(tree.SelectedItem is not TreeViewItem selected)return;
+                preview.Source=null;
+                if(selected.Tag is ArchivePreviewTarget item)
+                {
+                    label.Text="文件："+item.FileName+"\n角色："+item.Role+
+                        "\nSHA-256："+item.Sha256;
+                    if(item.Sha256.Length==64&&item.Sha256.All(Uri.IsHexDigit))
+                        preview.Source=PreviewFromFile(()=>_archive.ResolveOriginal(item.Sha256));
+                }
+                else label.Text=selected.Header?.ToString()??"";
+            };
+            Refresh();window.ShowDialog();
+        }
+        catch(Exception ex){ShowError(ex);}
+    }
+
 }
