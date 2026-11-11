@@ -16,105 +16,121 @@ public partial class MainWindow
 
     private void ArchivePaper_Click(object sender,RoutedEventArgs e)
     {
-        if(_libraryMode||_workspace is null)return;
+        if(_libraryMode||_workspace is null||_activePaper is null)return;
         var paper=_activePaper;
-        if(paper is null)
-        {
-            System.Windows.MessageBox.Show(this,"请先在左侧项目树选择要归档的论文项目。","论文归档");
-            return;
-        }
-        var documents=_workspace.ListPaperDocuments(paper.Id);
-        if(documents.Count==0)
-        {
-            System.Windows.MessageBox.Show(this,"论文项目还没有导入论文全文，请先导入并确认 Figure 关联。","论文归档");
-            return;
-        }
         try
         {
-            var choices=documents.Select(x=>new ArchiveDocumentChoice(x)).ToArray();
-            var selected=ManuscriptList.SelectedItem is PaperDocument doc &&
-                doc.PaperId==paper.Id?doc:documents[0];
-            var select=new Window{Title="选择归档论文全文",Owner=this,Width=510,
-                Height=230,ResizeMode=ResizeMode.NoResize,
-                WindowStartupLocation=WindowStartupLocation.CenterOwner};
-            var root=new StackPanel{Margin=new Thickness(16)};
-            root.Children.Add(new TextBlock{Text="请选择本次归档使用的论文全文版本：",
-                Margin=new Thickness(0,0,0,10)});
-            var combo=new ComboBox{ItemsSource=choices,MinWidth=370,
-                SelectedItem=choices.First(x=>x.Document.Id==selected.Id)};
-            root.Children.Add(combo);
-            var buttons=new StackPanel{Orientation=Orientation.Horizontal,
-                HorizontalAlignment=HorizontalAlignment.Right,Margin=new Thickness(0,18,0,0)};
-            var ok=new Button{Content="开始检查",IsDefault=true,MinWidth=90};
-            var cancel=new Button{Content="取消",IsCancel=true,MinWidth=75,
-                Margin=new Thickness(8,0,0,0)};
-            buttons.Children.Add(ok);buttons.Children.Add(cancel);root.Children.Add(buttons);
-            select.Content=root;
-            ok.Click+=(_,_)=>{select.DialogResult=true;select.Close();};
-            if(select.ShowDialog()!=true||combo.SelectedItem is not ArchiveDocumentChoice chosen)return;
-            _archive ??=ArchiveRepository.Open(_workspace.Root);
-            var preview=_archive.PrepareWorkspaceArchive(_workspace,paper.Id,chosen.Document.Id);
-            var blocking=preview.Checks.Count(x=>x.Level=="block");
-            var reviews=preview.Checks.Count(x=>x.Level=="review");
-            var report=new Window{Title="归档检查 · "+paper.Name,Owner=this,
-                Width=650,Height=560,MinWidth=510,MinHeight=400,
-                WindowStartupLocation=WindowStartupLocation.CenterOwner};
-            var dock=new DockPanel{Margin=new Thickness(16)};
-            var heading=new TextBlock{Text=$"论文：{paper.Name}\n全文：{chosen.Document.FileName}"+
-                $"\n已绑定 Figure：{preview.FigureCount}\n归档资源记录：{preview.Resources.Count}"+
-                $"\n阻断问题：{blocking}    待核对项：{reviews}",
-                TextWrapping=TextWrapping.Wrap,LineHeight=24,
-                Margin=new Thickness(0,0,0,12)};
-            DockPanel.SetDock(heading,Dock.Top);dock.Children.Add(heading);
-            var footer=new StackPanel{Orientation=Orientation.Horizontal,
-                HorizontalAlignment=HorizontalAlignment.Right,Margin=new Thickness(0,12,0,0)};
-            var publish=new Button{Content="确认归档",IsDefault=true,MinWidth=95,
-                IsEnabled=blocking==0};
-            var abort=new Button{Content="取消",MinWidth=75,IsCancel=true,
-                Margin=new Thickness(8,0,0,0)};
-            footer.Children.Add(publish);footer.Children.Add(abort);
-            DockPanel.SetDock(footer,Dock.Bottom);dock.Children.Add(footer);
-            var reviewAcknowledgement=new CheckBox{
-                Content="我已检查待核对项，允许带明确标记的未完善来源归档",
-                Visibility=reviews>0?Visibility.Visible:Visibility.Collapsed,
-                IsChecked=reviews==0,Margin=new Thickness(0,5,0,8)};
-            reviewAcknowledgement.Checked+=(_,_)=>publish.IsEnabled=blocking==0;
-            reviewAcknowledgement.Unchecked+=(_,_)=>publish.IsEnabled=false;
-            if(reviews>0)publish.IsEnabled=false;
-            DockPanel.SetDock(reviewAcknowledgement,Dock.Bottom);
-            dock.Children.Add(reviewAcknowledgement);
-            var lines=preview.Checks.Count==0?
-                new[]{"归档检查通过。工作台的图片和关联不会被移动或删除。"}:
-                preview.Checks.Select(x=>$"[{(x.Level=="block"?"阻断":"待核对")}] {x.Message}").ToArray();
-            var list=new ListBox{ItemsSource=lines};
-            dock.Children.Add(list);report.Content=dock;
-            publish.Click+=(_,_)=>{report.DialogResult=true;report.Close();};
-            if(report.ShowDialog()!=true)return;
-            // Guard against workspace edits while the confirmation window was open.
-            var current=_archive.PrepareWorkspaceArchive(_workspace,paper.Id,chosen.Document.Id);
-            if(current.ManifestSha256!=preview.ManifestSha256||
-                current.Checks.Any(x=>x.Level=="block"))
-                throw new InvalidOperationException("归档检查后论文关联或资源已变化，请重新检查。");
-            var result=_archive.PublishWorkspaceArchive(current,
-                acknowledgeReviews:reviews==0||reviewAcknowledgement.IsChecked==true);
-            System.Windows.MessageBox.Show(this,
-                result.AlreadyArchived?
-                    $"相同内容已归档为 Revision {result.Revision}，未生成重复记录。":
-                    $"论文已归档为 Revision {result.Revision}，共 {result.FileCount} 条资源记录。"+
-                    "\n工作台数据和原始图片均已保留。",
-                "论文归档",MessageBoxButton.OK,MessageBoxImage.Information);
-            LibraryTab.IsChecked=true;
-            // MainTab_Changed loads the library; select the newly archived paper.
-            foreach(TreeViewItem item in ProjectTree.Items)
-                if(item.Tag is PaperEntry entry&&entry.Id==result.PaperId)
+            var manuscript=_workspace.GetPrimaryPaperDocument(paper.Id);
+            if(manuscript is null)
+            {
+                if(_workspace.ListPaperDocuments(paper.Id).Count==0)
                 {
-                    item.IsSelected=true;
-                    item.BringIntoView();
-                    break;
+                    SelectTreeTag(paper);
+                    System.Windows.MessageBox.Show(this,
+                        "尚未导入论文全文。请先完成首页的“导入全文”任务。","归档准备");
+                    return;
                 }
+                // Multiple drafts require a single persisted choice, not a
+                // document-selection dialog on every archive operation.
+                if(!ChoosePrimaryManuscript(paper.Id))return;
+                manuscript=_workspace.GetPrimaryPaperDocument(paper.Id);
+                if(manuscript is null)return;
+            }
+            _archive??=ArchiveRepository.Open(_workspace.Root);
+            var preview=_archive.PrepareWorkspaceArchive(_workspace,paper.Id,manuscript.Id);
+            var blocked=preview.Checks.Where(x=>x.Level=="block").ToArray();
+            if(blocked.Length>0)
+            {
+                SelectTreeTag(paper);
+                var issues=string.Join("\n",blocked.Take(4).Select(x=>"• "+x.Message));
+                System.Windows.MessageBox.Show(this,
+                    $"发现 {blocked.Length} 项必须处理的问题：\n\n{issues}"+
+                    (blocked.Length>4?"\n…":"")+
+                    "\n\n点击论文项目首页的任务操作即可定位处理。",
+                    "暂时不能归档",MessageBoxButton.OK,MessageBoxImage.Warning);
+                return;
+            }
+            var previous=_archive.GetLatestWorkspaceArchive(paper.Id);
+            if(previous is not null&&previous.Value.Revision.ManifestSha256==preview.ManifestSha256)
+            {
+                OpenArchivedPaper(previous.Value.ArchivePaperId,
+                    $"论文内容没有变化，仍为 Revision {previous.Value.Revision.Revision}。");
+                return;
+            }
+            var nextRevision=(previous?.Revision.Revision??0)+1;
+            var reviews=preview.Checks.Where(x=>x.Level=="review").ToArray();
+            bool confirmed;
+            if(reviews.Length==0)
+            {
+                confirmed=System.Windows.MessageBox.Show(this,
+                    $"论文：{paper.Name}\n主文稿：{manuscript.FileName}\n"+
+                    $"Figure：{preview.FigureCount} 张\n归档资源：{preview.Resources.Count} 条\n"+
+                    $"本次创建：Revision {nextRevision}\n\n"+
+                    "归档后工作台仍可编辑，历史版本不会被修改。",
+                    "确认归档",MessageBoxButton.YesNo,
+                    MessageBoxImage.Question)==MessageBoxResult.Yes;
+            }
+            else
+            {
+                var dialog=new Window{Title="归档确认 · 待核对来源",Owner=this,
+                    Width=630,Height=440,MinWidth=490,MinHeight=350,
+                    WindowStartupLocation=WindowStartupLocation.CenterOwner};
+                var root=new DockPanel{Margin=new Thickness(17)};
+                var header=new TextBlock{
+                    Text=$"{paper.Name} · Revision {nextRevision}\n"+
+                        $"论文及 Figure 版本已通过检查，仍有 {reviews.Length} 项来源待核对。"+
+                        "这些关系不会被当作已确认的科研加工事实。",
+                    TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,0,0,12)};
+                DockPanel.SetDock(header,Dock.Top);root.Children.Add(header);
+                var bottom=new StackPanel{Margin=new Thickness(0,10,0,0)};
+                var acknowledgement=new CheckBox{
+                    Content="允许将以下未核实来源明确标记为待核对并归档",
+                    Margin=new Thickness(0,0,0,12)};
+                bottom.Children.Add(acknowledgement);
+                var buttons=new StackPanel{Orientation=Orientation.Horizontal,
+                    HorizontalAlignment=HorizontalAlignment.Right};
+                var publish=new Button{Content="确认归档",IsEnabled=false,MinWidth=95,IsDefault=true};
+                var cancel=new Button{Content="取消",IsCancel=true,MinWidth=75,
+                    Margin=new Thickness(8,0,0,0)};
+                acknowledgement.Checked+=(_,_)=>publish.IsEnabled=true;
+                acknowledgement.Unchecked+=(_,_)=>publish.IsEnabled=false;
+                buttons.Children.Add(publish);buttons.Children.Add(cancel);
+                bottom.Children.Add(buttons);
+                DockPanel.SetDock(bottom,Dock.Bottom);root.Children.Add(bottom);
+                root.Children.Add(new ListBox{ItemsSource=reviews.Select(x=>x.Message).ToArray()});
+                publish.Click+=(_,_)=>{dialog.DialogResult=true;dialog.Close();};
+                dialog.Content=root;
+                confirmed=dialog.ShowDialog()==true;
+            }
+            if(!confirmed)return;
+            // Revalidate in case files or relationships changed while the
+            // confirmation was shown. SHA-256 checking also runs at commit.
+            var current=_archive.PrepareWorkspaceArchive(_workspace,paper.Id,manuscript.Id);
+            if(current.ManifestSha256!=preview.ManifestSha256||!current.CanPublish)
+                throw new InvalidOperationException("归档确认期间论文或科研数据已变化，请重新检查。");
+            var result=_archive.PublishWorkspaceArchive(current,
+                acknowledgeReviews:reviews.Length>0);
+            OpenArchivedPaper(result.PaperId,
+                result.AlreadyArchived?
+                    $"内容未变化，仍为 Revision {result.Revision}。":
+                    $"已归档 Revision {result.Revision} · {result.FileCount} 条资源，工作台原件保留。");
         }
         catch(Exception ex){ShowError(ex);}
     }
+
+    private void OpenArchivedPaper(string archivePaperId,string message)
+    {
+        LibraryTab.IsChecked=true;
+        foreach(TreeViewItem item in ProjectTree.Items)
+            if(item.Tag is PaperEntry entry&&entry.Id==archivePaperId)
+            {
+                item.IsSelected=true;
+                item.BringIntoView();
+                break;
+            }
+        StatusText.Text=message;
+    }
+
     private sealed record ArchivePreviewTarget(string FileName,string Role,string Sha256);
 
     private void ViewArchivedProvenance_Click(object sender,RoutedEventArgs e)
