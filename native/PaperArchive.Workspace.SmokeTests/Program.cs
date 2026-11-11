@@ -359,6 +359,17 @@ try
     Assert(invalidDropRejected &&
         repo.ListPanels(latest.Single().Id).Count==beforeFailedDrop,
         "mixed SHOW and QUANT drag does not leave an orphan Panel");
+    Assert(repo.UndoLastFigureDrop(latest.Single().Id) &&
+        repo.ListPanels(latest.Single().Id).Count==3 &&
+        droppedPanels.All(p=>repo.ListPanels(latest.Single().Id).All(x=>x.Id!=p.Id)),
+        "undoing a Figure drop removes only its new Panel links and placeholders");
+    var otherPanel=repo.ListPanels(figuresNew[1].Id).First();
+    Assert(repo.LinkShowAssets(otherPanel.Id,[show.Id])==1 &&
+        repo.UndoLastFigureDrop(figuresNew[1].Id) &&
+        repo.ListPanelAssets(otherPanel.Id).Count==0,
+        "undoing a Panel drop removes the logical link only");
+    Assert(repo.ListAssets(destination).Any(x=>x.Id==show.Id&&x.Sha256==show.Sha256),
+        "Figure drop and undo never modify the original asset or SHA");
     var exportRoot=Path.Combine(root,"figure-exports");
     var materialExport=repo.ExportFigureMaterials(figuresNew[0].Id,exportRoot);
     Assert(materialExport.ExportedCount==1 && File.Exists(materialExport.ManifestPath),
