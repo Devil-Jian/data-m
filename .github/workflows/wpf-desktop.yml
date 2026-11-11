@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/wpf-desktop
+      - feat/v16-task-driven-workspace
     paths:
       - 'native/PaperArchive.Wpf/**'
       - 'native/PaperArchive.Workspace.SmokeTests/**'
