@@ -52,6 +52,8 @@ public partial class MainWindow
         FileList.Visibility=Visibility.Collapsed;
         ThumbnailList.Visibility=Visibility.Collapsed;
         FolderList.IsEnabled=false;
+        RelatedHeading.Text="同组文件";
+        UsageHeading.Text="论文用途";
         RefreshFigureView();
     }
 
