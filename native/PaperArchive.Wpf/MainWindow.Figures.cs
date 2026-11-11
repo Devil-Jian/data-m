@@ -14,6 +14,7 @@ public partial class MainWindow
     private sealed record FigureNode(string PaperId,string FigureId);
     private sealed record PanelNode(string PaperId,string FigureId,string PanelId);
     private sealed record FigureCompositesNode(string PaperId,string FigureId);
+    private static string FigureImageSlotName(int figureNumber)=>$"Figure{figureNumber}";
     private sealed record FigureRow(string Name,string Type,string Count,
         string Status,string Detail,object Item);
     private bool _figureMode;
@@ -27,7 +28,8 @@ public partial class MainWindow
     {
         var path=(_activePaper?.Name??"论文项目")+" > 组图项目";
         if(_currentFigure is not null)path+=" > Figure "+_currentFigure.Number;
-        if(_showOnlyComposites)path+=" > show_data";
+        if(_showOnlyComposites&&_currentFigure is not null)
+            path+=" > "+FigureImageSlotName(_currentFigure.Number);
         else if(_currentPanel is not null)path+=" > Panel "+_currentPanel.Label;
         return path;
     }
@@ -101,7 +103,12 @@ public partial class MainWindow
                     panel.LinkedAssetCount.ToString(),
                     panel.LinkedAssetCount==0?"未关联图片":"已关联",
                     "双击查看关联的 SHOW 图片",panel.Panel));
-            // Full Figure versions belong to the dedicated show_data node.
+            // Always show one logical final-image slot, even before an image is imported.
+            var count=_workspace.ListFigureShowData(_currentFigure.Id).Count;
+            rows.Add(new(FigureImageSlotName(_currentFigure.Number),"完整成图占位",
+                count.ToString(),count==0?"未导入":"已导入",
+                count==0?"双击进入并导入完整成图":$"{count} 个完整成图版本",
+                new FigureCompositesNode(_activePaper.Id,_currentFigure.Id)));
         }
         var query=SearchBox?.Text.Trim()??"";
         FigureFiles.ItemsSource=rows.Where(x=>x.Name.Contains(query,StringComparison.OrdinalIgnoreCase)
@@ -171,6 +178,8 @@ public partial class MainWindow
                 SelectTreeTag(new PanelNode(_activePaper.Id,_currentFigure.Id,panel.Id));break;
             case FigureComposite composite:
                 OpenFigureComposite(composite);break;
+            case FigureCompositesNode slot:
+                SelectTreeTag(slot);break;
         }
     }
 
@@ -705,6 +714,8 @@ public partial class MainWindow
                 SelectTreeTag(new PanelNode(_activePaper.Id,_currentFigure.Id,panel.Id));break;
             case FigureComposite composite:
                 OpenFigureComposite(composite);break;
+            case FigureCompositesNode slot:
+                SelectTreeTag(slot);break;
             default:
                 FigureFiles.SelectedItem=_figureContextTarget;break;
         }
@@ -808,6 +819,10 @@ public partial class MainWindow
                 menu.Items.Add(new Separator());
                 menu.Items.Add(Action("关联 SHOW 素材…",LinkShowFromFigure_Click));
                 break;
+            case FigureCompositesNode:
+                menu.Items.Add(Action("打开",FigureContextOpen_Click));
+                menu.Items.Add(Action("导入完整 Figure…",ImportComposite_Click));
+                break;
             case PanelAssetLink:
                 menu.Items.Add(Action("预览 / 详细信息",FigureContextPreview_Click));
                 menu.Items.Add(Action("移除（仅取消关联）",UnlinkPanelAsset_Click));
@@ -864,6 +879,8 @@ public partial class MainWindow
                 SelectTreeTag(new FigureNode(_activePaper.Id,figure.Id));
             else if(selected.Item is PanelTemplate panel && _activePaper is not null && _currentFigure is not null)
                 SelectTreeTag(new PanelNode(_activePaper.Id,_currentFigure.Id,panel.Id));
+            else if(selected.Item is FigureCompositesNode slot)
+                SelectTreeTag(slot);
             else return false;
             return true;
         }
