@@ -139,8 +139,16 @@ public sealed partial class ArchiveRepository
         using var cmd = db.CreateCommand();
         cmd.CommandText = """
             SELECT p.paper_id,p.title,p.archive_status,
-              (SELECT count(*) FROM paper_items i WHERE i.paper_id=p.paper_id AND i.item_type='figure'),
-              (SELECT count(*) FROM data_references r JOIN paper_items i ON i.item_id=r.item_id WHERE i.paper_id=p.paper_id)
+              (SELECT count(*) FROM paper_items i WHERE i.paper_id=p.paper_id AND i.item_type='figure')+
+              COALESCE((SELECT count(DISTINCT location) FROM workspace_archive_resources w
+                WHERE w.archive_paper_id=p.paper_id AND w.role='composite'
+                  AND w.revision=(SELECT MAX(revision) FROM workspace_archive_revisions
+                    WHERE archive_paper_id=p.paper_id)),0),
+              (SELECT count(*) FROM data_references r JOIN paper_items i ON i.item_id=r.item_id WHERE i.paper_id=p.paper_id)+
+              COALESCE((SELECT COUNT(*) FROM workspace_archive_resources w
+                WHERE w.archive_paper_id=p.paper_id AND
+                  w.revision=(SELECT MAX(revision) FROM workspace_archive_revisions
+                    WHERE archive_paper_id=p.paper_id)),0)
             FROM papers p ORDER BY p.updated_at DESC
             """;
         using var reader = cmd.ExecuteReader();
@@ -175,6 +183,7 @@ public sealed partial class ArchiveRepository
         while (reader.Read())
             result.Add(new ResourceEntry(reader.GetString(0), reader.GetString(1),
                 reader.GetString(2), reader.GetString(3), reader.GetInt64(4), reader.GetString(5)));
+        result.AddRange(ListWorkspaceArchiveResources(paperId));
         return result;
     }
 
