@@ -48,6 +48,7 @@ public sealed partial class ExperimentWorkspace
         workspace.InitializeUndo();
         workspace.InitializePaperDocuments();
         workspace.InitializeFigureWorkspace();
+        workspace.InitializeFigureDropUndo();
         workspace.InitializeProvenance();
         workspace.InitializePaperWorkPreferences();
         workspace.InitializeSampleIndex();
