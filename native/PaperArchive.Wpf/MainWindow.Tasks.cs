@@ -37,6 +37,7 @@ public partial class MainWindow
         FileList.Visibility=Visibility.Collapsed;
         ThumbnailList.Visibility=Visibility.Collapsed;
         PaperHomeArea.Visibility=Visibility.Visible;
+        AssetLocateUsageButton.Visibility=Visibility.Collapsed;
         PaperHomeToolbarHint.Visibility=Visibility.Visible;
         FileCommands.Visibility=Visibility.Collapsed;
         ConfirmUsageButton.Visibility=Visibility.Collapsed;
