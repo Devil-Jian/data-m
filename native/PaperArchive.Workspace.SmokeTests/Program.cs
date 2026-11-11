@@ -22,6 +22,16 @@ try
     Assert(ExperimentWorkspace.DetectPrefix("show_data/ROS01_show.png")=="ROS01","prefix show");
     Assert(ExperimentWorkspace.DetectPrefix("process_data/ROS_Control_01_adjusted_v2.tif")=="ROS_Control_01","compound prefix");
     Assert(ExperimentWorkspace.DetectStage("nested/process_data/ROS01_crop.tif")=="process","nested stage");
+    Assert(ExperimentWorkspace.DetectStage("quant_data/CV01_quant.tif")=="quant",
+        "quant_data is a dedicated image stage");
+    Assert(ExperimentWorkspace.DetectStage("process_data/CV01_quant_v2.tif")=="quant",
+        "_quant suffix overrides a generic PROCESS folder");
+    Assert(ExperimentWorkspace.DetectStage("mixed/CV01_quant.tif")=="quant",
+        "_quant image suffix classifies mixed directories");
+    Assert(ExperimentWorkspace.DetectStage("mixed/CV01_quant.csv")=="statistics",
+        "statistics tables are distinct from quantification images");
+    Assert(ExperimentWorkspace.DetectPrefix("quant_data/CV01_quant_v2.tif")=="CV01",
+        "quant images retain the sample identity");
 
     var repo=ExperimentWorkspace.Open(Path.Combine(root,"warehouse"));
     var project=repo.CreateProject("实验项目 A");
@@ -47,6 +57,38 @@ try
     Assert(repo.ListUsages(show.Id).Single().State=="confirmed","confirmation saved");
     Assert(ExperimentWorkspace.Open(repo.Root).ListProjects().Single().Id==project,"reopen identity");
     Assert(ExperimentWorkspace.Open(repo.Root).ListResults(project).Single().FileCount==5,"reopen assets");
+    // V1.6-B: quantitative images sit alongside SHOW but never become
+    // presentation materials. Keep existing fixture counts unchanged.
+    var quantSource=Path.Combine(root,"source","CV01 定量");
+    foreach(var folder in new[]{"raw_data","process_data","show_data","quant_data"})
+        Directory.CreateDirectory(Path.Combine(quantSource,folder));
+    File.WriteAllBytes(Path.Combine(quantSource,"raw_data","CV01_raw.tif"),[23]);
+    File.WriteAllBytes(Path.Combine(quantSource,"process_data","CV01_crop.tif"),[24]);
+    File.WriteAllBytes(Path.Combine(quantSource,"show_data","CV01_show.png"),[25]);
+    File.WriteAllBytes(Path.Combine(quantSource,"quant_data","CV01_quant.tif"),[26]);
+    File.WriteAllBytes(Path.Combine(quantSource,"quant_data","CV01_quant_v2.tif"),[27]);
+    File.WriteAllText(Path.Combine(quantSource,"CV01_quant.csv"),"measurement,value\\nA,5");
+    var quantImport=repo.ImportResult(project,quantSource);
+    var quantAssets=repo.ListAssets(quantImport.ResultId);
+    Assert(quantImport.FileCount==6 && quantImport.DataGroupCount==1,
+        "quant RAW PROCESS SHOW and spreadsheet share the sample group");
+    Assert(quantAssets.Count(x=>x.Stage=="quant")==2 &&
+        quantAssets.Count(x=>x.Stage=="show")==1 &&
+        quantAssets.Count(x=>x.Stage=="statistics")==1,
+        "quantitative images and presentation images and statistic tables stay separate");
+    var quant=quantAssets.First(x=>x.Stage=="quant");
+    Assert(repo.ListSameGroupUpstreamCandidates(quant.Id).Count==2,
+        "quant can suggest same-sample RAW and PROCESS upstream");
+    var cvProcess=quantAssets.Single(x=>x.Stage=="process");
+    repo.SetAssetProvenance(cvProcess.Id,quant.Id,"图像定量分析",true);
+    Assert(repo.ListAssetUpstream(quant.Id).Single().SourceAssetId==cvProcess.Id,
+        "PROCESS to QUANT provenance may be recorded explicitly");
+    var cannotPublishQuant=false;
+    try{repo.ExportForFigure(quant,"Test",1,"A",exports);}
+    catch(InvalidOperationException){cannotPublishQuant=true;}
+    Assert(cannotPublishQuant,"quantitative images cannot be exported as final SHOW material");
+    Assert(ExperimentWorkspace.Open(repo.Root).ListAssets(quantImport.ResultId)
+        .Count(x=>x.Stage=="quant")==2,"quant stage survives reopening");
 
     var source2=Path.Combine(root,"source","独立实验");
     Directory.CreateDirectory(Path.Combine(source2,"show_data"));
