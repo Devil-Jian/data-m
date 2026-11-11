@@ -182,11 +182,11 @@ public partial class MainWindow : Window
                         Tag=new FigureNode(paper.Id,figure.Id),IsExpanded=true};
                     foreach(var panel in _workspace.ListPanels(figure.Id))
                         fNode.Items.Add(new TreeViewItem{
-                            Header=TreeLabel("Panel "+panel.Label,"doc",
+                            Header=TreeLabel("Panel "+panel.Label,"link",
                                 _workspace.ListPanelAssets(panel.Id).Count),
                             Tag=new PanelNode(paper.Id,figure.Id,panel.Id)});
                     fNode.Items.Add(new TreeViewItem{
-                        Header=TreeLabel("show_data","folder",
+                        Header=TreeLabel(FigureImageSlotName(figure.Number),"image",
                             _workspace.ListFigureComposites(figure.Id).Count),
                         Tag=new FigureCompositesNode(paper.Id,figure.Id)});
                     figuresNode.Items.Add(fNode);
