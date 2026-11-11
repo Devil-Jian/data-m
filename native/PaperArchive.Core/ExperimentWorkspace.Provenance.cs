@@ -281,9 +281,16 @@ public sealed partial class ExperimentWorkspace
             SELECT a.id,a.result_id,a.group_id,g.prefix,a.stage,a.relative_path,
                    a.filename,a.size,a.sha256
             FROM experiment_assets target
-            JOIN experiment_assets a ON a.group_id=target.group_id
+            JOIN experiment_assets a ON a.id<>target.id AND a.is_deleted=0
             JOIN experiment_groups g ON g.id=a.group_id
-            WHERE target.id=$id AND a.id<>target.id AND a.is_deleted=0 AND
+            LEFT JOIN sample_asset_index mine ON mine.asset_id=target.id
+            LEFT JOIN sample_asset_index peer ON peer.asset_id=a.id
+            WHERE target.id=$id
+              AND (a.group_id=target.group_id
+                OR (mine.asset_id IS NOT NULL AND peer.asset_id IS NOT NULL
+                    AND mine.project_id=peer.project_id
+                    AND mine.sample_key=peer.sample_key COLLATE NOCASE))
+              AND
                   ((target.stage='show' AND a.stage='process')
                    OR (target.stage='process' AND a.stage='raw')
                    OR (target.stage='quant' AND a.stage IN ('raw','process')))
