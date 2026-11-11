@@ -206,7 +206,13 @@ public sealed partial class ExperimentWorkspace
             if (parts[i].Equals("raw_data", StringComparison.OrdinalIgnoreCase)) return "raw";
             if (parts[i].Equals("process_data", StringComparison.OrdinalIgnoreCase)) return "process";
             if (parts[i].Equals("show_data", StringComparison.OrdinalIgnoreCase)) return "show";
-            if (parts[i].Equals("quant_data", StringComparison.OrdinalIgnoreCase)) return "quant";
+            if (parts[i].Equals("quant_data", StringComparison.OrdinalIgnoreCase))
+            {
+                if (QuantImageExtensions.Contains(ext,StringComparer.OrdinalIgnoreCase))
+                    return "quant";
+                // Only images are QUANT. CSV/XLSX remain statistics tables.
+                break;
+            }
         }
         return ext.Equals(".csv",StringComparison.OrdinalIgnoreCase)
             || ext.Equals(".xlsx",StringComparison.OrdinalIgnoreCase)
