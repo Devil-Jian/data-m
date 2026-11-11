@@ -17,6 +17,7 @@ public partial class MainWindow
     private void LoadManuscripts(string paperId)
     {
         if(_workspace is null)return;
+        HidePaperTaskHome();
         _showManuscripts=true;
         _activeProject=null;
         _activeResult=null;
