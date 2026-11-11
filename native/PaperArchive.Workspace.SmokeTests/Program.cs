@@ -575,6 +575,19 @@ try
         archive.ListWorkspaceRevisions(archived.PaperId).Count==2 &&
         archive.GetWorkspaceArchiveManifest(archived.PaperId,1)==preview.ManifestJson,
         "subsequent edits create revision 2 without changing revision 1");
+    var historicalResources=archive.ListWorkspaceArchiveResources(archived.PaperId,1);
+    var newerResources=archive.ListWorkspaceArchiveResources(archived.PaperId,2);
+    Assert(historicalResources.Any(x=>x.DataId==v1.Id&&x.Role=="composite") &&
+        !historicalResources.Any(x=>x.DataId==v3.Id&&x.Role=="composite") &&
+        newerResources.Any(x=>x.DataId==v3.Id&&x.Role=="composite") &&
+        !newerResources.Any(x=>x.DataId==v1.Id&&x.Role=="composite"),
+        "inline archive revisions query independent stored composite versions");
+    Assert(archive.ListWorkspaceArchiveResources(archived.PaperId)
+        .Any(x=>x.DataId==v3.Id),
+        "default archive resource query selects latest revision only");
+    Assert(archive.ListWorkspaceRevisions(archived.PaperId)
+        .Select(x=>x.Revision).SequenceEqual(new[]{2,1}),
+        "revision picker orders newest snapshot before older snapshots");
     var incomplete=archive.PrepareWorkspaceArchive(repo,paperId,wordDoc.Id);
     Assert(!incomplete.CanPublish,"manuscript without Figure links blocks archive");
     bool blocked=false;
