@@ -353,8 +353,13 @@
                             <RowDefinition Height="48"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Text="已归档论文资源" FontSize="15" FontWeight="SemiBold"
-                                   Margin="16,13,0,0"/>
+                        <DockPanel Margin="13,7" LastChildFill="False">
+                            <TextBlock DockPanel.Dock="Left" Text="已归档论文资源"
+                                       FontSize="15" FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                            <Button DockPanel.Dock="Right" Content="查看归档溯源 / 版本…"
+                                    Click="ViewArchivedProvenance_Click"/>
+                        </DockPanel>
                         <ListView x:Name="LibraryFiles" Grid.Row="1" BorderThickness="0"
                                   SelectionChanged="LibraryFiles_SelectionChanged">
                             <ListView.View>
