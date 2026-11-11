@@ -234,7 +234,7 @@ try
     Assert(pinned.Version==1 && pinned.Status=="confirmed",
         "manuscript pins exact final Figure version");
     Assert(repo.DescribeDocumentProvenance(pdfDoc.Id).Contains("Panel A") &&
-        repo.DescribeDocumentProvenance(pdfDoc.Id).Contains(process.Id),
+        repo.DescribeDocumentProvenance(pdfDoc.Id).Contains(process.FileName),
         "manuscript provenance traverses full Figure to RAW source");
     var rejectedCrossPaper=false;
     try{repo.SetPaperFigureLink(pdfDoc.Id,repo.CreateFiguresFast(
