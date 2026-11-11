@@ -171,7 +171,11 @@ public partial class MainWindow
     }
 
     private static bool IsValidDropNode(TreeViewItem? item) =>
-        item?.Tag is ExperimentResult or ExperimentProject or PaperProject or PanelNode;
+        item?.Tag is ExperimentResult or ExperimentProject or PaperProject or PanelNode or FigureNode;
+
+    private bool DragContainsOnlyShow(AssetDrag data) =>
+        data.AssetIds.All(id => _all.Any(row =>
+            row.Asset.Id==id && row.Asset.Stage=="show"));
 
     private void StopExpandTimer()
     {
@@ -190,14 +194,15 @@ public partial class MainWindow
     {
         var node=e.OriginalSource is DependencyObject origin?TreeItemFrom(origin):null;
         var bundle=ReadDrag(e);
-        if(bundle is null||!IsValidDropNode(node)||_libraryMode)
+        if(bundle is null||!IsValidDropNode(node)||_libraryMode||
+           (node?.Tag is PanelNode or FigureNode && !DragContainsOnlyShow(bundle)))
         {
             e.Effects=DragDropEffects.None;
             StopExpandTimer();
         }
         else
         {
-            e.Effects=node?.Tag is PanelNode?DragDropEffects.Link:
+            e.Effects=node?.Tag is PanelNode or FigureNode?DragDropEffects.Link:
                 (e.KeyStates&DragDropKeyStates.ControlKey)!=0?
                 DragDropEffects.Copy:DragDropEffects.Move;
             if(!ReferenceEquals(_hoverTreeItem,node))
@@ -250,6 +255,16 @@ public partial class MainWindow
         var copy=(e.KeyStates&DragDropKeyStates.ControlKey)!=0;
         try
         {
+            if(node.Tag is FigureNode figureNode)
+            {
+                _workspace.LinkShowAssetsToNewPanels(figureNode.FigureId,data.AssetIds);
+                _activePaper=_workspace.ListPaperProjects()
+                    .First(x=>x.Id==figureNode.PaperId);
+                LoadProjectTree();
+                SelectTreeTag(figureNode);
+                e.Effects=DragDropEffects.Link;
+                return;
+            }
             if(node.Tag is PanelNode panelNode)
             {
                 _workspace.LinkShowAssets(panelNode.PanelId,data.AssetIds);
