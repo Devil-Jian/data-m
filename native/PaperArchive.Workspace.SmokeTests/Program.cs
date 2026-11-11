@@ -713,6 +713,20 @@ try
         repo.GetAssetSystemTags(flatAssets.Single(x=>x.FileName=="ROS01_raw.tif").Id)
         ?.ExperimentName=="平铺ROS实验",
         "flat root stage inference respects ROS01 and ROS010 sample boundaries");
+    var mismatchRoot=Path.Combine(root,"source","标签冲突实验");
+    Directory.CreateDirectory(Path.Combine(mismatchRoot,"raw_data"));
+    File.WriteAllBytes(Path.Combine(mismatchRoot,"raw_data","CHECK01_show.png"),[41,42]);
+    var mismatchImport=repo.ImportResult(project,mismatchRoot);
+    var mismatchAsset=repo.ListAssets(mismatchImport.ResultId).Single();
+    Assert(mismatchAsset.Stage=="show" &&
+        repo.GetAssetSystemTags(mismatchAsset.Id) is
+            {SampleName:"CHECK01",Stage:"show",ParseStatus:"conflict",
+             ExperimentName:"标签冲突实验"},
+        "explicit SHOW suffix conflicting with RAW folder requires review");
+    Assert(ExperimentWorkspace.Open(repo.Root)
+        .GetAssetSystemTags(mismatchAsset.Id)?.ParseStatus=="conflict",
+        "system tag conflict persists across workspace reopen");
+    Console.WriteLine("PASS: V1.6-D1 import-root labels, process subtypes, file versions and conflict flags.");
     Console.WriteLine("PASS: V1.5 figure placeholders, batch numbering, linking, material manifest, versioning, verified exports.");
     Console.WriteLine("PASS: Manuscript PDF/DOCX snapshot and persistent logical move undo.");
     Console.WriteLine("PASS: V1.3 papers, figures, panels, move, copy, stable IDs, rename, delete/restore.");
