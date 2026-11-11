@@ -422,9 +422,13 @@ public partial class MainWindow : Window
         }
         DetailMeta.Text = $"阶段：{row.StageLabel}\n数据组：{row.GroupPrefix}\n文件路径：{row.RelativePath}\n" +
                           $"大小：{row.SizeLabel}\nAsset ID：{row.Asset.Id}\nSHA-256：{row.Asset.Sha256}";
-        RelatedFiles.ItemsSource = _all
-            .Where(x => x.Asset.GroupId == row.Asset.GroupId)
-            .Select(x => $"{x.StageLabel}  {x.FileName}").ToArray();
+        var sameSample = _workspace.ListSameSampleAssets(row.Asset.Id);
+        RelatedHeading.Text = sameSample.Count > 0
+            ? "同一样本（自动索引 · 非加工关系）" : "同组文件";
+        RelatedFiles.ItemsSource = sameSample.Count > 0
+            ? sameSample.Select(x => $"{x.Stage.ToUpperInvariant()}  {x.FileName}").ToArray()
+            : _all.Where(x => x.Asset.GroupId == row.Asset.GroupId)
+                .Select(x => $"{x.StageLabel}  {x.FileName}").ToArray();
         UsageList.ItemsSource = _workspace.ListUsages(row.Asset.Id)
             .Select(x => $"{x.PaperTitle}\nFigure {x.Figure}{x.Panel} · {x.State}")
             .ToArray();
