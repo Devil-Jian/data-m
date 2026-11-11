@@ -310,22 +310,44 @@ public sealed partial class ExperimentWorkspace
         tx.Commit();
     }
 
+    private string ProvenanceAssetName(string assetId)
+    {
+        using var db=Connect();
+        using var cmd=db.CreateCommand();
+        cmd.CommandText="SELECT filename FROM experiment_assets WHERE id=$id";
+        cmd.Parameters.AddWithValue("$id",assetId);
+        return cmd.ExecuteScalar() as string ?? "[已缺失素材]";
+    }
+
     public string DescribeDocumentProvenance(string documentId)
     {
         var lines=new List<string>();
         foreach(var link in ListPaperFigureLinks(documentId))
         {
-            lines.Add($"Figure {link.FigureNumber} · {(link.Version is null?"未指定版本":"v"+link.Version)} · {link.Status}");
+            lines.Add($"Figure {link.FigureNumber} · {(link.Version is null?"未指定版本":"v"+link.Version)} · "+
+                (link.Status=="confirmed"?"已确认":"待核对"));
             if(link.CompositeId is null)continue;
             var sources=ListCompositeSources(link.CompositeId);
+            if(sources.Count==0)
+                lines.Add("  无已记录的 Panel/SHOW 来源（需要核对）");
             foreach(var source in sources)
             {
-                lines.Add($"  Panel {source.PanelLabel} → SHOW {source.AssetId} [{source.Status}]");
-                foreach(var upstream in ListAssetUpstream(source.AssetId))
+                lines.Add($"  Panel {source.PanelLabel} → SHOW {ProvenanceAssetName(source.AssetId)} "+
+                    $"[{(source.Status=="confirmed"?"已确认":"来源候选")}]");
+                var upstream=ListAssetUpstream(source.AssetId);
+                foreach(var process in upstream)
                 {
-                    lines.Add($"    ← PROCESS {upstream.SourceAssetId} [{upstream.Status}]");
-                    foreach(var raw in ListAssetUpstream(upstream.SourceAssetId))
-                        lines.Add($"      ← RAW {raw.SourceAssetId} [{raw.Status}]");
+                    lines.Add($"    ← PROCESS {ProvenanceAssetName(process.SourceAssetId)} "+
+                        $"[{(process.Status=="confirmed"?"已确认":"待核对")}]");
+                    foreach(var raw in ListAssetUpstream(process.SourceAssetId))
+                        lines.Add($"      ← RAW {ProvenanceAssetName(raw.SourceAssetId)} "+
+                            $"[{(raw.Status=="confirmed"?"已确认":"待核对")}]");
+                }
+                if(upstream.Count==0)
+                {
+                    var candidates=ListSameGroupUpstreamCandidates(source.AssetId);
+                    foreach(var candidate in candidates)
+                        lines.Add($"    ? PROCESS {candidate.Asset.FileName} [同组候选，未确认]");
                 }
             }
         }
