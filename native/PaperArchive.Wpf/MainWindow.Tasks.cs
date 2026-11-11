@@ -14,6 +14,13 @@ public partial class MainWindow
     {
         _paperHomeId=null;
         if(PaperHomeArea is not null)PaperHomeArea.Visibility=Visibility.Collapsed;
+        if(PaperHomeToolbarHint is not null)PaperHomeToolbarHint.Visibility=Visibility.Collapsed;
+        if(!_libraryMode)
+        {
+            FileCommands.Visibility=Visibility.Visible;
+            ConfirmUsageButton.Visibility=Visibility.Visible;
+            SearchBox.Visibility=Visibility.Visible;
+        }
     }
 
     private void ShowPaperTaskHome(string paperId)
@@ -30,6 +37,10 @@ public partial class MainWindow
         FileList.Visibility=Visibility.Collapsed;
         ThumbnailList.Visibility=Visibility.Collapsed;
         PaperHomeArea.Visibility=Visibility.Visible;
+        PaperHomeToolbarHint.Visibility=Visibility.Visible;
+        FileCommands.Visibility=Visibility.Collapsed;
+        ConfirmUsageButton.Visibility=Visibility.Collapsed;
+        SearchBox.Visibility=Visibility.Collapsed;
         FolderList.IsEnabled=false;
         RefreshPaperTaskHome();
     }
@@ -57,7 +68,7 @@ public partial class MainWindow
                 $"待处理 · {summary.BlockingCount} 项必须处理，{summary.ReviewCount} 项建议核对 · {archiveLabel}":
                 summary.ReviewCount>0?
                     $"可以继续 · {summary.ReviewCount} 项来源待核对 · {archiveLabel}":
-                    $"可归档 · {archiveLabel}";
+                    $"关联就绪 · 归档时自动校验文件 · {archiveLabel}";
             PaperHomeTasks.ItemsSource=summary.Tasks
                 .OrderBy(x=>x.BlocksArchive?0:1).ToArray();
             PaperHomeEmpty.Visibility=summary.Tasks.Count==0?
