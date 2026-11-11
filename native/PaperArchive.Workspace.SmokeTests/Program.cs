@@ -152,6 +152,28 @@ try
         "quant schema migration keeps existing figure-usage foreign keys");
     Assert(ExperimentWorkspace.Open(oldWarehouse).ListAssets("old-result").Single().Id=="old-asset",
         "quant stage migration is idempotent on repeated open");
+    // Old databases are never silently regrouped. Operators can preview,
+    // apply and undo an index-only rebuild without touching legacy identities.
+    var oldPreview=upgraded.PreviewSampleIndexRebuild("old-project");
+    Assert(oldPreview.IndexedCount==1 && oldPreview.Changes.Count==1,
+        "old sample index rebuild has a read-only preview");
+    var staleRejected=false;
+    try{upgraded.ApplySampleIndexRebuild("old-project","invalid-preview");}
+    catch(InvalidOperationException){staleRejected=true;}
+    Assert(staleRejected &&
+        upgraded.PreviewSampleIndexRebuild("old-project").Changes.Count==1,
+        "unverified rebuild tokens must not write any rows");
+    upgraded.ApplySampleIndexRebuild("old-project",oldPreview.Fingerprint);
+    Assert(upgraded.PreviewSampleIndexRebuild("old-project").Changes.Count==0,
+        "old sample index safely rebuilt");
+    Assert(upgraded.UndoLastSampleIndexRebuild("old-project") &&
+        upgraded.PreviewSampleIndexRebuild("old-project").Changes.Count==1,
+        "manual sample index rebuild is reversible");
+    Assert(upgraded.ListAssets("old-result").Single().Id=="old-asset" &&
+        upgraded.ListAssets("old-result").Single().GroupId=="old-group" &&
+        upgraded.ListAssets("old-result").Single().Sha256==oldAsset.Sha256 &&
+        upgraded.ListUsages("old-asset").Single().State=="confirmed",
+        "sample index rebuild never rewrites assets, hashes, group IDs or usage links");
 
 
     var source2=Path.Combine(root,"source","独立实验");
@@ -160,6 +182,23 @@ try
     var another=repo.ImportResult(project,source2);
     Assert(another.DataGroupCount==1 && repo.ListAssets(another.ResultId).Single().GroupId!=show.GroupId,
         "identical prefix in different results must remain distinct");
+    var secondShow=repo.ListAssets(another.ResultId).Single();
+    Assert(repo.ListSameSampleAssets(secondShow.Id).Count==4,
+        "same sample index spans import batches without merging legacy groups");
+    Assert(repo.ListSameGroupUpstreamCandidates(secondShow.Id).Count==2,
+        "cross-import PROCESS upstream appears as an unconfirmed candidate");
+    Assert(repo.ListAssetUpstream(secondShow.Id).Count==0,
+        "automatic match never invents a confirmed processing edge");
+    var differentSource=Path.Combine(root,"source","CV010");
+    Directory.CreateDirectory(Path.Combine(differentSource,"raw_data"));
+    Directory.CreateDirectory(Path.Combine(differentSource,"process_data"));
+    File.WriteAllBytes(Path.Combine(differentSource,"raw_data","ROS010_raw.tif"),[30]);
+    File.WriteAllBytes(Path.Combine(differentSource,"process_data","ROS010_unknownProcessing.tif"),[31]);
+    var different=repo.ImportResult(project,differentSource);
+    Assert(repo.ListAssets(different.ResultId).Count==2 &&
+        !repo.ListSameSampleAssets(secondShow.Id)
+          .Any(x=>x.ResultId==different.ResultId),
+        "sample boundary prevents ROS01 from matching ROS010");
     // PRD v1.3: paper -> experiment -> result, stable move/copy IDs, trash and templates.
     var paperId=repo.CreatePaperProject("氧化应激论文工作区");
     var workingProject=repo.CreateProjectForPaper(paperId,"新实验项目");
