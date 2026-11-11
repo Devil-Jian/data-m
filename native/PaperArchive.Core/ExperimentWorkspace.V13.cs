@@ -195,6 +195,7 @@ public sealed partial class ExperimentWorkspace
         cmd.Parameters.AddWithValue("$path",newRelative);
         cmd.Parameters.AddWithValue("$id",assetId);
         cmd.ExecuteNonQuery();
+        RefreshSampleIndexForAssets(db,tx,[assetId]);
         tx.Commit();
         // Rename is logical; hash, Asset ID and Data Group ID never change.
     }
@@ -226,6 +227,7 @@ public sealed partial class ExperimentWorkspace
             cmd.Parameters.AddWithValue("$id",id);
             if(cmd.ExecuteNonQuery()!=1)throw new KeyNotFoundException("文件不存在。");
         }
+        RefreshSampleIndexForAssets(db,tx,selected);
         tx.Commit();
     }
 
@@ -361,6 +363,8 @@ public sealed partial class ExperimentWorkspace
             .Select(x=>new UndoGroupOwner(x.Key,x.Value)).ToArray();
         RecordUndo(db,tx,"assets",System.Text.Json.JsonSerializer.Serialize(
             new UndoAssetBatch(moved,owners)));
+        RefreshSampleIndexForResults(db,tx,
+            inputs.Select(x=>x.Result).Append(targetResultId));
         tx.Commit();
         return inputs.Count;
     }
@@ -429,6 +433,7 @@ public sealed partial class ExperimentWorkspace
             ins.Parameters.AddWithValue("$now",UtcNow());
             ins.ExecuteNonQuery();
         }
+        RefreshSampleIndexForResults(db,tx,[targetResultId]);
         tx.Commit();
         return copies.Count;
     }
