@@ -31,6 +31,8 @@ public partial class MainWindow
     private void LoadScopeAssets()
     {
         if(_workspace is null||_showManuscripts||_figureMode)return;
+        RelatedHeading.Text="同组文件";
+        UsageHeading.Text="论文用途";
         _all.Clear();
         var assets=_workspace.ListScopeAssets(_activePaper?.Id,
             _activeProject?.Id,_activeResult?.Id);
