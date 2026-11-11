@@ -355,6 +355,7 @@
                     <Grid x:Name="FigureArea" Visibility="Collapsed" Background="White">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="196"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
                         <Border Background="#FFF9F9F9" BorderBrush="#FFE4E4E4" BorderThickness="0,0,0,1">
@@ -375,7 +376,26 @@
                                 </StackPanel>
                             </DockPanel>
                         </Border>
-                        <ListView x:Name="FigureFiles" Grid.Row="1" BorderThickness="0"
+                        <Border Grid.Row="1" Background="#FFFBFBFB"
+                                BorderBrush="#FFE5E5E5" BorderThickness="0,0,0,1">
+                            <DockPanel Margin="14,10">
+                                <StackPanel DockPanel.Dock="Right" Width="250"
+                                            Margin="14,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock x:Name="FigureHeroTitle" Text="Figure 版本预览"
+                                               FontWeight="SemiBold" FontSize="14"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="FigureHeroDescription"
+                                               Text="选中 Figure、Panel 或完整成图，预览将显示在这里。"
+                                               Foreground="#FF666666" Margin="0,9,0,0"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <Border Background="White" BorderBrush="#FFE5E5E5"
+                                        BorderThickness="1" CornerRadius="5">
+                                    <Image x:Name="FigureHeroImage" Stretch="Uniform" Margin="5"/>
+                                </Border>
+                            </DockPanel>
+                        </Border>
+                        <ListView x:Name="FigureFiles" Grid.Row="2" BorderThickness="0"
                                   SelectionMode="Extended"
                                   SelectionChanged="FigureFiles_SelectionChanged"
                                   MouseDoubleClick="FigureFiles_DoubleClick"
@@ -383,7 +403,23 @@
                                   ContextMenuOpening="FigureFiles_ContextMenuOpening">
                             <ListView.View>
                                 <GridView>
-                                    <GridViewColumn Header="名称" Width="260" DisplayMemberBinding="{Binding Name}"/>
+                                    <GridViewColumn Header="名称 / 预览" Width="295">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Border Width="52" Height="44" Margin="0,2,10,2"
+                                                            BorderBrush="#FFE3E3E3" BorderThickness="1"
+                                                            Background="#FFF7F7F7" CornerRadius="3">
+                                                        <Image Source="{Binding Thumbnail}" Stretch="Uniform"
+                                                               Margin="2"/>
+                                                    </Border>
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                               MaxWidth="210"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
                                     <GridViewColumn Header="类型" Width="130" DisplayMemberBinding="{Binding Type}"/>
                                     <GridViewColumn Header="数量" Width="90" DisplayMemberBinding="{Binding Count}"/>
                                     <GridViewColumn Header="状态" Width="170" DisplayMemberBinding="{Binding Status}"/>
