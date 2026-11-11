@@ -413,6 +413,7 @@ public partial class MainWindow : Window
         if (DetailName is null || DetailMeta is null || PreviewImage is null
             || RelatedFiles is null || UsageList is null) return;
         var row = SelectedAsset();
+        AssetLocateUsageButton.Visibility=Visibility.Collapsed;
         PreviewImage.Source = row?.Thumbnail;
         DetailName.Text = row?.FileName ?? "未选择文件";
         if (row is null || _workspace is null)
@@ -433,7 +434,10 @@ public partial class MainWindow : Window
                 .Select(x => $"{x.StageLabel}  {x.FileName}").ToArray();
         UsageHeading.Text="使用位置 · 论文与归档";
         var references=new List<string>();
-        foreach(var link in _workspace.ListAssetPaperReferences(row.Asset.Id))
+        var paperReferences=_workspace.ListAssetPaperReferences(row.Asset.Id);
+        AssetLocateUsageButton.Visibility=paperReferences.Count>0?
+            Visibility.Visible:Visibility.Collapsed;
+        foreach(var link in paperReferences)
         {
             var kind=link.ReferenceKind=="working"?"工作区关联（尚非论文历史证据）":
                 link.DocumentId is null?"历史成图来源（尚未绑定论文全文）":
