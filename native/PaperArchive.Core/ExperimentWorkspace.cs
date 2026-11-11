@@ -282,6 +282,28 @@ public sealed partial class ExperimentWorkspace
             }
             finally { if(File.Exists(staged))File.Delete(staged); }
         }
+        // The non-RAW/SHOW processing suffix is intentionally open-ended.
+        // Use same-import sample anchors to group CV01_anyOperation with CV01
+        // without inventing an actual processing lineage or operation order.
+        var sampleAnchors=prepared
+            .Where(x=>x.Stage is "raw" or "show" or "quant")
+            .Select(x=>x.Prefix)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(x=>x.Length)
+            .ToArray();
+        for(var i=0;i<prepared.Count;i++)
+        {
+            var item=prepared[i];
+            if(item.Stage!="process" ||
+                sampleAnchors.Contains(item.Prefix,StringComparer.OrdinalIgnoreCase))
+                continue;
+            var stem=Path.GetFileNameWithoutExtension(item.FileName);
+            var candidate=sampleAnchors.FirstOrDefault(prefix=>
+                stem.StartsWith(prefix+"_",StringComparison.OrdinalIgnoreCase) ||
+                stem.StartsWith(prefix+"-",StringComparison.OrdinalIgnoreCase));
+            if(candidate is not null)
+                prepared[i]=(item.Relative,item.FileName,item.Stage,candidate,item.Size,item.Sha);
+        }
         using var db=Connect();
         using var tx=db.BeginTransaction();
         using (var insert=db.CreateCommand())
