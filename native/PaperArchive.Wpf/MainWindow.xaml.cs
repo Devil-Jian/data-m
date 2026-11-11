@@ -437,7 +437,8 @@ public partial class MainWindow : Window
         {
             var kind=link.ReferenceKind=="working"?"工作区关联（尚非论文历史证据）":
                 link.DocumentId is null?"历史成图来源（尚未绑定论文全文）":
-                $"论文 {link.DocumentName}";
+                $"论文 {link.DocumentName} · "+
+                (link.DocumentLinkStatus=="confirmed"?"采用版本已确认":"版本关联待核对");
             var version=link.CompositeVersion is null?"当前 Panel":
                 $"完整成图 v{link.CompositeVersion}";
             var status=link.ProcessingStatus=="confirmed"?"来源路径已确认":"包含待确认加工关系";
