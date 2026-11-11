@@ -38,6 +38,7 @@ public partial class MainWindow
         string? panelId=null,bool compositesOnly=false)
     {
         if(_workspace is null)return;
+        HidePaperTaskHome();
         _figureMode=true;
         _showOnlyComposites=compositesOnly;
         _showManuscripts=false;
