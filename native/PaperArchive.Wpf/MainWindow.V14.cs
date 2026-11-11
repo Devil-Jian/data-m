@@ -73,7 +73,34 @@ public partial class MainWindow
             Width=16,Height=16,Stretch=Stretch.Uniform,
             Margin=new Thickness(3,0,7,0),VerticalAlignment=VerticalAlignment.Center
         };
-        row.Children.Add(glyph=="doc"||glyph=="paper"?docIcon:folder);
+        // Panel nodes represent references to experiment SHOW assets, not files.
+        var linkIcon=new System.Windows.Shapes.Path
+        {
+            Data=Geometry.Parse("M9,6 L12,3 C14,1 17,1 19,3 C21,5 21,8 19,10 L16,13 M14,10 L11,13 M11,15 L8,18 C6,20 3,20 1,18 C-1,16 -1,13 1,11 L4,8"),
+            Fill=Brushes.Transparent,
+            Stroke=new SolidColorBrush(Color.FromRgb(57,111,171)),
+            StrokeThickness=2,StrokeStartLineCap=PenLineCap.Round,
+            StrokeEndLineCap=PenLineCap.Round,
+            Width=16,Height=16,Stretch=Stretch.Uniform,
+            Margin=new Thickness(3,0,7,0),VerticalAlignment=VerticalAlignment.Center
+        };
+        // A Figure's finished-image slot is a logical image placeholder.
+        var imageIcon=new System.Windows.Shapes.Path
+        {
+            Data=Geometry.Parse("M2,3 L20,3 L20,19 L2,19 Z M4,16 L9,10 L12,13 L15,9 L19,16 Z M6,6 L9,6 L9,9 L6,9 Z"),
+            Fill=new SolidColorBrush(Color.FromRgb(231,241,251)),
+            Stroke=new SolidColorBrush(Color.FromRgb(62,110,161)),
+            StrokeThickness=1.2,StrokeLineJoin=PenLineJoin.Round,
+            Width=16,Height=16,Stretch=Stretch.Uniform,
+            Margin=new Thickness(3,0,7,0),VerticalAlignment=VerticalAlignment.Center
+        };
+        row.Children.Add(glyph switch
+        {
+            "link" => linkIcon,
+            "image" => imageIcon,
+            "doc" or "paper" => docIcon,
+            _ => folder
+        });
         row.Children.Add(new TextBlock{
             Text=label,FontSize=12,Foreground=new SolidColorBrush(Color.FromRgb(37,37,37)),
             VerticalAlignment=VerticalAlignment.Center});
