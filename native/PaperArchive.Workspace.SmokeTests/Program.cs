@@ -392,9 +392,44 @@ try
     Assert(capturedV1.Count==1 && capturedV1[0].AssetId==show.Id &&
         capturedV1[0].Status=="candidate",
         "Figure import snapshots candidate SHOW sources");
-    repo.ConfirmCompositeSources(v1.Id);
+    var fixedReview=repo.PreviewCompositeSourceReview(v1.Id);
+    Assert(!fixedReview.IsLivePanelCandidate && fixedReview.Sources.Count==1,
+        "already-versioned composite previews its original immutable source snapshot");
+    repo.ConfirmCompositeSourceReview(v1.Id,fixedReview.Fingerprint);
     Assert(repo.ListCompositeSources(v1.Id).Single().Status=="confirmed",
         "Figure source snapshot can be explicitly verified");
+    // A legacy composite with no sources previews live Panel links without
+    // writing them. One explicit confirmation captures a new immutable snapshot.
+    var legacyComposite=repo.ImportFigureComposite(latest.Single().Id,composPath);
+    Assert(repo.ListCompositeSources(legacyComposite.Id).Count==0,
+        "empty historical composite starts without invented source facts");
+    Assert(repo.PreviewCompositeSourceReview(legacyComposite.Id).Sources.Count==0,
+        "an unlinked legacy version has no candidates");
+    var initialPanel=repo.ListPanels(latest.Single().Id).First();
+    repo.LinkShowAssets(initialPanel.Id,[show.Id]);
+    var pendingReview=repo.PreviewCompositeSourceReview(legacyComposite.Id);
+    Assert(pendingReview.IsLivePanelCandidate &&
+        pendingReview.Sources.Count==1 &&
+        repo.ListCompositeSources(legacyComposite.Id).Count==0,
+        "read-only legacy preview does not silently create history");
+    var extraShow=copies.Single(x=>x.Stage=="show");
+    repo.LinkShowAssets(initialPanel.Id,[extraShow.Id]);
+    var staleSourceReviewRejected=false;
+    try{repo.ConfirmCompositeSourceReview(legacyComposite.Id,pendingReview.Fingerprint);}
+    catch(InvalidOperationException){staleSourceReviewRejected=true;}
+    Assert(staleSourceReviewRejected &&
+        repo.ListCompositeSources(legacyComposite.Id).Count==0,
+        "source preview cannot be confirmed after live Panel links change");
+    var refreshedReview=repo.PreviewCompositeSourceReview(legacyComposite.Id);
+    repo.ConfirmCompositeSourceReview(legacyComposite.Id,refreshedReview.Fingerprint);
+    Assert(repo.ListCompositeSources(legacyComposite.Id).Count==2 &&
+        repo.ListCompositeSources(legacyComposite.Id).All(x=>x.Status=="confirmed"),
+        "legacy candidates become confirmed only after explicit guarded review");
+    var latestLink=repo.ListPanelAssets(initialPanel.Id).First(x=>x.AssetId==extraShow.Id);
+    repo.UnlinkPanelAsset(latestLink.Id);
+    Assert(!repo.PreviewCompositeSourceReview(legacyComposite.Id).IsLivePanelCandidate &&
+        repo.ListCompositeSources(legacyComposite.Id).Count==2,
+        "confirmed legacy snapshot remains immutable after working Panel changes");
     var process=ros.First(x=>x.Stage=="process");
     repo.SetAssetProvenance(process.Id,show.Id,"图像处理输出",true);
     repo.SetAssetProvenance(raw.Id,process.Id,"原始图像裁剪",true);
