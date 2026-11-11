@@ -7,6 +7,7 @@ namespace PaperArchive.Wpf;
 
 public partial class MainWindow
 {
+    private sealed record UnassignedProjectsNode();
     private sealed record GlobalSearchRow(GlobalAssetSearchHit Hit)
     {
         public string FileName=>Hit.Asset.FileName;
@@ -110,13 +111,6 @@ public partial class MainWindow
     private void LocateGlobalSearchHit(GlobalAssetSearchHit hit)
     {
         if(_workspace is null)return;
-        if(hit.PaperId is null)
-        {
-            System.Windows.MessageBox.Show(this,
-                "该素材所属的实验项目尚未关联论文。请先把实验项目分配到论文项目，之后即可通过左侧目录定位。",
-                "全库查找",MessageBoxButton.OK,MessageBoxImage.Information);
-            return;
-        }
         if(_libraryMode)WorkspaceTab.IsChecked=true;
         SearchBox.Clear();
         _columnFilters.Clear();
