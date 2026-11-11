@@ -550,6 +550,8 @@ public partial class MainWindow
         }
         if(node.Tag is PaperProject)
         {
+            menu.Items.Add(Action("归档到论文资源库…",ArchivePaper_Click));
+            menu.Items.Add(new Separator());
             menu.Items.Add(Action("新建实验项目",CreateProject_Click));
             menu.Items.Add(Action("重命名论文项目    F2",RenameTree_Click));
             menu.Items.Add(Action("恢复已删除实验项目",RestoreTree_Click));
