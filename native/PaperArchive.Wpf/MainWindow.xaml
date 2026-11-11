@@ -478,6 +478,37 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        <StackPanel x:Name="CompositeSourcesPanel" Visibility="Collapsed"
+                                    Margin="0,6,0,12">
+                            <TextBlock Text="本版本 Panel/SHOW 来源"
+                                       FontWeight="SemiBold" Margin="0,0,0,8"/>
+                            <TextBlock x:Name="CompositeSourcesNotice"
+                                       TextWrapping="Wrap" Foreground="#FF666666"
+                                       Margin="0,0,0,10"/>
+                            <ItemsControl x:Name="CompositeSourceCards">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <DockPanel Margin="0,0,0,10" LastChildFill="True">
+                                            <Border DockPanel.Dock="Left" Width="64" Height="54"
+                                                    Margin="0,0,9,0" Background="#FFF7F7F7"
+                                                    BorderBrush="#FFE5E5E5" BorderThickness="1">
+                                                <Image Source="{Binding Thumbnail}" Stretch="Uniform"/>
+                                            </Border>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Title}" TextWrapping="Wrap"
+                                                           FontWeight="SemiBold"/>
+                                                <TextBlock Text="{Binding Status}" TextWrapping="Wrap"
+                                                           Foreground="#FF666666" FontSize="11"/>
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Button x:Name="ConfirmCompositeSourceButton"
+                                    Content="核对并确认本版本来源"
+                                    HorizontalAlignment="Stretch" Margin="0,5,0,0"
+                                    Click="ConfirmCompositeSources_Click"/>
+                        </StackPanel>
                         <Separator Margin="0,12,0,12"/>
                         <TextBlock x:Name="UsageHeading" Text="论文用途" FontWeight="SemiBold" Margin="0,0,0,9"/>
                         <ItemsControl x:Name="UsageList">
