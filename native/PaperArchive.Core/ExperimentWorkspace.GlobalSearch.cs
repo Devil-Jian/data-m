@@ -9,6 +9,47 @@ public sealed record GlobalAssetSearchHit(
 /// <summary>Cross-paper file lookup, independent of the currently loaded UI scope.</summary>
 public sealed partial class ExperimentWorkspace
 {
+    /// <summary>
+    /// Fetch presentation usage labels for the visible scope in a single SQL
+    /// query. Avoid one additional SQLite connection per asset when browsing
+    /// large experiment projects.
+    /// </summary>
+    public IReadOnlyDictionary<string,string> ListScopeUsageLabels(
+        string? paperId=null,string? projectId=null,string? resultId=null)
+    {
+        if(paperId is null && projectId is null && resultId is null)
+            return new Dictionary<string,string>();
+        using var db=Connect();
+        using var cmd=db.CreateCommand();
+        cmd.CommandText="""
+            SELECT u.asset_id,u.figure,u.panel
+            FROM experiment_usages u
+            JOIN experiment_assets a ON a.id=u.asset_id
+            JOIN experiment_results r ON r.id=a.result_id
+            JOIN experiment_projects p ON p.id=r.project_id
+            WHERE u.state IN ('confirmed','exported')
+              AND a.is_deleted=0 AND r.is_deleted=0 AND p.is_deleted=0
+              AND ($result IS NULL OR r.id=$result)
+              AND ($project IS NULL OR p.id=$project)
+              AND ($paper IS NULL OR p.paper_id=$paper)
+            ORDER BY u.asset_id,u.figure,u.panel
+            """;
+        cmd.Parameters.AddWithValue("$result",(object?)resultId??DBNull.Value);
+        cmd.Parameters.AddWithValue("$project",(object?)projectId??DBNull.Value);
+        cmd.Parameters.AddWithValue("$paper",(object?)paperId??DBNull.Value);
+        var groups=new Dictionary<string,HashSet<string>>(StringComparer.Ordinal);
+        using var reader=cmd.ExecuteReader();
+        while(reader.Read())
+        {
+            var assetId=reader.GetString(0);
+            if(!groups.TryGetValue(assetId,out var labels))
+                groups[assetId]=labels=new HashSet<string>(StringComparer.Ordinal);
+            labels.Add($"Fig {reader.GetInt32(1)}{reader.GetString(2)}");
+        }
+        return groups.ToDictionary(x=>x.Key,x=>string.Join(", ",x.Value.Order(StringComparer.Ordinal)),
+            StringComparer.Ordinal);
+    }
+
     public IReadOnlyList<GlobalAssetSearchHit> SearchAssetsGlobal(string text,
         int limit=100,int offset=0)
     {
