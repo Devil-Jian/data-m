@@ -388,7 +388,7 @@
                         <TextBlock x:Name="DetailMeta" Foreground="#FF555555"
                                    TextWrapping="Wrap" LineHeight="23"/>
                         <Separator Margin="0,17,0,12"/>
-                        <TextBlock Text="同组文件" FontWeight="SemiBold" Margin="0,0,0,9"/>
+                        <TextBlock x:Name="RelatedHeading" Text="同组文件" FontWeight="SemiBold" Margin="0,0,0,9"/>
                         <ItemsControl x:Name="RelatedFiles">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -397,7 +397,7 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                         <Separator Margin="0,12,0,12"/>
-                        <TextBlock Text="论文用途" FontWeight="SemiBold" Margin="0,0,0,9"/>
+                        <TextBlock x:Name="UsageHeading" Text="论文用途" FontWeight="SemiBold" Margin="0,0,0,9"/>
                         <ItemsControl x:Name="UsageList">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate><TextBlock Text="{Binding}" Margin="0,0,0,8" TextWrapping="Wrap"/></DataTemplate>
