@@ -28,6 +28,8 @@ public partial class MainWindow
         FolderList.IsEnabled=false;
         UpdateManuscriptList();
         PreviewImage.Source=null;
+        RelatedHeading.Text="关联 Figure";
+        UsageHeading.Text="数据溯源";
         DetailName.Text="论文全文";
         DetailMeta.Text="PDF / DOC / DOCX 文稿独立存放在论文项目中。双击文稿调用系统默认应用打开。";
         RelatedFiles.ItemsSource=null;
