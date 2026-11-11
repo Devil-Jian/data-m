@@ -36,6 +36,8 @@ public sealed partial class ExperimentWorkspace
         if(cmd.ExecuteNonQuery()!=1)throw new InvalidOperationException("目标实验项目或源结果单元不存在。");
         RecordUndo(db,tx,"result",System.Text.Json.JsonSerializer.Serialize(
             new UndoResultMove(resultId,original,targetProjectId)));
+        RefreshSampleIndex(db,tx,original);
+        RefreshSampleIndex(db,tx,targetProjectId);
         tx.Commit();
     }
 
@@ -66,9 +68,11 @@ public sealed partial class ExperimentWorkspace
     public void SetResultDeleted(string resultId,bool deleted)
     {
         using var db=Connect();
+        using var tx=db.BeginTransaction();
         if(deleted)
         {
             using var check=db.CreateCommand();
+            check.Transaction=tx;
             check.CommandText="""
                 SELECT COUNT(*) FROM experiment_usages u JOIN experiment_assets a ON a.id=u.asset_id
                 WHERE a.result_id=$id AND u.state='confirmed'
@@ -78,10 +82,13 @@ public sealed partial class ExperimentWorkspace
                 throw new InvalidOperationException("结果单元中存在已确认的论文用途，禁止删除。");
         }
         using var cmd=db.CreateCommand();
+        cmd.Transaction=tx;
         cmd.CommandText="UPDATE experiment_results SET is_deleted=$value WHERE id=$id";
         cmd.Parameters.AddWithValue("$value",deleted?1:0);
         cmd.Parameters.AddWithValue("$id",resultId);
         if(cmd.ExecuteNonQuery()!=1)throw new KeyNotFoundException("结果单元不存在。");
+        RefreshSampleIndexForResults(db,tx,[resultId]);
+        tx.Commit();
     }
 
     public void SetProjectDeleted(string projectId,bool deleted)
