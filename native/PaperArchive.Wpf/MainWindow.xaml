@@ -58,6 +58,9 @@
                         </MenuItem>
                     </Menu>
                 </StackPanel>
+                <Button x:Name="ArchivePaperButton" DockPanel.Dock="Right"
+                        Content="归档到论文资源库…" Margin="14,0,0,0"
+                        Click="ArchivePaper_Click"/>
                 <TextBox x:Name="SearchBox" DockPanel.Dock="Right" Width="292"
                          VerticalContentAlignment="Center" ToolTip="在当前选中项目范围中搜索"
                          TextChanged="Search_Changed"/>
