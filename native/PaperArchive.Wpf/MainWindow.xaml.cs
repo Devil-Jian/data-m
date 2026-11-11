@@ -452,8 +452,21 @@ public partial class MainWindow : Window
             UsageList.ItemsSource = null;
             return;
         }
-        DetailMeta.Text = $"阶段：{row.StageLabel}\n数据组：{row.GroupPrefix}\n文件路径：{row.RelativePath}\n" +
-                          $"大小：{row.SizeLabel}\nAsset ID：{row.Asset.Id}\nSHA-256：{row.Asset.Sha256}";
+        var tags=_workspace.GetAssetSystemTags(row.Asset.Id);
+        var tagLabel=tags is null?"系统标签：尚未建立（旧数据可通过样本索引预览并重建）":
+            $"实验：{tags.ExperimentName}\n样本：{tags.SampleName??"待识别"}\n"+
+            $"阶段：{tags.Stage.ToUpperInvariant()}"+
+            (tags.ProcessSubtype is null?"":" / "+tags.ProcessSubtype)+
+            $"\n文件版本：v{tags.FileVersion}\n解析状态："+
+            (tags.ParseStatus switch
+            {
+                "resolved"=>"已自动识别",
+                "conflict"=>"命名与阶段目录冲突，需核对",
+                _=>"待识别"
+            })+(tags.SourceKind=="legacy_fallback"?"（旧数据回退名称）":"");
+        DetailMeta.Text=tagLabel+
+            $"\n数据组：{row.GroupPrefix}\n文件路径：{row.RelativePath}\n"+
+            $"大小：{row.SizeLabel}\nAsset ID：{row.Asset.Id}\nSHA-256：{row.Asset.Sha256}";
         var sameSample = _workspace.ListSameSampleAssets(row.Asset.Id);
         RelatedHeading.Text = sameSample.Count > 0
             ? "同一样本（自动索引 · 非加工关系）" : "同组文件";
