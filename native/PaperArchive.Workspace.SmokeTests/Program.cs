@@ -341,6 +341,32 @@ try
     Assert(blocked,"blocked archive cannot be published");
     Assert(ArchiveRepository.Open(repo.Root).ListWorkspaceArchiveResources(archived.PaperId,1).Count==
         preview.Resources.Count,"archived revision persists after reopen");
+    // V1.6-A: task state derives from existing objects instead of a manual
+    // completion checkbox. One-time primary document choice survives reopen.
+    var beforePrimary=repo.GetPaperWorkSummary(paperId);
+    Assert(beforePrimary.PrimaryDocument is null &&
+        beforePrimary.Tasks.Any(x=>x.Code=="select_primary"&&x.BlocksArchive),
+        "multiple manuscript drafts require one explicit primary selection");
+    repo.SetPrimaryPaperDocument(paperId,pdfDoc.Id);
+    var taskSummary=repo.GetPaperWorkSummary(paperId);
+    Assert(taskSummary.PrimaryDocument?.Id==pdfDoc.Id &&
+        taskSummary.DocumentCount==3 &&
+        taskSummary.ConfirmedFigureCount==1 &&
+        taskSummary.BlockingCount==0,
+        "task engine follows the confirmed paper graph without manual completion flags");
+    Assert(ExperimentWorkspace.Open(repo.Root).GetPrimaryPaperDocument(paperId)?.Id==pdfDoc.Id,
+        "primary manuscript choice is persistent across workspace reopen");
+    var invalidPrimary=false;
+    try{repo.SetPrimaryPaperDocument(paperId,"invalid-document");}
+    catch(InvalidOperationException){invalidPrimary=true;}
+    Assert(invalidPrimary && repo.GetPrimaryPaperDocument(paperId)?.Id==pdfDoc.Id,
+        "cross-paper or missing manuscript cannot become primary");
+    var unfinished=repo.CreatePaperProject("V16 未完成论文");
+    Assert(repo.GetPaperWorkSummary(unfinished).Tasks.Any(x=>x.Code=="import_manuscript"),
+        "missing manuscript becomes an actionable derived task");
+    var singleDoc=repo.ImportPaperDocument(unfinished,pdfPath);
+    Assert(repo.GetPrimaryPaperDocument(unfinished)?.Id==singleDoc.Id,
+        "a project with one manuscript needs no manual primary selection");
     var expectedNoFile=repo.CreateFiguresFast(paperId,1,1);
     Assert(repo.ListFigureComposites(expectedNoFile.Single().Id).Count==0 &&
         repo.ListPanelAssets(repo.ListPanels(expectedNoFile.Single().Id)[0].Id).Count==0,
