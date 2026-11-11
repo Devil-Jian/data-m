@@ -431,9 +431,25 @@ public partial class MainWindow : Window
             ? sameSample.Select(x => $"{x.Stage.ToUpperInvariant()}  {x.FileName}").ToArray()
             : _all.Where(x => x.Asset.GroupId == row.Asset.GroupId)
                 .Select(x => $"{x.StageLabel}  {x.FileName}").ToArray();
-        UsageList.ItemsSource = _workspace.ListUsages(row.Asset.Id)
-            .Select(x => $"{x.PaperTitle}\nFigure {x.Figure}{x.Panel} · {x.State}")
-            .ToArray();
+        UsageHeading.Text="使用位置 · 论文与归档";
+        var references=new List<string>();
+        foreach(var link in _workspace.ListAssetPaperReferences(row.Asset.Id))
+        {
+            var kind=link.ReferenceKind=="working"?"工作区关联（尚非论文历史证据）":
+                link.DocumentId is null?"历史成图来源（尚未绑定论文全文）":
+                $"论文 {link.DocumentName}";
+            var version=link.CompositeVersion is null?"当前 Panel":
+                $"完整成图 v{link.CompositeVersion}";
+            var status=link.ProcessingStatus=="confirmed"?"来源路径已确认":"包含待确认加工关系";
+            references.Add($"Figure {link.FigureNumber} · Panel {link.PanelLabel} · {version}\n{kind} · {status} · 快照 {link.SourceStatus}");
+        }
+        _archive??=ArchiveRepository.Open(_workspace.Root);
+        foreach(var archive in _archive.ListArchivedAssetReferences(row.Asset.Id))
+            references.Add($"归档 Revision {archive.Revision} · {archive.Role}\n{archive.Location} · {archive.ArchivedAt}");
+        foreach(var usage in _workspace.ListUsages(row.Asset.Id))
+            references.Add($"旧版用途 · {usage.PaperTitle}\nFigure {usage.Figure}{usage.Panel} · {usage.State}");
+        UsageList.ItemsSource=references.Count>0?references.ToArray():
+            ["尚未在 Panel、论文成图或归档版本中使用。"];
     }
 
     private void MainTab_Changed(object sender, RoutedEventArgs e)
