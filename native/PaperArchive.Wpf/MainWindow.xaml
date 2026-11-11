@@ -329,6 +329,9 @@
                             <Button Content="关联 Figure…" DockPanel.Dock="Right"
                                     HorizontalAlignment="Right"
                                     Click="LinkManuscriptFigures_Click"/>
+                            <Button Content="查看完整溯源…" DockPanel.Dock="Right"
+                                    HorizontalAlignment="Right"
+                                    Click="ViewManuscriptProvenance_Click"/>
                         </DockPanel>
                         <ListView x:Name="ManuscriptList" Grid.Row="1" BorderThickness="0"
                                   MouseDoubleClick="Manuscript_DoubleClick"
