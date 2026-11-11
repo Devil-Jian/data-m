@@ -326,6 +326,9 @@
                             <Button Content="导入全文…" DockPanel.Dock="Right"
                                     HorizontalAlignment="Right"
                                     Click="ImportPaperDocument_Click"/>
+                            <Button Content="关联 Figure…" DockPanel.Dock="Right"
+                                    HorizontalAlignment="Right"
+                                    Click="LinkManuscriptFigures_Click"/>
                         </DockPanel>
                         <ListView x:Name="ManuscriptList" Grid.Row="1" BorderThickness="0"
                                   MouseDoubleClick="Manuscript_DoubleClick"
