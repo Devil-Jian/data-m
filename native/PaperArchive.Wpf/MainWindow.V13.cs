@@ -562,6 +562,9 @@ public partial class MainWindow
             menu.Items.Add(Action("导入完整实验项目（待整理）",ImportProject_Click));
             menu.Items.Add(Action("导入单个实验结果",Import_Click));
             menu.Items.Add(new Separator());
+            menu.Items.Add(Action("预览并重建样本索引…",RebuildSampleIndex_Click));
+            menu.Items.Add(Action("撤销最近一次样本索引重建",UndoSampleIndex_Click));
+            menu.Items.Add(new Separator());
             menu.Items.Add(Action("复制实验项目",CopyProject_Click));
             menu.Items.Add(Action("重命名    F2",RenameTree_Click));
             menu.Items.Add(Action("恢复已删除结果单元",RestoreTree_Click));
