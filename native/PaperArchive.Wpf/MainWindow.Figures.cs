@@ -902,6 +902,7 @@ public partial class MainWindow
             {
                 menu.Items.Add(Action("新建 Panel",QuickPanel_Click));
                 menu.Items.Add(Action("批量新建 Panel…",BatchPanel_Click));
+                menu.Items.Add(Action("撤销最近一次 SHOW 拖拽",UndoFigureDrop_Click));
                 menu.Items.Add(new Separator());
                 menu.Items.Add(Action("导入完整 Figure…",ImportComposite_Click));
             }
@@ -922,6 +923,7 @@ public partial class MainWindow
                 menu.Items.Add(Action("删除 (Delete)",DeleteFigurePlaceholder_Click));
                 menu.Items.Add(new Separator());
                 menu.Items.Add(Action("关联 SHOW 素材…",LinkShowFromFigure_Click));
+                menu.Items.Add(Action("撤销最近一次 SHOW 拖拽",UndoFigureDrop_Click));
                 break;
             case FigureCompositesNode:
                 menu.Items.Add(Action("打开",FigureContextOpen_Click));
