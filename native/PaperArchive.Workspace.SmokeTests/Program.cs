@@ -517,6 +517,26 @@ try
         "unlinking current Panel SHOW preserves confirmed historical composite source");
     Assert(repo.DescribeDocumentProvenance(pdfDoc.Id).Contains(show.FileName),
         "manuscript lineage remains readable after live Panel unlink");
+    // V1.6-C: reverse lookup uses pinned immutable snapshots, not current
+    // Panel links. RAW traces via explicitly confirmed provenance edges.
+    var showRefs=repo.ListAssetPaperReferences(show.Id);
+    var processRefs=repo.ListAssetPaperReferences(process.Id);
+    var rawRefs=repo.ListAssetPaperReferences(raw.Id);
+    Assert(showRefs.Any(x=>x.ReferenceKind=="snapshot" &&
+        x.DocumentId==pdfDoc.Id && x.CompositeId==v1.Id &&
+        x.PanelLabel=="A") &&
+        processRefs.Any(x=>x.CompositeId==v1.Id && x.ProcessingStatus=="confirmed") &&
+        rawRefs.Any(x=>x.CompositeId==v1.Id && x.ProcessingStatus=="confirmed"),
+        "SHOW PROCESS RAW reverse trace locates the pinned manuscript version");
+    Assert(!showRefs.Any(x=>x.ReferenceKind=="working" &&
+        x.FigureId==figuresNew[0].Id),
+        "a removed working Panel link is not invented from historical evidence");
+    Assert(repo.ListDocumentAssetReferences(pdfDoc.Id).Any(x=>
+        x.ShowAssetId==show.Id && x.CompositeId==v1.Id &&
+        x.ReferenceKind=="snapshot"),
+        "manuscript forward index identifies its exact historical SHOW snapshot");
+    Assert(repo.ListDocumentAssetReferences(wordDoc.Id).Count==0,
+        "an unrelated manuscript has no invented Figure references");
     // V15-16: archive only the exact confirmed manuscript Figure graph.
     var archive=ArchiveRepository.Open(repo.Root);
     var preview=archive.PrepareWorkspaceArchive(repo,paperId,pdfDoc.Id);
@@ -534,6 +554,13 @@ try
     Assert(archive.ListResources(archived.PaperId).Count==preview.Resources.Count &&
         archive.GetWorkspaceArchiveManifest(archived.PaperId,1)==preview.ManifestJson,
         "archive has immutable resource list and exact relation manifest");
+    Assert(archive.ListArchivedAssetReferences(show.Id).Any(x=>
+        x.ArchivePaperId==archived.PaperId && x.Revision==1 &&
+        x.Role=="show" && x.Location.Contains("Panel A")) &&
+        archive.ListArchivedAssetReferences(raw.Id).Any(x=>
+            x.Revision==1 && x.Role=="raw") &&
+        archive.ListArchivedAssetReferences(quant.Id).Count==0,
+        "archive reverse lookup includes recorded RAW and SHOW but excludes QUANT");
     Assert(archive.PublishWorkspaceArchive(preview).AlreadyArchived &&
         archive.ListWorkspaceRevisions(archived.PaperId).Count==1,
         "repeated archive of same manifest is idempotent");
@@ -541,6 +568,9 @@ try
     repo.SetPaperFigureLink(pdfDoc.Id,figuresNew[0].Id,v3.Id,true);
     var revisionPreview=archive.PrepareWorkspaceArchive(repo,paperId,pdfDoc.Id);
     var revision=archive.PublishWorkspaceArchive(revisionPreview,true);
+    Assert(archive.ListArchivedAssetReferences(show.Id).Any(x=>x.Revision==1) &&
+        archive.GetWorkspaceArchiveManifest(archived.PaperId,1)==preview.ManifestJson,
+        "reverse index keeps archived revision 1 visible after later publication");
     Assert(revision.PaperId==archived.PaperId && revision.Revision==2 &&
         archive.ListWorkspaceRevisions(archived.PaperId).Count==2 &&
         archive.GetWorkspaceArchiveManifest(archived.PaperId,1)==preview.ManifestJson,
