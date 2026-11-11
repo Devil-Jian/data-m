@@ -552,6 +552,10 @@
                                 <DataTemplate><TextBlock Text="{Binding}" Margin="0,0,0,8" TextWrapping="Wrap"/></DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        <Button x:Name="AssetLocateUsageButton" Visibility="Collapsed"
+                                Content="定位 Figure / Panel 使用位置"
+                                HorizontalAlignment="Stretch" Margin="0,9,0,0"
+                                Click="LocateAssetUsage_Click"/>
                     </StackPanel>
                 </ScrollViewer>
             </Border>
