@@ -179,12 +179,14 @@ public partial class MainWindow : Window
                 {
                     var fNode=new TreeViewItem{
                         Header=TreeLabel($"Figure {figure.Number}","folder",_workspace.ListPanels(figure.Id).Count),
-                        Tag=new FigureNode(paper.Id,figure.Id),IsExpanded=true};
+                        Tag=new FigureNode(paper.Id,figure.Id),IsExpanded=true,
+                        ToolTip="拖入 SHOW 图片可自动创建 Panel；原文件不会移动。"};
                     foreach(var panel in _workspace.ListPanels(figure.Id))
                         fNode.Items.Add(new TreeViewItem{
                             Header=TreeLabel("Panel "+panel.Label,"link",
                                 _workspace.ListPanelAssets(panel.Id).Count),
-                            Tag=new PanelNode(paper.Id,figure.Id,panel.Id)});
+                            Tag=new PanelNode(paper.Id,figure.Id,panel.Id),
+                            ToolTip="拖入 SHOW 图片即可关联到此 Panel，不改变原文件。"});
                     fNode.Items.Add(new TreeViewItem{
                         Header=TreeLabel(FigureImageSlotName(figure.Number),"image",
                             _workspace.ListFigureComposites(figure.Id).Count),
