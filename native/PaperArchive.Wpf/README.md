@@ -51,7 +51,7 @@ Development is optional for the graphical XAML designer/Hot Reload.
 ## Known next steps (not yet implemented)
 
 - Figure/PDF page navigation with embedded document rendering.
-- Full paper archive creation from the new experiment workspace.
+- Optional full-project archive (including unused experiment results and draft Figures); current publishing intentionally archives only the selected manuscript's confirmed Figure provenance.
 - Advanced grouping rules, drag/drop and safe bulk renaming with undo.
 - Thumbnail virtualization for extremely large folders, medical/scientific
   proprietary format codecs, cross-machine export/import.
