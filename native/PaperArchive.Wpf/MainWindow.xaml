@@ -460,27 +460,60 @@
                     </Grid>
                     <Grid x:Name="LibraryArea" Visibility="Collapsed" Background="White">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="48"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <DockPanel Margin="13,7" LastChildFill="False">
+                        <DockPanel Grid.Row="0" Margin="13,9,13,5" LastChildFill="False">
                             <TextBlock DockPanel.Dock="Left" Text="已归档论文资源"
                                        FontSize="15" FontWeight="SemiBold"
                                        VerticalAlignment="Center"/>
-                            <Button DockPanel.Dock="Right" Content="查看归档溯源 / 版本…"
-                                    Click="ViewArchivedProvenance_Click"/>
+                            <Button DockPanel.Dock="Right" Content="查看归档关系"
+                                    ToolTip="在当前窗口中展开所选 Revision 的历史来源"
+                                    Click="LibraryShowProvenance_Click"/>
+                            <TextBlock DockPanel.Dock="Right" Text="版本" VerticalAlignment="Center"
+                                       Margin="14,0,6,0" Foreground="#FF666666"/>
+                            <ComboBox DockPanel.Dock="Right" x:Name="LibraryRevisionPicker"
+                                      Width="190" MinHeight="30" VerticalAlignment="Center"
+                                      DisplayMemberPath="Display"
+                                      SelectionChanged="LibraryRevisionPicker_SelectionChanged"/>
                         </DockPanel>
-                        <ListView x:Name="LibraryFiles" Grid.Row="1" BorderThickness="0"
-                                  SelectionChanged="LibraryFiles_SelectionChanged">
-                            <ListView.View>
-                                <GridView>
-                                    <GridViewColumn Header="文件名" Width="270" DisplayMemberBinding="{Binding FileName}"/>
-                                    <GridViewColumn Header="所属 Figure / Panel" Width="210" DisplayMemberBinding="{Binding Group}"/>
-                                    <GridViewColumn Header="角色" Width="130" DisplayMemberBinding="{Binding Role}"/>
-                                    <GridViewColumn Header="大小" Width="110" DisplayMemberBinding="{Binding Size}"/>
-                                </GridView>
-                            </ListView.View>
-                        </ListView>
+                        <TextBlock Grid.Row="1" x:Name="LibraryRevisionSummary"
+                                   Margin="14,0,14,9" Foreground="#FF666666"
+                                   Text="选择归档论文查看资源与不可变来源快照"
+                                   TextWrapping="Wrap"/>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition x:Name="LibrarySourceColumn" Width="300" MinWidth="210"/>
+                                <ColumnDefinition Width="5"/>
+                                <ColumnDefinition Width="*" MinWidth="260"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="#FFFBFBFB"
+                                    BorderBrush="#FFE7E7E7" BorderThickness="0,1,1,0">
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Top" Text="历史来源 · 只读"
+                                               FontWeight="SemiBold" Margin="13,11,10,9"/>
+                                    <TreeView x:Name="LibrarySourceTree"
+                                              BorderThickness="0" Background="Transparent"
+                                              Margin="8,0,5,8"
+                                              SelectedItemChanged="LibrarySourceTree_SelectedItemChanged"/>
+                                </DockPanel>
+                            </Border>
+                            <GridSplitter Grid.Column="1" Width="5"
+                                          HorizontalAlignment="Stretch" Background="#FFEDEDED"/>
+                            <ListView x:Name="LibraryFiles" Grid.Column="2"
+                                      BorderThickness="0"
+                                      SelectionChanged="LibraryFiles_SelectionChanged">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="文件名" Width="250" DisplayMemberBinding="{Binding FileName}"/>
+                                        <GridViewColumn Header="Figure / Panel" Width="195" DisplayMemberBinding="{Binding Group}"/>
+                                        <GridViewColumn Header="角色" Width="110" DisplayMemberBinding="{Binding Role}"/>
+                                        <GridViewColumn Header="大小" Width="90" DisplayMemberBinding="{Binding Size}"/>
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+                        </Grid>
                     </Grid>
                 </Grid>
             </Grid>
