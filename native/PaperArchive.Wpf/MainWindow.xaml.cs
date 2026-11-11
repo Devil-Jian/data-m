@@ -123,7 +123,7 @@ public partial class MainWindow : Window
                 ToggleDetails();
             WarehouseLabel.Text = warehouse;
             LoadProjectTree();
-            LoadScopeAssets();
+            if(_paperHomeId is null)LoadScopeAssets();
         }
         catch (Exception ex) { ShowError(ex); }
     }
@@ -236,7 +236,9 @@ public partial class MainWindow : Window
         if(node.Tag is PaperProject paperProject)
         {
             _activePaper=paperProject;_activeProject=null;_activeResult=null;
-            CloseFigures();CloseManuscripts();
+            ShowPaperTaskHome(paperProject.Id);
+            UpdateActionAvailability();
+            return;
         }
         else if(node.Tag is PaperDocumentsNode docs)
         {
@@ -309,6 +311,7 @@ public partial class MainWindow : Window
 
     private void Search_Changed(object sender, TextChangedEventArgs e)
     {
+        if(_paperHomeId is not null)return;
         if(_showManuscripts)UpdateManuscriptList();
         else if(_figureMode)RefreshFigureView();
         else RefreshItems();
@@ -347,6 +350,11 @@ public partial class MainWindow : Window
     private void UpdateStatus()
     {
         if (StatusText is null) return;
+        if(_paperHomeId is not null&&!_libraryMode)
+        {
+            StatusText.Text=PaperHomeStatus.Text;
+            return;
+        }
         if (_libraryMode)
         {
             StatusText.Text = $"论文资源库  |  显示 {LibraryFiles?.Items.Count ?? 0} / 共 {LibraryFiles?.Items.Count ?? 0} 个文件";
@@ -439,12 +447,15 @@ public partial class MainWindow : Window
         _showManuscripts=false;
         FileList.Visibility = _libraryMode || _thumbnailMode ? Visibility.Collapsed : Visibility.Visible;
         ThumbnailList.Visibility = _libraryMode || !_thumbnailMode ? Visibility.Collapsed : Visibility.Visible;
-        if (_libraryMode) LoadPaperTree();
+        if (_libraryMode)
+        {
+            HidePaperTaskHome();
+            LoadPaperTree();
+        }
         else
         {
             LoadProjectTree();
-            if(_showManuscripts&&_activePaper is not null)LoadManuscripts(_activePaper.Id);
-            else LoadScopeAssets();
+            if(_paperHomeId is null&&!_figureMode&&!_showManuscripts)LoadScopeAssets();
         }
         UpdateActionAvailability();
         UpdateStatus();
