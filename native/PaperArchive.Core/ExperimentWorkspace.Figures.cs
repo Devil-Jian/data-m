@@ -375,6 +375,7 @@ public sealed partial class ExperimentWorkspace
         using var db=Connect();
         using var tx=db.BeginTransaction();
         var owner=GetPanelOwner(db,tx,panelId);
+        var addedLinks=new List<FigureDropLink>();
         int position;
         using(var max=db.CreateCommand())
         {
@@ -407,13 +408,17 @@ public sealed partial class ExperimentWorkspace
               INSERT OR IGNORE INTO figure_panel_assets(id,panel_id,asset_id,position,created_at)
               VALUES($id,$panel,$asset,$position,$now)
               """;
-            cmd.Parameters.AddWithValue("$id",NewId());
+            var linkId=NewId();
+            cmd.Parameters.AddWithValue("$id",linkId);
             cmd.Parameters.AddWithValue("$panel",panelId);
             cmd.Parameters.AddWithValue("$asset",id);
             cmd.Parameters.AddWithValue("$position",++position);
             cmd.Parameters.AddWithValue("$now",UtcNow());
-            added+=cmd.ExecuteNonQuery();
+            var inserted=cmd.ExecuteNonQuery();
+            added+=inserted;
+            if(inserted==1)addedLinks.Add(new(linkId,panelId,id));
         }
+        RecordFigureDropUndo(db,tx,new(owner.FigureId,addedLinks.ToArray(),[]));
         tx.Commit();
         return added;
     }
