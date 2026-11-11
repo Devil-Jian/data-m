@@ -16,7 +16,21 @@ public partial class MainWindow
     private sealed record FigureCompositesNode(string PaperId,string FigureId);
     private static string FigureImageSlotName(int figureNumber)=>$"Figure{figureNumber}";
     private sealed record FigureRow(string Name,string Type,string Count,
-        string Status,string Detail,object Item);
+        string Status,string Detail,object Item,BitmapImage? Thumbnail=null);
+
+    private BitmapImage? FigureThumbnail(string sha)
+    {
+        if(_workspace is null || sha.Length!=64 || !sha.All(Uri.IsHexDigit))
+            return null;
+        return PreviewFromFile(()=>Path.Combine(_workspace.Root,"blobs","sha256",sha[..2],sha));
+    }
+
+    private BitmapImage? PanelThumbnail(string panelId)
+    {
+        if(_workspace is null)return null;
+        var first=_workspace.ListPanelAssets(panelId).FirstOrDefault();
+        return first is null?null:FigureThumbnail(first.Sha256);
+    }
     private sealed record CompositeSourceCard(string Title,string Status,BitmapImage? Thumbnail);
     private bool _figureMode;
     private FigureTemplate? _currentFigure;
@@ -89,14 +103,18 @@ public partial class MainWindow
                     $"{overview.PanelCount} Panel",
                     overview.LinkedAssetCount==0?"未关联":"已关联",
                     $"{overview.LinkedAssetCount} 张素材 · {overview.CompositeCount} 个成图版本",
-                    overview.Figure));
+                    overview.Figure,
+                    _workspace.ListFigureComposites(overview.Figure.Id)
+                        .FirstOrDefault(x=>x.IsCurrent) is { } current?
+                            FigureThumbnail(current.Sha256):null));
         }
         else if(_currentPanel is not null)
         {
             foreach(var asset in _workspace.ListPanelAssets(_currentPanel.Id))
                 rows.Add(new(asset.FileName,"SHOW 素材",
                     $"{asset.Size/1024.0:0.0} KB","已关联",
-                    $"{asset.ResultName} / {asset.GroupPrefix}",asset));
+                    $"{asset.ResultName} / {asset.GroupPrefix}",asset,
+                    FigureThumbnail(asset.Sha256)));
         }
         else if(_showOnlyComposites)
         {
@@ -104,7 +122,8 @@ public partial class MainWindow
                 rows.Add(new(composite.FileName,"完整 Figure",
                     $"{composite.Size/1024.0:0.0} KB",
                     composite.IsCurrent?"当前正式版本":"历史版本",
-                    $"v{composite.Version} · {composite.ImportedAt}",composite));
+                    $"v{composite.Version} · {composite.ImportedAt}",composite,
+                    FigureThumbnail(composite.Sha256)));
         }
         else
         {
@@ -112,13 +131,17 @@ public partial class MainWindow
                 rows.Add(new("Panel "+panel.Panel.Label,"Panel 占位",
                     panel.LinkedAssetCount.ToString(),
                     panel.LinkedAssetCount==0?"未关联图片":"已关联",
-                    "双击查看关联的 SHOW 图片",panel.Panel));
+                    "双击查看关联的 SHOW 图片",panel.Panel,
+                    PanelThumbnail(panel.Panel.Id)));
             // Always show one logical final-image slot, even before an image is imported.
             var count=_workspace.ListFigureShowData(_currentFigure.Id).Count;
             rows.Add(new(FigureImageSlotName(_currentFigure.Number),"完整成图占位",
                 count.ToString(),count==0?"未导入":"已导入",
                 count==0?"双击进入并导入完整成图":$"{count} 个完整成图版本",
-                new FigureCompositesNode(_activePaper.Id,_currentFigure.Id)));
+                new FigureCompositesNode(_activePaper.Id,_currentFigure.Id),
+                _workspace.ListFigureShowData(_currentFigure.Id)
+                    .FirstOrDefault(x=>x.IsCurrent) is { } current?
+                        FigureThumbnail(current.Sha256):null));
         }
         var query=SearchBox?.Text.Trim()??"";
         FigureFiles.ItemsSource=rows.Where(x=>x.Name.Contains(query,StringComparison.OrdinalIgnoreCase)
@@ -131,6 +154,11 @@ public partial class MainWindow
         BatchPanelButton.IsEnabled=QuickPanelButton.IsEnabled;
         UpdateStatus();
         PreviewImage.Source=null;
+        FigureHeroImage.Source=null;
+        FigureHeroTitle.Text=_currentFigure is null?"Figure 总览":
+            _currentPanel is null?$"Figure {_currentFigure.Number} · 图片与版本":
+                $"Panel {_currentPanel.Label} · SHOW 素材";
+        FigureHeroDescription.Text="选中列表中的成图或 Panel 即可预览，无须打开原文件。";
         CompositeSourcesPanel.Visibility=Visibility.Collapsed;
         RelatedHeading.Visibility=Visibility.Visible;
         RelatedFiles.Visibility=Visibility.Visible;
@@ -149,6 +177,7 @@ public partial class MainWindow
         RelatedFiles.Visibility=Visibility.Visible;
         if(FigureFiles?.SelectedItem is not FigureRow row)
         {
+            FigureHeroImage.Source=null;
             PreviewImage.Source=null;
             RelatedFiles.ItemsSource=null;
             DetailName.Text=_currentPanel is not null?"Panel "+_currentPanel.Label:
@@ -163,9 +192,14 @@ public partial class MainWindow
             PanelAssetLink linkedAsset=>linkedAsset.Sha256,
             _=>null
         };
-        PreviewImage.Source=sha is {Length:64} && sha.All(Uri.IsHexDigit) && _workspace is not null?
-            PreviewFromFile(()=>Path.Combine(_workspace.Root,"blobs","sha256",
-                sha[..2],sha)):null;
+        PreviewImage.Source=sha is {Length:64}?FigureThumbnail(sha):row.Thumbnail;
+        FigureHeroImage.Source=PreviewImage.Source;
+        FigureHeroTitle.Text=row.Name;
+        FigureHeroDescription.Text=row.Item is FigureComposite comp?
+            $"v{comp.Version} · {(comp.IsCurrent?"当前版本":"历史版本")} · 原图只读预览":
+            row.Item is PanelTemplate?"此 Panel 当前关联的首张 SHOW 图片 · 逻辑引用":
+            row.Item is PanelAssetLink?"SHOW 来源素材 · 原文件未被移动":
+            row.Detail;
         DetailName.Text=row.Name;
         DetailMeta.Text=$"类型：{row.Type}\n状态：{row.Status}\n{row.Detail}";
         if(row.Item is PanelAssetLink link)
