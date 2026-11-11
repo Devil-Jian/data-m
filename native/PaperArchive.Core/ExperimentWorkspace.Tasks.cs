@@ -127,7 +127,14 @@ public sealed partial class ExperimentWorkspace
                 var sources=ListCompositeSources(composite.Id);
                 var needsReview=sources.Count==0 || sources.Any(x=>x.Status!="confirmed");
                 if(!needsReview)
-                    needsReview=sources.Any(x=>ListAssetUpstream(x.AssetId).Count==0);
+                    needsReview=sources.Any(x=>
+                    {
+                        var upstream=ListAssetUpstream(x.AssetId);
+                        return upstream.Count==0 ||
+                            upstream.Any(edge=>edge.Status!="confirmed" ||
+                                ListAssetUpstream(edge.SourceAssetId)
+                                    .Any(raw=>raw.Status!="confirmed"));
+                    });
                 if(needsReview)
                     tasks.Add(new("review_sources",$"Figure {link.FigureNumber}：核对数据来源",
                         sources.Count==0?"成图版本没有记录 Panel/SHOW 来源。":
