@@ -52,6 +52,7 @@ public sealed partial class ExperimentWorkspace
         workspace.InitializeProvenance();
         workspace.InitializePaperWorkPreferences();
         workspace.InitializeSampleIndex();
+        workspace.InitializeSystemTags();
         return workspace;
     }
 
@@ -323,6 +324,19 @@ public sealed partial class ExperimentWorkspace
             insert.Parameters.AddWithValue("$name",Path.GetFileName(source.TrimEnd(Path.DirectorySeparatorChar)));
             insert.Parameters.AddWithValue("$now",UtcNow());
             insert.ExecuteNonQuery();
+        }
+        // Preserve the selected import-root label, independent of result and project names.
+        using(var label=db.CreateCommand())
+        {
+            label.Transaction=tx;
+            label.CommandText="""
+                INSERT INTO experiment_result_labels(result_id,experiment_name,source_kind)
+                VALUES($result,$name,'root_folder')
+                """;
+            label.Parameters.AddWithValue("$result",resultId);
+            label.Parameters.AddWithValue("$name",
+                Path.GetFileName(source.TrimEnd(Path.DirectorySeparatorChar)));
+            label.ExecuteNonQuery();
         }
         var groups=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
         foreach(var item in prepared)
