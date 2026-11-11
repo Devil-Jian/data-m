@@ -1,0 +1,50 @@
+name: WPF Desktop (.NET 10)
+
+on:
+  push:
+    branches:
+      - feat/wpf-desktop
+    paths:
+      - 'native/PaperArchive.Wpf/**'
+      - 'native/PaperArchive.Workspace.SmokeTests/**'
+      - 'native/PaperArchive.Core/**'
+      - 'src-tauri/migrations/**'
+      - '.github/workflows/wpf-desktop.yml'
+  pull_request:
+    paths:
+      - 'native/PaperArchive.Wpf/**'
+      - 'native/PaperArchive.Workspace.SmokeTests/**'
+      - 'native/PaperArchive.Core/**'
+      - '.github/workflows/wpf-desktop.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Compile existing Core
+        run: dotnet build native/PaperArchive.Core/PaperArchive.Core.csproj -c Release
+      - name: Test legacy archive compatibility
+        run: dotnet run --project native/PaperArchive.Core.SmokeTests/PaperArchive.Core.SmokeTests.csproj -c Release
+      - name: Test new experimental workspace
+        run: dotnet run --project native/PaperArchive.Workspace.SmokeTests/PaperArchive.Workspace.SmokeTests.csproj -c Release
+      - name: Compile WPF UI
+        run: dotnet build native/PaperArchive.Wpf/PaperArchive.Wpf.csproj -c Release
+      - name: Publish portable Windows build
+        run: >
+          dotnet publish native/PaperArchive.Wpf/PaperArchive.Wpf.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -p:PublishTrimmed=false
+          -o publish/PaperArchive
+      - name: Package portable build
+        shell: pwsh
+        run: Compress-Archive -Path publish/PaperArchive/* -DestinationPath PaperArchive-WPF-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PaperArchive-WPF-x64-portable
+          path: PaperArchive-WPF-x64.zip
+          if-no-files-found: error

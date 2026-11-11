@@ -1,0 +1,237 @@
+# PaperArchive WPF desktop (PRD v1.5)
+
+This is the new **Windows 10/11 native desktop** implementation. The previous
+WinUI 3 app in `native/PaperArchive.Native` is preserved for comparison.
+`PaperArchive.Core` retains its legacy v1-v3 archive database, SHA-256 content
+store, scanner, and read-only paper library.
+
+## Develop in VS Code
+
+Install the .NET 10 SDK, VS Code and C# Dev Kit. On **Windows**:
+
+```powershell
+git switch feat/wpf-desktop
+dotnet restore native/PaperArchive.Wpf/PaperArchive.Wpf.csproj
+dotnet run --project native/PaperArchive.Wpf/PaperArchive.Wpf.csproj
+```
+
+Edit `MainWindow.xaml` for the Explorer-like UI and `MainWindow.xaml.cs`
+for interactions. WPF runs as a normal window; **do not reinstall an installer
+to preview each change**. A Visual Studio installation with .NET Desktop
+Development is optional for the graphical XAML designer/Hot Reload.
+
+## Data safety
+
+- Debug build: `D:\PaperArchiveDevData` (or per-user LocalAppData when D: is absent).
+- Release build: `D:\PaperArchiveData` (or per-user LocalAppData when D: is absent).
+- Existing archive: `database/archive.db`, **unchanged**.
+- New experiment workspace: `database/workspace.db`, separate SQLite schema.
+- Imported files are copied to `blobs/sha256/xx/<hash>`, preserving the source.
+- Same filename prefix within one result unit forms a **data group**. It does
+  not prove one processed file was directly derived from another.
+- Export Original copies bytes and verifies SHA-256, never silently overwrites.
+- Figure export requires `show_data` and records an `exported` usage;
+  actual manuscript use still requires confirmation.
+
+## Implemented in the first WPF integration slice
+
+- Two main tabs, Explorer-like toolbar/tree/details, detailed file list and
+  image thumbnails, search/filter, status bar with current location and
+  visible/total/selected counts.
+- Toggle right-hand details pane (button or Alt+Shift+P).
+- Create experiment project, import entire result folder, recognize
+  `raw_data`, `process_data`, `show_data` and statistics files.
+- Automatic prefix-based group association with raw/process/show and
+  preservation of original relative paths and SHA-256.
+- Selected file preview, multi-selection, Ctrl+C clipboard file objects +
+  bitmap for supported single images, byte-preserving export.
+- Export selected show_data to Figure/Panel with usage metadata, then confirm selected exported uses in the toolbar.
+- Existing paper archive resource list remains browsable through the Core API.
+
+## Known next steps (not yet implemented)
+
+- Figure/PDF page navigation with embedded document rendering.
+- Optional full-project archive (including unused experiment results and draft Figures); current publishing intentionally archives only the selected manuscript's confirmed Figure provenance.
+- Advanced grouping rules, drag/drop and safe bulk renaming with undo.
+- Thumbnail virtualization for extremely large folders, medical/scientific
+  proprietary format codecs, cross-machine export/import.
+- Full WPF UI accessibility review and Windows runtime interaction tests.
+
+## Tests and builds
+
+```powershell
+dotnet run --project native/PaperArchive.Core.SmokeTests/PaperArchive.Core.SmokeTests.csproj
+dotnet run --project native/PaperArchive.Workspace.SmokeTests/PaperArchive.Workspace.SmokeTests.csproj
+dotnet build native/PaperArchive.Wpf/PaperArchive.Wpf.csproj
+dotnet publish native/PaperArchive.Wpf/PaperArchive.Wpf.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o publish/PaperArchive
+```
+
+GitHub Actions `wpf-desktop.yml` builds on Windows and uploads a portable
+ZIP. It is not yet an installer; do not distribute as a stable release before
+end-to-end acceptance testing.
+
+## V1.3 paper-first workflow
+
+1. Create a **paper project** in the pre-archive workspace.
+2. Select it and create one or more **experiment projects**.
+3. Import a complete unsorted project into **待整理数据**, or import a
+   preorganized experiment result folder.
+4. Use the project tree context menu to create empty result units, move/copy
+   entire result units, rename, soft-delete, or restore. Right-click selected
+   image files to move/copy between result units. Blob SHA-256 bytes are shared,
+   while a logical copy creates a new Asset ID. Moving keeps the Asset ID.
+5. Click a file-list column to sort; right-click a header to filter. Sidebar
+   is only a browsing scope selector, not a second group filter.
+6. Use the splitter-edge chevron or Alt+Shift+P to collapse the details pane.
+7. Export **SHOW** assets to a selected paper / Figure / Panel; create new
+   Figure and Panel templates directly in the dialog.
+8. Plain "Export Original" may export to any folder or an existing paper
+   Figure/Panel directory. Plain export does **not** mark final paper usage.
+9. Double-click a real file row to open it; column headers and empty space
+   must never open the previously selected file.
+
+## Safe schema upgrade
+
+The first launch initializes new v1.3 tables in `workspace.db` and adds
+nullable paper ownership and logical deletion columns without changing
+legacy `archive.db`. Existing experiment projects are placed under a
+dedicated `历史工作区（待分配）` paper project.
+
+## Limitations before the final V1.3 milestone
+
+- Side-panel sorting/filter controls are functional, but virtualized gallery
+  and rich Figure/PDF rendering remain in subsequent milestones.
+- Full undo journal for multi-file moves is not yet available; operations
+  are SQLite transactional and conflict-checked.
+- Tree deletion is recoverable (logical tombstone), while deleted files are
+  retained in the underlying immutable blob store.
+- Context menu operations are defined for project/result nodes and files.
+  Adding arbitrary nested logical subfolders is a future extension.
+
+## V1.4 Windows Explorer interaction changes
+
+- **Scope navigation**: clicking the paper project shows *all* files in all its experiments; clicking an experiment project shows all files in its result units; clicking a result unit narrows to only that unit. The `所属实验结果` column is visible for aggregate scopes. Status bar totals follow the chosen scope rather than the last opened result.
+- **Drag/drop**: from selected file rows or thumbnails, drag to a result unit (move), experiment project (move to `待整理数据`), or paper project (choose an experiment project first). Hold **Ctrl** to logically copy instead. Blob SHA-256 data is never physically moved. Conflicting data group prefixes require explicit merge consent and the transaction rolls back on conflict.
+- **Navigation pane**: light Explorer-like folder glyphs, selected-row highlighting, tree in the upper area with its own scrolling; `浏览位置` stays docked to the bottom of the sidebar and has a resizable divider.
+- **Blank tree context menu**: only `新建论文项目`, `新建实验项目`, `新建结果单元`; invalid options are disabled. Node-specific right clicks still provide their usual editing operations.
+- **Menus**: the top workflow line contains `新建 ▾`, `导入 ▾`, `导出 ▾`. The lower command line contains cut, copy, paste, rename, delete, move, sort, view and more. Search operates within the current selected scope. Menu and column-header sorting share one state.
+- **Details pane**: the original subtle border chevron remains; no wide toolbar toggle is added. Alt+Shift+P is still supported.
+
+The UI uses familiar WPF controls with a native light palette. It is intentionally
+not a pixel-perfect replica of the Windows 11 Explorer shell.
+
+### V1.4 regression checklist (Windows)
+
+1. Click a paper project, then its experiment, then a result unit. The visible list and lower-left path/visible/total counts must match each scope.
+2. Switch to `show_data` while a paper project is selected. Files from multiple result units should remain visible; `所属实验结果` disambiguates them.
+3. Drag one or multiple selected files to a result unit. Default is **move**; Ctrl-drag is **copy**. The source files must remain unchanged; after the operation, re-open the result and verify the counts.
+4. Drag to a parent experiment project. Files should go to its `待整理数据` unit. Drag to a paper project and select the destination experiment project from the dialog. Drop outside a valid target must have no effect.
+5. Right-click blank tree space: only three creation options. Right-click an actual node: node-specific options.
+6. Test top New/Import/Export menus and lower command line, then sort from both the command bar and column headers.
+7. Resize the main window. The browsing section should stay at the sidebar bottom; toggle and resize the right details pane.
+8. Double-click table headers and empty space: **no file must open**. Double-click a file row: the correct file must open.
+9. Re-run the V1.3 move/copy/soft-delete/restore tests and verify the original SHA-256 manifest.
+
+### Current release limitations
+
+- A green GitHub Actions build proves compilation and basic Core tests, **not** manual WPF interaction correctness or a full production release.
+- Multi-operation undo, per-file conflict-preview wizard and arbitrary nested virtual folders remain later milestones.
+- PDF/DOCX inline reading, paper finalization and transfer packages remain later milestones.
+
+## 2026-11: Paper manuscripts, native selection contrast, move undo
+
+- Paper projects now contain **two separate categories**:
+  `论文全文` and `实验项目`. The former imports and lists PDF, DOC, and
+  DOCX manuscripts without mixing them into experimental result folders.
+  Manuscripts are immutable SHA-256 snapshots in the same blob vault but have
+  their own `paper_documents` metadata table.
+- Double-click a manuscript to open a temporary original-byte copy with the
+  Windows default application. **Inline PDF/DOCX rendering is not yet
+  available.** An imported document is a historical snapshot, not a live
+  link to the source; reimport a newer revision to save it independently.
+- The light tree view uses an explicit template and pale blue selection with
+  dark readable labels, avoiding the dark system-highlight screenshot bug.
+- **Ctrl+Z** or `更多 → 撤销上次移动` reverses the latest successful logical
+  file or result-unit move. Undo logs persist across app restarts. Undo is
+  transactional and refuses ambiguous changes or conflicting destination
+  paths. Ctrl+Z is not triggered while editing the search box.
+- Undo currently applies to **moves** (not imports, copies, deletions, exports
+  or document revisions). No Redo (Ctrl+Y) support yet.
+
+## V1.5 Figure workspace (first usable implementation)
+
+Each paper project has **three fixed logical categories** in this display order:
+
+```text
+Paper project
+├── 实验项目          experimental projects / results / RAW–PROCESS–SHOW
+├── 组图项目          Figure 1 / Panel A / complete-composite versions
+└── 论文全文          PDF / Word manuscript snapshots
+```
+
+- In **组图项目**, click **+ Figure** to create the next free Figure number or
+  **批量 Figure…** to specify a starting number, Figure count (1–100)
+  and optional Panel count (0–26) per Figure. The dialog previews the
+  generated Figure numbers; occupied numbers are skipped, never overwritten.
+- In **Figure N**, click **+ Panel** to add the next unused letter, or
+  **批量 Panel…** to specify starting label A–Z and count.
+  Batch creation runs in one SQLite transaction; invalid batches roll back.
+- These are **logical placeholders**, not empty image files. They have stable
+  IDs and do not participate in file SHA-256 or asset counts.
+- In an experiment result, select one or more **SHOW** images and choose
+  **关联到组图**. Alternatively drag SHOW files to a Panel node; the drag
+  creates a reference and **does not move** the experimental assets.
+- Right-click a Figure or use its toolbar to **导出全部素材**. Original SHOW
+  files are exported byte-for-byte into Panel_A / Panel_B subfolders with
+  a CSV manifest showing source assets and SHA-256.
+- **导入完整 Figure…** creates a new immutable, versioned composite asset.
+  Choose its current version separately; **导出完整 Figure…** copies the
+  exact original bytes, with SHA-256 validation and no silent overwrite.
+- **论文全文** remains separate; it stores PDF, DOC, DOCX versions independently
+  of the Figure composition workspace.
+
+### Tested in Windows CI
+
+`native/PaperArchive.Workspace.SmokeTests` now checks automatic and explicit
+Figure numbering, skip-over occupied indices, atomic invalid Panel creation,
+SHOW link constraints, source-file identity, material manifest exports,
+composite revisions, current-version selection and verified export.
+WPF build and portable ZIP publish run on GitHub Actions.
+
+### Remaining work
+
+- No inline Figure drag-order arranger or visual Panel collage editor.
+- Detailed confirmation of *which* linked source files were actually used
+  in each composite is not yet exposed as a UI workflow.
+- Legacy V1.4 Figure usage metadata still needs a migration/reconciliation
+  screen before treating historical usage as confirmed composition provenance.
+- Embedding/reconciling composite Figure versions into specific Word/PDF
+  manuscript versions remains a later milestone.
+- The release requires hands-on Windows drag/drop and keyboard acceptance tests;
+  a successful CI build is not a complete UI validation.
+
+## V1.5 paper workspace archive (V15-16)
+
+1. Select a paper project in **归档前工作台**. Confirm manuscript → Figure
+   composite version links and capture/verify relevant Panel/SHOW inputs.
+2. Click **归档到论文资源库…**; select the exact manuscript snapshot.
+3. Review the SHA-256 and relationship preflight. Missing/mismatched
+   blobs or unconfirmed manuscript Figure versions block publication.
+   Missing processing provenance is a visible review warning and requires
+   explicit acknowledgement before publication.
+4. Confirm. The repository stores one immutable manifest and all resource
+   references in `archive.db`, reusing the verified content-addressed blobs.
+   No workspace records or source files are moved or deleted.
+5. The app switches to **论文资源库** and selects the published paper.
+   The resource list shows the latest revision. Click
+   **查看归档溯源 / 版本…** to select an older immutable revision and browse
+   manuscript → Figure → Panel → SHOW → PROCESS → RAW, with previews.
+
+Publishing the exact same manifest is idempotent; a changed manuscript/Figure
+graph produces Revision 2, 3, etc., without altering earlier revisions. For
+legacy folder-based archive entries, the original archive view is preserved;
+revision lineage requires an archive created from the workspace.
+
+At present this operation archives the **selected manuscript's confirmed Figure
+scope**, not every unused experiment and draft in the workspace. The archive
+manifest and resource rows are immutable; the working project remains editable.

@@ -1,0 +1,30 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "PaperArchive: Run WPF",
+      "type": "shell",
+      "command": "dotnet",
+      "args": ["run", "--project", "native/PaperArchive.Wpf/PaperArchive.Wpf.csproj"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": "$msCompile",
+      "group": "build"
+    },
+    {
+      "label": "PaperArchive: Build WPF",
+      "type": "shell",
+      "command": "dotnet",
+      "args": ["build", "native/PaperArchive.Wpf/PaperArchive.Wpf.csproj"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "PaperArchive: Workspace Tests",
+      "type": "shell",
+      "command": "dotnet",
+      "args": ["run", "--project", "native/PaperArchive.Workspace.SmokeTests/PaperArchive.Workspace.SmokeTests.csproj"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": "$msCompile"
+    }
+  ]
+}

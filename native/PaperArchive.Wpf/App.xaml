@@ -1,0 +1,30 @@
+<Application x:Class="PaperArchive.Wpf.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <SolidColorBrush x:Key="AppBackground" Color="#FFF7F7F7"/>
+        <SolidColorBrush x:Key="PanelBackground" Color="#FFFFFFFF"/>
+        <SolidColorBrush x:Key="SubtleBackground" Color="#FFF3F3F3"/>
+        <SolidColorBrush x:Key="AccentBrush" Color="#FF005FB8"/>
+        <SolidColorBrush x:Key="BorderBrushSoft" Color="#FFDADADA"/>
+        <Style TargetType="{x:Type Button}">
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="MinHeight" Value="30"/>
+            <Setter Property="Padding" Value="12,4"/>
+            <Setter Property="Margin" Value="0,0,7,0"/>
+        </Style>
+        <Style TargetType="{x:Type TextBox}">
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="8,5"/>
+        </Style>
+        <Style TargetType="{x:Type ListViewItem}">
+            <Setter Property="MinHeight" Value="30"/>
+        </Style>
+        <Style TargetType="{x:Type TreeViewItem}">
+            <Setter Property="MinHeight" Value="26"/>
+        </Style>
+    </Application.Resources>
+</Application>
