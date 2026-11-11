@@ -198,6 +198,16 @@ public sealed partial class ExperimentWorkspace
     public static string DetectStage(string relativePath)
     {
         var ext = Path.GetExtension(relativePath);
+        // Explicit fixed stage labels also work when files are at the root,
+        // while the old stage-folder fallback remains backward compatible.
+        if(TagImageExtensions.Contains(ext))
+        {
+            var stem=Path.GetFileNameWithoutExtension(relativePath);
+            var version=TagVersionSuffix.Match(stem);
+            if(version.Success)stem=stem[..version.Index];
+            var fixedTag=TagFixedSuffix.Match(stem);
+            if(fixedTag.Success)return fixedTag.Groups[2].Value.ToLowerInvariant();
+        }
         // The dedicated suffix takes precedence over generic folders such
         // as process_data; these images are for quantitative analysis only.
         if (QuantImageSuffix.IsMatch(Path.GetFileNameWithoutExtension(relativePath)) &&
@@ -303,15 +313,22 @@ public sealed partial class ExperimentWorkspace
         for(var i=0;i<prepared.Count;i++)
         {
             var item=prepared[i];
-            if(item.Stage!="process" ||
-                sampleAnchors.Contains(item.Prefix,StringComparer.OrdinalIgnoreCase))
+            var isUnknownImage=item.Stage=="other" &&
+                TagImageExtensions.Contains(Path.GetExtension(item.FileName));
+            if(!(item.Stage=="process"||isUnknownImage) ||
+                (item.Stage=="process" &&
+                    sampleAnchors.Contains(item.Prefix,StringComparer.OrdinalIgnoreCase)))
                 continue;
             var stem=Path.GetFileNameWithoutExtension(item.FileName);
-            var candidate=sampleAnchors.FirstOrDefault(prefix=>
+            var candidates=sampleAnchors.Where(prefix=>
                 stem.StartsWith(prefix+"_",StringComparison.OrdinalIgnoreCase) ||
-                stem.StartsWith(prefix+"-",StringComparison.OrdinalIgnoreCase));
-            if(candidate is not null)
-                prepared[i]=(item.Relative,item.FileName,item.Stage,candidate,item.Size,item.Sha);
+                stem.StartsWith(prefix+"-",StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(x=>x.Length).ToArray();
+            if(candidates.Length==0 ||
+                candidates.Length>1 && candidates[0].Length==candidates[1].Length)
+                continue;
+            prepared[i]=(item.Relative,item.FileName,
+                isUnknownImage?"process":item.Stage,candidates[0],item.Size,item.Sha);
         }
         using var db=Connect();
         using var tx=db.BeginTransaction();
