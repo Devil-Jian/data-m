@@ -200,6 +200,30 @@ public partial class MainWindow : Window
                     Tag=new PaperDocumentsNode(paper.Id)});
                 ProjectTree.Items.Add(parent);
             }
+            // Imported legacy projects may not yet belong to a paper. Keep
+            // them navigable; assigning them to a paper remains an explicit act.
+            var orphanProjects=_workspace.ListProjects()
+                .Where(p=>!_workspace.ListPaperProjects()
+                    .Any(paper=>_workspace.ListProjectsForPaper(paper.Id)
+                        .Any(linked=>linked.Id==p.Id))).ToArray();
+            if(orphanProjects.Length>0)
+            {
+                var orphanRoot=new TreeViewItem{
+                    Header=TreeLabel("未关联论文的实验项目","folder",orphanProjects.Length),
+                    Tag=new UnassignedProjectsNode(),IsExpanded=true};
+                foreach(var project in orphanProjects)
+                {
+                    var results=_workspace.ListResults(project.Id);
+                    var count=results.Sum(x=>x.FileCount);
+                    var item=new TreeViewItem{Tag=project,IsExpanded=true,
+                        Header=TreeLabel(project.Name,"folder",count)};
+                    foreach(var result in results)
+                        item.Items.Add(new TreeViewItem{Tag=result,
+                            Header=TreeLabel(result.Name,"folder",result.FileCount)});
+                    orphanRoot.Items.Add(item);
+                }
+                ProjectTree.Items.Add(orphanRoot);
+            }
         }
         finally{_refreshingTree=false;}
         if(figureMode&&previousPaper is not null)
