@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Data.Sqlite;
 
 namespace PaperArchive.Core.Workspace;
@@ -62,6 +63,7 @@ public sealed partial class ExperimentWorkspace
             throw new InvalidOperationException("Figure 的 Panel A–Z 位置不足，未创建任何关联。");
 
         var created = new List<PanelTemplate>();
+        var createdLinks = new List<FigureDropLink>();
         for (var i = 0; i < ids.Length; i++)
         {
             InsertPanel(db, tx, figureId, labels[i]);
@@ -85,15 +87,152 @@ public sealed partial class ExperimentWorkspace
                         id,panel_id,asset_id,position,created_at)
                     VALUES($id,$panel,$asset,1,$now)
                     """;
-                link.Parameters.AddWithValue("$id", NewId());
+                var linkId = NewId();
+                link.Parameters.AddWithValue("$id", linkId);
                 link.Parameters.AddWithValue("$panel", panelId);
                 link.Parameters.AddWithValue("$asset", ids[i]);
                 link.Parameters.AddWithValue("$now", UtcNow());
                 link.ExecuteNonQuery();
+                createdLinks.Add(new(linkId, panelId, ids[i]));
             }
             created.Add(new(panelId, figureId, labels[i]));
         }
+        RecordFigureDropUndo(db, tx, new(figureId, createdLinks.ToArray(),
+            created.Select(x => new FigureDropPanel(x.Id, x.Label)).ToArray()));
         tx.Commit();
         return created;
+    }
+
+    private sealed record FigureDropLink(string Id, string PanelId, string AssetId);
+    private sealed record FigureDropPanel(string Id, string Label);
+    private sealed record FigureDropBatch(
+        string FigureId, FigureDropLink[] Links, FigureDropPanel[] CreatedPanels);
+
+    private void InitializeFigureDropUndo()
+    {
+        using var db = Connect();
+        using var cmd = db.CreateCommand();
+        cmd.CommandText = """
+            CREATE TABLE IF NOT EXISTS figure_drop_undo (
+                seq INTEGER PRIMARY KEY AUTOINCREMENT,
+                figure_id TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                undone INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE INDEX IF NOT EXISTS ix_figure_drop_undo_figure
+                ON figure_drop_undo(figure_id,seq);
+            """;
+        cmd.ExecuteNonQuery();
+    }
+
+    private static void RecordFigureDropUndo(SqliteConnection db, SqliteTransaction tx,
+        FigureDropBatch batch)
+    {
+        if (batch.Links.Length == 0) return;
+        using var cmd = db.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = """
+            INSERT INTO figure_drop_undo(figure_id,payload,created_at)
+            VALUES($figure,$payload,$now)
+            """;
+        cmd.Parameters.AddWithValue("$figure", batch.FigureId);
+        cmd.Parameters.AddWithValue("$payload", JsonSerializer.Serialize(batch));
+        cmd.Parameters.AddWithValue("$now", UtcNow());
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Restore only the links/panels created by the last Figure drop. If any
+    /// created Panel/link has been edited, abort without modifying anything.
+    /// Historical composite source snapshots and blobs are never changed.
+    /// </summary>
+    public bool UndoLastFigureDrop(string figureId)
+    {
+        using var db = Connect();
+        using var tx = db.BeginTransaction();
+        long seq;
+        FigureDropBatch batch;
+        using (var get = db.CreateCommand())
+        {
+            get.Transaction = tx;
+            get.CommandText = """
+                SELECT seq,payload FROM figure_drop_undo
+                WHERE figure_id=$figure AND undone=0 ORDER BY seq DESC LIMIT 1
+                """;
+            get.Parameters.AddWithValue("$figure", figureId);
+            using var rd = get.ExecuteReader();
+            if (!rd.Read()) return false;
+            seq = rd.GetInt64(0);
+            batch = JsonSerializer.Deserialize<FigureDropBatch>(rd.GetString(1))
+                ?? throw new InvalidDataException("组图撤销记录损坏。");
+        }
+        if (batch.FigureId != figureId)
+            throw new InvalidDataException("组图撤销记录的 Figure 不一致。");
+
+        foreach (var link in batch.Links)
+        {
+            using var verify = db.CreateCommand();
+            verify.Transaction = tx;
+            verify.CommandText = """
+                SELECT COUNT(*) FROM figure_panel_assets
+                WHERE id=$id AND panel_id=$panel AND asset_id=$asset
+                """;
+            verify.Parameters.AddWithValue("$id", link.Id);
+            verify.Parameters.AddWithValue("$panel", link.PanelId);
+            verify.Parameters.AddWithValue("$asset", link.AssetId);
+            if (Convert.ToInt64(verify.ExecuteScalar()) != 1)
+                throw new InvalidOperationException("组图链接已被修改，不能撤销较早的拖拽。");
+        }
+        foreach (var panel in batch.CreatedPanels)
+        {
+            using (var verify = db.CreateCommand())
+            {
+                verify.Transaction = tx;
+                verify.CommandText = """
+                    SELECT COUNT(*) FROM panel_templates
+                    WHERE id=$id AND figure_id=$figure AND label=$label
+                    """;
+                verify.Parameters.AddWithValue("$id", panel.Id);
+                verify.Parameters.AddWithValue("$figure", figureId);
+                verify.Parameters.AddWithValue("$label", panel.Label);
+                if (Convert.ToInt64(verify.ExecuteScalar()) != 1)
+                    throw new InvalidOperationException("Panel 已重命名或移动，不能自动撤销。");
+            }
+            using (var count = db.CreateCommand())
+            {
+                count.Transaction = tx;
+                count.CommandText = "SELECT COUNT(*) FROM figure_panel_assets WHERE panel_id=$panel";
+                count.Parameters.AddWithValue("$panel", panel.Id);
+                if (Convert.ToInt64(count.ExecuteScalar()) !=
+                    batch.Links.Count(x => x.PanelId == panel.Id))
+                    throw new InvalidOperationException("新建 Panel 已增加其他图片，不能自动撤销。");
+            }
+        }
+        foreach (var link in batch.Links)
+        {
+            using var cmd = db.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = "DELETE FROM figure_panel_assets WHERE id=$id";
+            cmd.Parameters.AddWithValue("$id", link.Id);
+            cmd.ExecuteNonQuery();
+        }
+        foreach (var panel in batch.CreatedPanels)
+        {
+            using var cmd = db.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = "DELETE FROM panel_templates WHERE id=$id";
+            cmd.Parameters.AddWithValue("$id", panel.Id);
+            cmd.ExecuteNonQuery();
+        }
+        using (var done = db.CreateCommand())
+        {
+            done.Transaction = tx;
+            done.CommandText = "UPDATE figure_drop_undo SET undone=1 WHERE seq=$seq";
+            done.Parameters.AddWithValue("$seq", seq);
+            done.ExecuteNonQuery();
+        }
+        tx.Commit();
+        return true;
     }
 }
