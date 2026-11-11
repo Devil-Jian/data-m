@@ -145,6 +145,17 @@ public sealed partial class ExperimentWorkspace
             if(explicitStage && item.Stage is "raw" or "process" or "show" or "quant"
                 && stage!=item.Stage)status="conflict";
             if(explicitStage && item.Stage=="statistics")status="conflict";
+            // An explicit filename tag that disagrees with a stage directory
+            // needs review; never hide the contradictory import evidence.
+            var folders=item.Path.Replace('\\','/').Split('/');
+            var folderStage=folders.Take(Math.Max(0,folders.Length-1))
+                .Select(x=>x.ToLowerInvariant() switch
+                {
+                    "raw_data"=>"raw","process_data"=>"process",
+                    "show_data"=>"show","quant_data"=>"quant",_=>null
+                }).FirstOrDefault(x=>x is not null);
+            if(explicitStage && folderStage is not null && stage!=folderStage)
+                status="conflict";
             using var insert=db.CreateCommand();
             insert.Transaction=tx;
             insert.CommandText="""
