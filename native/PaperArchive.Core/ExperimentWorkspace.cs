@@ -43,6 +43,7 @@ public sealed partial class ExperimentWorkspace
         var workspace = new ExperimentWorkspace(root);
         workspace.Initialize();
         workspace.InitializeV13();
+        workspace.InitializeQuantImageStage();
         workspace.InitializeV13Tree();
         workspace.InitializeUndo();
         workspace.InitializePaperDocuments();
@@ -199,15 +200,27 @@ public sealed partial class ExperimentWorkspace
             if (parts[i].Equals("raw_data", StringComparison.OrdinalIgnoreCase)) return "raw";
             if (parts[i].Equals("process_data", StringComparison.OrdinalIgnoreCase)) return "process";
             if (parts[i].Equals("show_data", StringComparison.OrdinalIgnoreCase)) return "show";
+            if (parts[i].Equals("quant_data", StringComparison.OrdinalIgnoreCase)) return "quant";
         }
         var ext = Path.GetExtension(relativePath);
+        // The explicit _quant suffix works even for images in mixed folders.
+        // It does not reclassify CSV/XLSX statistics into an image stage.
+        if (QuantImageSuffix.IsMatch(Path.GetFileNameWithoutExtension(relativePath)) &&
+            QuantImageExtensions.Contains(ext,StringComparer.OrdinalIgnoreCase))
+            return "quant";
         return ext.Equals(".csv",StringComparison.OrdinalIgnoreCase)
             || ext.Equals(".xlsx",StringComparison.OrdinalIgnoreCase)
             || ext.Equals(".xls",StringComparison.OrdinalIgnoreCase) ? "statistics" : "other";
     }
 
+    private static readonly string[] QuantImageExtensions =
+        [".png",".tif",".tiff",".jpg",".jpeg",".bmp",".gif",".webp"];
+    private static readonly Regex QuantImageSuffix = new(
+        @"(?i)[_-]quant(?:[_-]v\d+)?$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
     private static readonly Regex ProcessingSuffix = new(
-        @"(?i)(?:[_-](?:raw|original|show|display|processed?|crop|cropped|adjusted|adjust|final|merge|merged|enhanced|normalized|filter|filtered|v[0-9]+))(?:[_-]v[0-9]+)?$",
+        @"(?i)(?:[_-](?:raw|original|show|display|quant|processed?|crop|cropped|adjusted|adjust|final|merge|merged|enhanced|normalized|filter|filtered|v[0-9]+))(?:[_-]v[0-9]+)?$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     public static string DetectPrefix(string relativePath)
