@@ -213,6 +213,56 @@ try
     repo.SetCurrentComposite(figuresNew[0].Id,v2.Id);
     Assert(repo.ListFigureComposites(figuresNew[0].Id).Single(x=>x.IsCurrent).Id==v2.Id,
         "new composite can be chosen as current version");
+    // V15-15: document -> exact composite -> immutable Panel/SHOW -> PROCESS -> RAW.
+    var capturedV1=repo.ListCompositeSources(v1.Id);
+    Assert(capturedV1.Count==1 && capturedV1[0].AssetId==show.Id &&
+        capturedV1[0].Status=="candidate",
+        "Figure import snapshots candidate SHOW sources");
+    repo.ConfirmCompositeSources(v1.Id);
+    Assert(repo.ListCompositeSources(v1.Id).Single().Status=="confirmed",
+        "Figure source snapshot can be explicitly verified");
+    var process=ros.First(x=>x.Stage=="process");
+    repo.SetAssetProvenance(process.Id,show.Id,"图像处理输出",true);
+    repo.SetAssetProvenance(raw.Id,process.Id,"原始图像裁剪",true);
+    Assert(repo.ListAssetUpstream(show.Id).Single().SourceAssetId==process.Id &&
+        repo.ListAssetUpstream(process.Id).Single().SourceAssetId==raw.Id,
+        "explicit SHOW to PROCESS to RAW provenance");
+    Assert(repo.ListSameGroupUpstreamCandidates(show.Id).Count==2,
+        "same-group PROCESS files remain unverified candidates");
+    repo.SetPaperFigureLink(pdfDoc.Id,figuresNew[0].Id,v1.Id,true);
+    var pinned=repo.ListPaperFigureLinks(pdfDoc.Id).Single();
+    Assert(pinned.Version==1 && pinned.Status=="confirmed",
+        "manuscript pins exact final Figure version");
+    Assert(repo.DescribeDocumentProvenance(pdfDoc.Id).Contains("Panel A") &&
+        repo.DescribeDocumentProvenance(pdfDoc.Id).Contains(process.Id),
+        "manuscript provenance traverses full Figure to RAW source");
+    var rejectedCrossPaper=false;
+    try{repo.SetPaperFigureLink(pdfDoc.Id,repo.CreateFiguresFast(
+        repo.CreatePaperProject("另一篇论文"),1)[0].Id,null,false);}
+    catch(InvalidOperationException){rejectedCrossPaper=true;}
+    Assert(rejectedCrossPaper,"cross-paper Figure links are rejected");
+    var detectedPath=Path.Combine(root,"figure-reference-test.docx");
+    using(var package=System.IO.Compression.ZipFile.Open(detectedPath,
+        System.IO.Compression.ZipArchiveMode.Create))
+    {
+        var docEntry=package.CreateEntry("word/document.xml");
+        using var writer=new StreamWriter(docEntry.Open());
+        writer.Write("<w:document xmlns:w='http://schemas.openxmlformats.org/wordprocessingml/2006/main'><w:body><w:p><w:r><w:t>As shown in Figure 3A and Figure 2.</w:t></w:r></w:p></w:body></w:document>");
+    }
+    var detectedDoc=repo.ImportPaperDocument(paperId,detectedPath);
+    Assert(repo.SuggestDocumentFigures(detectedDoc)==2 &&
+        repo.ListPaperFigureLinks(detectedDoc.Id).All(x=>x.Status=="candidate"&&x.CompositeId is null),
+        "DOCX Figure references are candidate-only, not asserted final versions");
+    repo.SetCurrentComposite(figuresNew[0].Id,v2.Id);
+    Assert(repo.ListPaperFigureLinks(pdfDoc.Id).Single().CompositeId==v1.Id,
+        "workspace current version does not rewrite manuscript's pinned version");
+    var rejectedDelete=false;
+    try{repo.DeleteFigureCompositeVersion(v1.Id);}
+    catch(InvalidOperationException){rejectedDelete=true;}
+    Assert(rejectedDelete,"document-referenced composite versions cannot be deleted");
+    Assert(ExperimentWorkspace.Open(repo.Root).ListCompositeSources(v1.Id).Count==1 &&
+        ExperimentWorkspace.Open(repo.Root).ListPaperFigureLinks(pdfDoc.Id).Single().CompositeId==v1.Id,
+        "verified sources and document version links persist after reopening");
     // V15-14: Figure show_data is the same versioned source of truth,
     // not a copied experiment SHOW asset or a newly owned experiment result.
     var showData=repo.ListFigureShowData(figuresNew[0].Id);
