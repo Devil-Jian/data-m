@@ -24,6 +24,7 @@ public partial class MainWindow
         _paperDocs.Clear();
         _paperDocs.AddRange(_workspace.ListPaperDocuments(paperId));
         ManuscriptArea.Visibility=Visibility.Visible;
+        AssetLocateUsageButton.Visibility=Visibility.Collapsed;
         FileList.Visibility=Visibility.Collapsed;
         ThumbnailList.Visibility=Visibility.Collapsed;
         FolderList.IsEnabled=false;
