@@ -468,6 +468,7 @@ public partial class MainWindow : Window
         SearchBox.Visibility=editor;
         SidebarHeading.Text = _libraryMode ? "已归档论文" : "论文项目";
         LibraryArea.Visibility = _libraryMode ? Visibility.Visible : Visibility.Collapsed;
+        if(_libraryMode)AssetLocateUsageButton.Visibility=Visibility.Collapsed;
         FolderList.Visibility = editor;
         ManuscriptArea.Visibility=Visibility.Collapsed;
         FigureArea.Visibility=Visibility.Collapsed;
@@ -511,9 +512,10 @@ public partial class MainWindow : Window
     private void LoadPaper(PaperEntry paper)
     {
         if (_archive is null) return;
-        LibraryFiles.ItemsSource = _archive.ListResources(paper.Id);
+        LoadLibraryRevisions(paper);
         CurrentLocation.Text = $"论文资源库  >  {paper.Title}";
         PreviewImage.Source = null;
+        AssetLocateUsageButton.Visibility=Visibility.Collapsed;
         DetailName.Text = paper.Title;
         DetailMeta.Text = $"状态：{paper.Status}\nFigure 数量：{paper.FigureCount}\n文件数量：{paper.FileCount}";
         RelatedFiles.ItemsSource = null;
