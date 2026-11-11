@@ -30,6 +30,8 @@ try
         "_quant image suffix classifies mixed directories");
     Assert(ExperimentWorkspace.DetectStage("mixed/CV01_quant.csv")=="statistics",
         "statistics tables are distinct from quantification images");
+    Assert(ExperimentWorkspace.DetectStage("quant_data/CV01_quant.csv")=="statistics",
+        "a CSV inside quant_data is still a statistics table");
     Assert(ExperimentWorkspace.DetectPrefix("quant_data/CV01_quant_v2.tif")=="CV01",
         "quant images retain the sample identity");
 
