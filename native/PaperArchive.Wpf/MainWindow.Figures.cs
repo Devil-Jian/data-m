@@ -908,24 +908,36 @@ public partial class MainWindow
 
     private void ConfirmCompositeSources_Click(object sender,RoutedEventArgs e)
     {
-        if(_workspace is null||_figureContextTarget?.Item is not FigureComposite composite)return;
+        if(_workspace is null)return;
+        var composite=(FigureFiles?.SelectedItem as FigureRow)?.Item as FigureComposite
+            ?? _figureContextTarget?.Item as FigureComposite;
+        if(composite is null)return;
         try
         {
-            var sources=_workspace.ListCompositeSources(composite.Id);
-            if(sources.Count==0)
+            var review=_workspace.PreviewCompositeSourceReview(composite.Id);
+            if(review.Sources.Count==0)
             {
-                System.Windows.MessageBox.Show(this,"此成图版本没有记录 Panel/SHOW 来源，无法确认。");return;
+                System.Windows.MessageBox.Show(this,
+                    "没有可核对的 Panel/SHOW 图片。请先关联 SHOW 到 Panel，再核对此成图版本。");
+                return;
             }
-            var description=string.Join("\n",sources.Select(x=>
-                $"Panel {x.PanelLabel} → "+(_workspace.GetProvenanceAsset(x.AssetId)?.FileName??"来源缺失")+
-                $" [{x.Status}]"));
+            var description=string.Join("\n",review.Sources.Select(x=>
+                $"Panel {x.PanelLabel} → "+
+                (_workspace.GetProvenanceAsset(x.AssetId)?.FileName??"来源缺失")+
+                $" [{(review.IsLivePanelCandidate?"当前候选":x.Status)}]"));
+            var heading=review.IsLivePanelCandidate?
+                "此历史版本没有保存来源。以下是当前 Panel 的候选，不代表历史事实。\n"+
+                "只有在确认它们确实参与制作该版本时，才能将其记录为已确认来源。":
+                "以下是此成图版本已保存的来源快照，请核对是否确实用于制作该版本。";
             if(System.Windows.MessageBox.Show(this,
-                "确认该完整 Figure 版本实际使用以下素材？\n\n"+description+
-                "\n\n确认后将锁定来源快照，不影响当前 Panel 的关联。",
-                "核对完整成图来源",MessageBoxButton.YesNo,MessageBoxImage.Question)!=
+                heading+"\n\n"+description+
+                "\n\n确认后仅锁定此版本的来源记录，不会改变工作区 Panel 或其他版本。是否确认？",
+                "核对 Panel/SHOW 来源",MessageBoxButton.YesNo,MessageBoxImage.Question)!=
                 MessageBoxResult.Yes)return;
-            _workspace.ConfirmCompositeSources(composite.Id);
+            _workspace.ConfirmCompositeSourceReview(composite.Id,review.Fingerprint);
             RefreshFigureView();
+            FigureFiles.SelectedItem=FigureFiles.Items.Cast<FigureRow>()
+                .FirstOrDefault(x=>x.Item is FigureComposite v&&v.Id==composite.Id);
         }
         catch(Exception ex){ShowError(ex);}
     }
@@ -994,8 +1006,7 @@ public partial class MainWindow
                 menu.Items.Add(new Separator());
                 menu.Items.Add(Action("导出完整 Figure…",ExportComposite_Click));
                 menu.Items.Add(Action("设为当前版本",SetCurrentComposite_Click));
-                menu.Items.Add(Action("补录历史来源候选…",SuggestLegacySources_Click));
-                menu.Items.Add(Action("核对此版本的 Panel/SHOW 来源…",ConfirmCompositeSources_Click));
+                menu.Items.Add(Action("核对 Panel/SHOW 来源…",ConfirmCompositeSources_Click));
                 break;
         }
         FigureFiles.ContextMenu=menu;
