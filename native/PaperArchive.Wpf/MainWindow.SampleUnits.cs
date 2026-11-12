@@ -163,11 +163,12 @@ public partial class MainWindow
             var all=workspace.ListSampleUnits(projectId:project.Id);
             var term=filter.Text.Trim();
             var tag=(tagFilter.SelectedItem as CustomTag)?.Id;
+            var tagged=string.IsNullOrEmpty(tag)?null:
+                workspace.ListTaggedSampleIds(project.Id,tag);
             var rows=all.Where(x=>
                 (term.Length==0 || x.SampleName.Contains(term,StringComparison.OrdinalIgnoreCase)
                     || x.ExperimentName.Contains(term,StringComparison.OrdinalIgnoreCase))
-                && (string.IsNullOrEmpty(tag) ||
-                    workspace.GetEntityAnnotation("sample",x.Id).Tags.Any(t=>t.Id==tag)))
+                && (tagged is null || tagged.Contains(x.Id)))
                 .Select(x=>new SampleExplorerRow(x)).ToArray();
             sampleList.ItemsSource=rows;
             sampleTitle.Text=$"样本单元 · {rows.Length} 组";
