@@ -60,6 +60,8 @@ public partial class MainWindow
             VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(4,0,6,0)});
         var tagFilter=new ComboBox{Width=155,DisplayMemberPath="Name"};
         toolbar.Children.Add(tagFilter);
+        var pendingButton=new Button{Content="待识别文件…",Margin=new Thickness(12,0,0,0)};
+        toolbar.Children.Add(pendingButton);
         DockPanel.SetDock(toolbar,Dock.Top);layout.Children.Add(toolbar);
 
         var foot=new TextBlock{Text="同一实验名称在同一实验项目下聚合。自动样本关联不代表已确认真实加工顺序。",
@@ -175,6 +177,33 @@ public partial class MainWindow
             return prompt.ShowDialog()==true?field.Text.Trim():null;
         }
 
+        pendingButton.Click+=(_,_)=>{
+            if(projectPicker.SelectedItem is not ExperimentProject project)return;
+            var pending=workspace.ListUnresolvedSampleAssets(project.Id);
+            if(pending.Count==0)
+            {
+                System.Windows.MessageBox.Show(window,
+                    "当前实验项目没有待识别或标签冲突的文件。","待识别文件");
+                return;
+            }
+            var review=new Window{Owner=window,Title="待识别文件 · "+project.Name,
+                Width=840,Height=470,MinWidth=600,MinHeight=330,
+                WindowStartupLocation=WindowStartupLocation.CenterOwner};
+            var dock=new DockPanel{Margin=new Thickness(12)};
+            var summary=new TextBlock{Text=$"共 {pending.Count} 个文件；冲突和旧数据尚未建立可靠样本成员关系，不会自动生成加工来源。",
+                TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,0,0,9)};
+            DockPanel.SetDock(summary,Dock.Top);dock.Children.Add(summary);
+            var items=new ListView{ItemsSource=pending};
+            var view=new GridView();
+            foreach(var (header,path,width) in new[]{
+                ("文件名","FileName",210d),("实验","ExperimentName",140d),
+                ("状态","ParseStatus",120d),("路径","RelativePath",300d)})
+                view.Columns.Add(new GridViewColumn{Header=header,
+                    DisplayMemberBinding=new System.Windows.Data.Binding(path),Width=width});
+            items.View=view;dock.Children.Add(items);review.Content=dock;
+            review.ShowDialog();
+        };
+
         void ReloadTagChoices()
         {
             var selected=(tagPicker.SelectedItem as CustomTag)?.Id;
@@ -251,7 +280,7 @@ public partial class MainWindow
             if(ids.Length==0)return;
             if(System.Windows.MessageBox.Show(window,
                 $"将标签“{tag.Name}”应用到当前筛选的 {ids.Length} 个样本？"+
-                "\\n不会修改系统标签、文件或加工来源。",
+                "\n不会修改系统标签、文件或加工来源。",
                 "批量添加自定义标签",MessageBoxButton.YesNo,
                 MessageBoxImage.Question)!=MessageBoxResult.Yes)return;
             try
