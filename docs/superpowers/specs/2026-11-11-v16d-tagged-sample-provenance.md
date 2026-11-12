@@ -107,15 +107,15 @@ PROCESS 加工顺序未确认时只标记“无真实处理链证据”，除非
 
 ### D3：样本 → Panel
 
-- [ ] Panel 样本多对多；一张有效 SHOW 免确认、多版本显式选择。
-- [ ] 拖放/撤销、用途实时计算、源文件只读、跨论文限制。
-- [ ] 完整成图版本保存精确 Panel/SHOW 来源快照。
+- [x] Panel 与样本多对多；单张已识别 SHOW 自动选择，多版本必须明确选择具体 Asset。
+- [x] 从样本浏览器拖入 Panel、可在 Panel 用途管理器添加和解除样本；限制跨论文，工作区文件和归档快照保持只读。
+- [x] 完整成图版本保存精确 Panel/SHOW 快照和新增的 Experiment/Sample/SHOW 不可变快照。
 
 ### D4：归档阻断与论文版本链
 
-- [ ] 预检本次采用的 SHOW 用途必须精确 Panel，不可空。
-- [ ] 文稿 Figure 引用 ↔ 确认的成图版本 ↔ Panel ↔ SHOW ↔ Sample Unit。
-- [ ] Revision 只读展示和历史迁移兼容。
+- [x] 预检纳入归档的 SHOW 必须有已确认的完整成图来源快照、准确 Panel ID、SHOW 阶段及可靠样本标签；无用途为阻断项。
+- [x] 文稿 Figure 引用 ↔ 确认的成图版本 ↔ Panel ↔ SHOW ↔ Sample Unit 正向索引（仅读取成图历史快照）。
+- [x] Revision 2 Manifest 包含样本溯源，归档页面以只读树查看；历史 Revision 1/旧 schema 兼容、不反向改写。
 - [ ] 在真实 Windows 上完成 GUI 验收、千级/万级素材性能及迁移回归。
 
 ## 8. 不变量
@@ -153,3 +153,28 @@ D2 的样本身份将基于 D1 的 `experiment` + `sample_key` 与解析来源�
 - 事务测试补充：批量赋值重复执行幂等，未知实体时全部回滚；标签重命名保留分配 ID；删除用户标签不影响系统标签或成员关联。
 - **仍待 D2 后续 UX 验收**：阶段缩略图网格展示、识别冲突的集中纠错与旧数据受控迁移；目前提供选中原图预览，“待识别文件”仍为只读清单。
 - **不得提前做**：未经验证的 PROCESS 加工链自动确认、直接把自定义标签当论文 Panel 用途、改写归档版本、将 QUANT 当 SHOW。
+
+## 12. D3 / D4 实现记录（2026-11-12）
+
+### D3：样本拖入 Panel
+
+- `ExperimentWorkspace.PanelSamples.cs` 增加 `panel_sample_links`（Panel ID + Sample Unit ID → **精确** SHOW Asset ID）及 `composite_sample_source_snapshots`。
+- 样本浏览器改为非模态窗口，可以向主窗口左侧的 **Panel 节点**拖动样本；旧有 SHOW 拖放模式不变。
+- 一个样本在目标论文中**仅一张有效 SHOW**时自动关联；多 SHOW 时必须选择版本；零 SHOW、QUANT、解析冲突、跨论文资源均拒绝，不写入部分关系。重复绑定同一 SHOW 幂等。
+- Figure 工作区新增“样本用途…”：可查、选样本和对应 SHOW、解除工作区关联。解除关联不会重写历史完整成图版本和归档 Revision；原始字节、SHA 不变化。
+- 原有 `LinkShowAssets` 仍可用；它表示精确 Panel/SHOW 当前用途，但在没有显式样本关联时，不虚构已确认样本血缘。旧拖放撤销在 SHOW 已被样本用途引用时保护引用。
+- 完整成图导入时，一次事务保存 Panel/SHOW 和 Panel/Sample/SHOW **历史快照**，与日后重命名/解绑/重新选择无关。
+
+### D4：SHOW 用途严格检查与论文版本溯源
+
+- 归档预检对本次**纳入完整成图版本**的 SHOW 强制检查：有完整的历史 Panel/SHOW 来源；来源已确认；Panel ID 非空；Asset 阶段为 SHOW；系统标签解析可靠且样本名非空；与快照 SHA 匹配。缺失或冲突为 `block`，不能绕过。
+- PROCESS → RAW 是否真实确认继续单独标为 `review`；允许在明确知悉并确认该提醒后归档，不伪造实际加工顺序。工作区未用作此次成图的备选 SHOW 不强迫填写论文用途。
+- `ListDocumentSampleReferences(documentId)` 仅查文稿已确认绑定的**具体完整成图版本**及其历史快照，返回 Figure 号码/版本/Panel/实验/样本/SHOW Asset+SHA；文稿详情直接展示。
+- 归档 Manifest schemaVersion=2，在每个来源节点写入其保存时的 `sampleUnits`；资源库左侧版本树也显示这些身份。旧 schemaVersion=1 继续只读；未保存的样本身份不可从当前 Panel 回填为历史事实。
+- 回归包括：单/多 SHOW、QUANT 与跨论文拒绝、幂等与解绑、无 SHOW 用途阻断、新版必须重建用途快照、文稿精确版本正向查询，以及两个 Revision 的样本/SHOW 版本隔离。
+
+### 保留限制 / Windows 人工验收
+
+- 本轮完成功能性 D3/D4，但**尚未执行真实 Windows 桌面手工拖放验收**，仅完成 GitHub Actions 自动化编译、测试、打包。
+- 历史未建立 `composite_sample_source_snapshots` 的版本仍能读取已保存的 Panel/SHOW 快照；不把当前样本关联追认为历史身份。
+- D2 的旧数据标签受控迁移、冲突集中纠错，以及大规模样本操作性能与多窗口拖放体验还需独立验收。
