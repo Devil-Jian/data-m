@@ -64,7 +64,7 @@ public partial class MainWindow
         toolbar.Children.Add(pendingButton);
         DockPanel.SetDock(toolbar,Dock.Top);layout.Children.Add(toolbar);
 
-        var foot=new TextBlock{Text="同一实验名称在同一实验项目下聚合。自动样本关联不代表已确认真实加工顺序。",
+        var foot=new TextBlock{Text="拖动左侧样本到主窗口 Figure/Panel；同一样本归组不代表已确认加工顺序。",
             Margin=new Thickness(4,9,4,0),Foreground=System.Windows.Media.Brushes.DimGray,
             TextWrapping=TextWrapping.Wrap};
         DockPanel.SetDock(foot,Dock.Bottom);layout.Children.Add(foot);
@@ -79,6 +79,7 @@ public partial class MainWindow
         DockPanel.SetDock(sampleTitle,Dock.Top);left.Children.Add(sampleTitle);
         var sampleList=new ListView{SelectionMode=SelectionMode.Single,
             BorderThickness=new Thickness(1),BorderBrush=System.Windows.Media.Brushes.LightGray};
+        sampleList.ToolTip="从样本行拖到主窗口左侧的 Figure / Panel 节点；仅 SHOW 可以作为展示素材。";
         VirtualizingPanel.SetIsVirtualizing(sampleList,true);
         VirtualizingPanel.SetVirtualizationMode(sampleList,VirtualizationMode.Recycling);
         var sampleView=new GridView();
@@ -174,6 +175,21 @@ public partial class MainWindow
         right.Children.Add(fileList);
         Grid.SetColumn(right,2);columns.Children.Add(right);
         layout.Children.Add(columns);window.Content=layout;
+        Point sampleDragStart=new();
+        sampleList.PreviewMouseLeftButtonDown+=(_,args)=>{
+            sampleDragStart=args.GetPosition(sampleList);
+        };
+        sampleList.PreviewMouseMove+=(_,args)=>{
+            if(args.LeftButton!=MouseButtonState.Pressed ||
+                sampleList.SelectedItem is not SampleExplorerRow row)return;
+            var now=args.GetPosition(sampleList);
+            if(Math.Abs(now.X-sampleDragStart.X)<SystemParameters.MinimumHorizontalDragDistance &&
+               Math.Abs(now.Y-sampleDragStart.Y)<SystemParameters.MinimumVerticalDragDistance)
+                return;
+            var data=new DataObject(typeof(SampleUnitDrag),
+                new SampleUnitDrag(_dragSession,row.Unit.Id));
+            System.Windows.DragDrop.DoDragDrop(sampleList,data,DragDropEffects.Link);
+        };
         SampleUnit? chosenUnit=null;
         SampleUnitAsset? targetAsset=null;
         string? targetProject=null;
@@ -421,24 +437,24 @@ public partial class MainWindow
                 projectPicker.SelectedItem is not ExperimentProject project)return;
             targetAsset=item.Asset;
             targetProject=project.Id;
-            window.DialogResult=true;
+            window.Close();
+            if(_libraryMode)WorkspaceTab.IsChecked=true;
+            SearchBox.Clear();_columnFilters.Clear();FolderList.SelectedIndex=0;
+            var result=workspace.ListResults(targetProject)
+                .FirstOrDefault(x=>x.Id==targetAsset.ResultId);
+            if(result is null||!SelectTreeTag(result))return;
+            var row=_visible.FirstOrDefault(x=>x.Asset.Id==targetAsset.AssetId);
+            if(row is null){LoadScopeAssets();
+                row=_visible.FirstOrDefault(x=>x.Asset.Id==targetAsset.AssetId);}
+            if(row is null)return;
+            FileList.SelectedItem=row;ThumbnailList.SelectedItem=row;
+            FileList.ScrollIntoView(row);
+            UpdateDetails();
         }
         locate.Click+=(_,_)=>Navigate();
         fileList.MouseDoubleClick+=(_,_)=>Navigate();
         ReloadTagChoices();
         ReloadSamples();
-        if(window.ShowDialog()!=true || targetAsset is null || targetProject is null)return;
-        if(_libraryMode)WorkspaceTab.IsChecked=true;
-        SearchBox.Clear();_columnFilters.Clear();FolderList.SelectedIndex=0;
-        var result=workspace.ListResults(targetProject)
-            .FirstOrDefault(x=>x.Id==targetAsset.ResultId);
-        if(result is null||!SelectTreeTag(result))return;
-        var row=_visible.FirstOrDefault(x=>x.Asset.Id==targetAsset.AssetId);
-        if(row is null){LoadScopeAssets();
-            row=_visible.FirstOrDefault(x=>x.Asset.Id==targetAsset.AssetId);}
-        if(row is null)return;
-        FileList.SelectedItem=row;ThumbnailList.SelectedItem=row;
-        FileList.ScrollIntoView(row);
-        UpdateDetails();
+        window.Show();
     }
 }
