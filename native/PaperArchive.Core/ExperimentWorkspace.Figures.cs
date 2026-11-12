@@ -519,6 +519,7 @@ public sealed partial class ExperimentWorkspace
                 cmd.ExecuteNonQuery();
             }
             CaptureCompositeSources(db,tx,figureId,result.Id);
+            CaptureCompositeSampleUses(db,tx,figureId,result.Id);
             tx.Commit();
             return result;
         }
