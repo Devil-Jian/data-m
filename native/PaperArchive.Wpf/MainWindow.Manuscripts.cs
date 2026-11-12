@@ -103,8 +103,12 @@ public partial class MainWindow
             RelatedFiles.ItemsSource=links.Select(x=>
                 $"Figure {x.FigureNumber} · {(x.Version is null?"未指定版本":"v"+x.Version)} · "+
                 (x.Status=="confirmed"?"已确认":"待核对")).ToArray();
-            UsageList.ItemsSource=(_workspace?.DescribeDocumentProvenance(doc.Id)??"")
+            var provenance=(_workspace?.DescribeDocumentProvenance(doc.Id)??"")
                 .Split(Environment.NewLine,StringSplitOptions.RemoveEmptyEntries);
+            var samples=_workspace?.ListDocumentSampleReferences(doc.Id)??[];
+            UsageList.ItemsSource=provenance.Concat(samples.Select(x=>
+                $"已确认论文 Figure {x.FigureNumber} · 完整成图 v{x.CompositeVersion} / Panel {x.PanelLabel}"+
+                $"\n{x.ExperimentName} / {x.SampleName} → SHOW Asset {x.ShowAssetId}")).ToArray();
         }
         else
         {
