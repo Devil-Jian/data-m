@@ -270,6 +270,10 @@ public sealed partial class ExperimentWorkspace
         var plan = PlanSampleIndex(db, tx, projectId);
         if (plan.Preview.Changes.Count > 0)
             WriteSampleIndex(db, tx, projectId, plan.Proposed);
+        else
+            // CSV-only or unresolved imports have no sample-index delta,
+            // but every imported asset still needs its one-time tag snapshot.
+            RefreshSystemTags(db,tx,projectId);
     }
 
     private static void RefreshSampleIndexForResults(
