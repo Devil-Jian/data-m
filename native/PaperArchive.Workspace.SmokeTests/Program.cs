@@ -835,6 +835,17 @@ try
         repo.GetEntityAnnotation("sample",rosUnit.Id).Tags
             .All(x=>x.Id!=rollbackTag.Id),
         "invalid bulk entity rolls back every assignment");
+    repo.RenameCustomTag(sharedTag.Id,"试验备用组（复核）");
+    Assert(repo.GetEntityAnnotation("sample",rosUnit.Id).Tags
+        .Any(x=>x.Id==sharedTag.Id&&x.Name=="试验备用组（复核）"),
+        "renaming a user tag preserves its assignment by stable tag ID");
+    repo.DeleteCustomTag(sharedTag.Id);
+    Assert(repo.GetEntityAnnotation("sample",rosUnit.Id).Tags
+        .All(x=>x.Id!=sharedTag.Id) &&
+        repo.ListCustomTags().All(x=>x.Id!=sharedTag.Id) &&
+        repo.GetAssetSystemTags(freshShow.Id) is
+            {ExperimentName:"ROS检测",SampleName:"ROS01"},
+        "removing user-defined tag leaves system tags and sample membership intact");
     var csvOnly=Path.Combine(root,"source","仅CSV实验");
     Directory.CreateDirectory(csvOnly);
     File.WriteAllText(Path.Combine(csvOnly,"试验统计.csv"),"sample,value\\nA,1");
