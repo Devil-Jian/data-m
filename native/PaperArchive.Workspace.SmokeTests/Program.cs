@@ -955,7 +955,7 @@ try
     Assert(restoredPreview.CanPublish &&
         restoredPreview.ManifestJson==d3Preview.ManifestJson,
         "D4 archive is built from immutable version sources, not live Panel links");
-    var d3Published=d3Archive.PublishWorkspaceArchive(restoredPreview);
+    var d3Published=d3Archive.PublishWorkspaceArchive(restoredPreview,true);
     Assert(d3Archive.GetWorkspaceArchiveManifest(d3Published.PaperId,1)
         ==restoredPreview.ManifestJson,
         "published revision preserves pinned sample chain byte-for-byte");
