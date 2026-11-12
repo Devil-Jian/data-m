@@ -118,6 +118,9 @@ public partial class MainWindow
         tagControls.Children.Add(tagPicker);tagControls.Children.Add(addTag);
         tagControls.Children.Add(removeTag);tagControls.Children.Add(createTag);
         editor.Children.Add(tagControls);
+        var batchTag=new Button{Content="给当前筛选结果批量添加此标签…",
+            Margin=new Thickness(0,8,0,0),HorizontalAlignment=HorizontalAlignment.Left};
+        editor.Children.Add(batchTag);
         var experimentNote=new Button{Content="编辑当前实验备注…",
             HorizontalAlignment=HorizontalAlignment.Left,
             Margin=new Thickness(0,10,0,0)};
@@ -240,6 +243,25 @@ public partial class MainWindow
             if(chosenUnit is null||tagPicker.SelectedItem is not CustomTag tag)return;
             try{workspace.SetEntityTag("sample",chosenUnit.Id,tag.Id,false);
                 ReloadSelection();}catch(Exception ex){ShowError(ex);}
+        };
+        batchTag.Click+=(_,_)=>{
+            if(tagPicker.SelectedItem is not CustomTag tag ||
+                sampleList.ItemsSource is not IEnumerable<SampleExplorerRow> visible)return;
+            var ids=visible.Select(x=>x.Unit.Id).Distinct(StringComparer.Ordinal).ToArray();
+            if(ids.Length==0)return;
+            if(System.Windows.MessageBox.Show(window,
+                $"将标签“{tag.Name}”应用到当前筛选的 {ids.Length} 个样本？"+
+                "\\n不会修改系统标签、文件或加工来源。",
+                "批量添加自定义标签",MessageBoxButton.YesNo,
+                MessageBoxImage.Question)!=MessageBoxResult.Yes)return;
+            try
+            {
+                var added=workspace.AssignCustomTagBatch("sample",ids,tag.Id);
+                foot.Text=$"已为 {added} 个样本新增标签；原有相同标签保持不变。";
+                var id=chosenUnit?.Id;
+                ReloadSamples(id);
+            }
+            catch(Exception ex){ShowError(ex);}
         };
         createTag.Click+=(_,_)=>{
             var name=Ask("新建自定义标签","标签名称（可复用于多个样本）");
