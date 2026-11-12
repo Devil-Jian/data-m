@@ -375,6 +375,40 @@ public sealed partial class ExperimentWorkspace
         tx.Commit();
     }
 
+    public int AssignCustomTagBatch(string entityKind,
+        IEnumerable<string> entityIds,string tagId)
+    {
+        var kind=CheckedEntityKind(entityKind);
+        var ids=entityIds.Distinct(StringComparer.Ordinal).ToArray();
+        if(ids.Length>5000)throw new ArgumentException("单次最多批量处理 5000 项。");
+        using var db=Connect();
+        using var tx=db.BeginTransaction();
+        using(var check=db.CreateCommand())
+        {
+            check.Transaction=tx;
+            check.CommandText="SELECT 1 FROM user_custom_tags WHERE id=$tag";
+            check.Parameters.AddWithValue("$tag",tagId);
+            if(check.ExecuteScalar() is null)throw new KeyNotFoundException("标签不存在。");
+        }
+        var added=0;
+        foreach(var id in ids)
+        {
+            RequireEntity(db,kind,id,tx);
+            using var cmd=db.CreateCommand();
+            cmd.Transaction=tx;
+            cmd.CommandText="""
+                INSERT OR IGNORE INTO user_tag_assignments(entity_kind,entity_id,tag_id)
+                VALUES($kind,$entity,$tag)
+                """;
+            cmd.Parameters.AddWithValue("$kind",kind);
+            cmd.Parameters.AddWithValue("$entity",id);
+            cmd.Parameters.AddWithValue("$tag",tagId);
+            added+=cmd.ExecuteNonQuery();
+        }
+        tx.Commit();
+        return added;
+    }
+
     public void SetEntityNote(string entityKind,string entityId,string note)
     {
         var kind=CheckedEntityKind(entityKind);
