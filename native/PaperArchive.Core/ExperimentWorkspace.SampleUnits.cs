@@ -278,7 +278,8 @@ public sealed partial class ExperimentWorkspace
         kind is "experiment" or "sample" or "asset"?kind:
             throw new ArgumentException("仅支持实验、样本或素材标签。",nameof(kind));
 
-    private static void RequireEntity(SqliteConnection db,string kind,string id)
+    private static void RequireEntity(SqliteConnection db,string kind,string id,
+        SqliteTransaction? transaction=null)
     {
         var table=kind switch
         {
@@ -288,6 +289,7 @@ public sealed partial class ExperimentWorkspace
             _=>throw new ArgumentException("不支持的实体类型。")
         };
         using var cmd=db.CreateCommand();
+        cmd.Transaction=transaction;
         cmd.CommandText=$"SELECT 1 FROM {table} WHERE id=$id";
         cmd.Parameters.AddWithValue("$id",id);
         if(cmd.ExecuteScalar() is null)throw new KeyNotFoundException("标签目标不存在。");
@@ -336,7 +338,7 @@ public sealed partial class ExperimentWorkspace
         var kind=CheckedEntityKind(entityKind);
         using var db=Connect();
         using var tx=db.BeginTransaction();
-        RequireEntity(db,kind,entityId);
+        RequireEntity(db,kind,entityId,tx);
         using var cmd=db.CreateCommand();
         cmd.Transaction=tx;
         cmd.CommandText=selected?"""
