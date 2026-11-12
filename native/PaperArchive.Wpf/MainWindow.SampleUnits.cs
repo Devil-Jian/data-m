@@ -129,6 +129,14 @@ public partial class MainWindow
         tagControls.Children.Add(tagPicker);tagControls.Children.Add(addTag);
         tagControls.Children.Add(removeTag);tagControls.Children.Add(createTag);
         editor.Children.Add(tagControls);
+        var manageTagControls=new StackPanel{Orientation=Orientation.Horizontal,
+            Margin=new Thickness(0,6,0,0)};
+        var renameTag=new Button{Content="重命名选中标签"};
+        var deleteTag=new Button{Content="删除选中标签…",
+            Margin=new Thickness(8,0,0,0)};
+        manageTagControls.Children.Add(renameTag);
+        manageTagControls.Children.Add(deleteTag);
+        editor.Children.Add(manageTagControls);
         var batchTag=new Button{Content="给当前筛选结果批量添加此标签…",
             Margin=new Thickness(0,8,0,0),HorizontalAlignment=HorizontalAlignment.Left};
         editor.Children.Add(batchTag);
@@ -294,6 +302,37 @@ public partial class MainWindow
             if(chosenUnit is null||tagPicker.SelectedItem is not CustomTag tag)return;
             try{workspace.SetEntityTag("sample",chosenUnit.Id,tag.Id,false);
                 ReloadSelection();}catch(Exception ex){ShowError(ex);}
+        };
+        renameTag.Click+=(_,_)=>{
+            if(tagPicker.SelectedItem is not CustomTag tag)return;
+            var newName=Ask("重命名自定义标签",
+                "修改标签名称会同步更新其显示名称，原有实验/样本/文件分配不变。",
+                tag.Name);
+            if(newName is null)return;
+            try
+            {
+                workspace.RenameCustomTag(tag.Id,newName);
+                ReloadTagChoices();
+                tagPicker.SelectedItem=workspace.ListCustomTags()
+                    .FirstOrDefault(x=>x.Id==tag.Id);
+                ReloadSelection();
+            }
+            catch(Exception ex){ShowError(ex);}
+        };
+        deleteTag.Click+=(_,_)=>{
+            if(tagPicker.SelectedItem is not CustomTag tag)return;
+            if(System.Windows.MessageBox.Show(window,
+                $"确定删除自定义标签“{tag.Name}”以及其全部分配关系？"+
+                "\n系统标签、样本和文件不受影响。",
+                "删除自定义标签",MessageBoxButton.YesNo,MessageBoxImage.Warning)
+                !=MessageBoxResult.Yes)return;
+            try
+            {
+                workspace.DeleteCustomTag(tag.Id);
+                ReloadTagChoices();
+                ReloadSamples(chosenUnit?.Id);
+            }
+            catch(Exception ex){ShowError(ex);}
         };
         batchTag.Click+=(_,_)=>{
             if(tagPicker.SelectedItem is not CustomTag tag ||
