@@ -145,6 +145,33 @@ public partial class MainWindow
         SampleUnitAsset? targetAsset=null;
         string? targetProject=null;
 
+        string? Ask(string title,string description,string initial="",bool multiline=false)
+        {
+            var prompt=new Window{Owner=window,Title=title,Width=510,
+                Height=multiline?310:195,ResizeMode=ResizeMode.NoResize,
+                WindowStartupLocation=WindowStartupLocation.CenterOwner};
+            var body=new DockPanel{Margin=new Thickness(15)};
+            var actions=new StackPanel{Orientation=Orientation.Horizontal,
+                HorizontalAlignment=HorizontalAlignment.Right,
+                Margin=new Thickness(0,12,0,0)};
+            var okay=new Button{Content="确定",MinWidth=80,IsDefault=true};
+            var cancel=new Button{Content="取消",MinWidth=80,IsCancel=true,
+                Margin=new Thickness(8,0,0,0)};
+            actions.Children.Add(okay);actions.Children.Add(cancel);
+            DockPanel.SetDock(actions,Dock.Bottom);body.Children.Add(actions);
+            var hint=new TextBlock{Text=description,TextWrapping=TextWrapping.Wrap,
+                Margin=new Thickness(0,0,0,10)};
+            DockPanel.SetDock(hint,Dock.Top);body.Children.Add(hint);
+            var field=new TextBox{Text=initial,TextWrapping=multiline?
+                TextWrapping.Wrap:TextWrapping.NoWrap,AcceptsReturn=multiline,
+                VerticalScrollBarVisibility=multiline?ScrollBarVisibility.Auto:
+                    ScrollBarVisibility.Disabled};
+            body.Children.Add(field);prompt.Content=body;
+            okay.Click+=(_,_)=>prompt.DialogResult=true;
+            prompt.Loaded+=(_,_)=>{field.Focus();field.SelectAll();};
+            return prompt.ShowDialog()==true?field.Text.Trim():null;
+        }
+
         void ReloadTagChoices()
         {
             var selected=(tagPicker.SelectedItem as CustomTag)?.Id;
@@ -215,7 +242,7 @@ public partial class MainWindow
                 ReloadSelection();}catch(Exception ex){ShowError(ex);}
         };
         createTag.Click+=(_,_)=>{
-            var name=Prompt("新建自定义标签","标签名称（可复用于多个样本）");
+            var name=Ask("新建自定义标签","标签名称（可复用于多个样本）");
             if(name is null)return;
             try{var tag=workspace.CreateCustomTag(name);
                 ReloadTagChoices();tagPicker.SelectedItem=workspace.ListCustomTags()
@@ -227,8 +254,8 @@ public partial class MainWindow
             try
             {
                 var existing=workspace.GetEntityAnnotation("experiment",chosenUnit.ExperimentId).Note;
-                var note=Prompt("实验备注 · "+chosenUnit.ExperimentName,
-                    "填写当前实验单元的整体备注",existing);
+                var note=Ask("实验备注 · "+chosenUnit.ExperimentName,
+                    "填写当前实验单元的整体备注",existing,multiline:true);
                 if(note is not null)
                     workspace.SetEntityNote("experiment",chosenUnit.ExperimentId,note);
             }
