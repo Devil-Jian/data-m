@@ -874,11 +874,24 @@ try
     File.WriteAllBytes(Path.Combine(d3Source,"ROS99_show.png"),[43]);
     File.WriteAllBytes(Path.Combine(d3Source,"ROS99_show_v2.png"),[44]);
     File.WriteAllBytes(Path.Combine(d3Source,"ROS99_quant.tif"),[45]);
+    File.WriteAllBytes(Path.Combine(d3Source,"ROS98_raw.tif"),[46]);
+    File.WriteAllBytes(Path.Combine(d3Source,"ROS98_show.png"),[47]);
     var d3Import=repo.ImportResult(d3Project,d3Source);
     var d3Files=repo.ListAssets(d3Import.ResultId);
     var d3Sample=repo.ListSampleUnits(projectId:d3Project).Single(x=>x.SampleName=="ROS99");
     var d3Figure=repo.CreateFiguresFast(d3Paper,1,1).Single();
     var d3Panel=repo.ListPanels(d3Figure.Id).Single();
+    var d3SecondaryPanel=repo.CreatePanelsFast(d3Figure.Id,1).Single();
+    var singleShowSample=repo.ListSampleUnits(projectId:d3Project)
+        .Single(x=>x.SampleName=="ROS98");
+    var automaticUse=repo.LinkSampleToPanel(d3SecondaryPanel.Id,singleShowSample.Id);
+    Assert(automaticUse.ShowFileName=="ROS98_show.png" &&
+        repo.ListPanelSampleUses(d3SecondaryPanel.Id).Single().ShowAssetId==
+            automaticUse.ShowAssetId,
+        "single SHOW sample links without extra version selection");
+    Assert(repo.UnlinkSampleFromPanel(d3SecondaryPanel.Id,singleShowSample.Id) &&
+        repo.ListPanelAssets(d3SecondaryPanel.Id).Count==0,
+        "sample unlink removes only the SHOW link it created");
     var d3Shows=repo.ListSelectableSampleShows(d3Sample.Id);
     Assert(d3Shows.Count==2 && d3Shows.All(x=>x.Stage=="show"),
         "D3 excludes QUANT and RAW from selectable SHOW versions");
@@ -894,6 +907,15 @@ try
     Assert(rejectedQuant && repo.ListPanelAssets(d3Panel.Id).Count==0,
         "QUANT can never substitute for a selected Panel SHOW");
     var selectedShow=d3Shows.Single(x=>x.FileName=="ROS99_show_v2.png");
+    var forbiddenAcrossPapers=repo.CreatePaperProject("跨论文禁止关联");
+    var forbiddenPanel=repo.ListPanels(
+        repo.CreateFiguresFast(forbiddenAcrossPapers,1,1).Single().Id).Single();
+    var crossPaperRejected=false;
+    try{repo.LinkSampleToPanel(forbiddenPanel.Id,d3Sample.Id,selectedShow.Id);}
+    catch(InvalidOperationException){crossPaperRejected=true;}
+    Assert(crossPaperRejected &&
+        repo.ListPanelSampleUses(forbiddenPanel.Id).Count==0,
+        "D3 rejects cross-paper sample drag without partial Panel association");
     var d3Use=repo.LinkSampleToPanel(d3Panel.Id,d3Sample.Id,selectedShow.Id);
     Assert(d3Use.ShowAssetId==selectedShow.Id &&
         repo.LinkSampleToPanel(d3Panel.Id,d3Sample.Id,selectedShow.Id)==d3Use &&
@@ -912,6 +934,11 @@ try
     repo.ConfirmCompositeSources(d3Version.Id);
     var d3Doc=repo.ImportPaperDocument(d3Paper,pdfPath);
     repo.SetPaperFigureLink(d3Doc.Id,d3Figure.Id,d3Version.Id,true);
+    Assert(repo.ListDocumentSampleReferences(d3Doc.Id)
+        .Single().ShowAssetId==selectedShow.Id &&
+        repo.ListDocumentSampleReferences(d3Doc.Id)
+        .Single().CompositeId==d3Version.Id,
+        "D4 manuscript index points to its exact pinned Figure/Panel/Sample/SHOW");
     var d3Archive=ArchiveRepository.Open(repo.Root);
     var d3Preview=d3Archive.PrepareWorkspaceArchive(repo,d3Paper,d3Doc.Id);
     Assert(d3Preview.CanPublish &&
