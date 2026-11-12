@@ -209,6 +209,22 @@ public sealed partial class ExperimentWorkspace
                     throw new InvalidOperationException("新建 Panel 已增加其他图片，不能自动撤销。");
             }
         }
+        // A SHOW linked through the older drag path may subsequently have a
+        // sample assignment. Do not undo that link from underneath D3 usage.
+        foreach (var link in batch.Links)
+        {
+            using var guard=db.CreateCommand();
+            guard.Transaction=tx;
+            guard.CommandText="""
+                SELECT COUNT(*) FROM panel_sample_links
+                WHERE panel_id=$panel AND show_asset_id=$asset
+                """;
+            guard.Parameters.AddWithValue("$panel",link.PanelId);
+            guard.Parameters.AddWithValue("$asset",link.AssetId);
+            if(Convert.ToInt64(guard.ExecuteScalar())>0)
+                throw new InvalidOperationException(
+                    "此 SHOW 已关联样本用途，请先在 Panel 中解除样本关联。");
+        }
         foreach (var link in batch.Links)
         {
             using var cmd = db.CreateCommand();
