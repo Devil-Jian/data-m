@@ -379,6 +379,41 @@ public sealed partial class ExperimentWorkspace
         return new(rd.GetString(0),rd.GetString(1));
     }
 
+    public void RenameCustomTag(string tagId,string newName)
+    {
+        newName=newName.Trim();
+        if(newName.Length is <1 or >80 || newName.Contains('\n') ||
+            newName.Contains('\r'))
+            throw new ArgumentException("自定义标签名称需为 1–80 个字符且不能换行。");
+        using var db=Connect();
+        using var cmd=db.CreateCommand();
+        cmd.CommandText="UPDATE user_custom_tags SET name=$name WHERE id=$id";
+        cmd.Parameters.AddWithValue("$name",newName);
+        cmd.Parameters.AddWithValue("$id",tagId);
+        if(cmd.ExecuteNonQuery()!=1)throw new KeyNotFoundException("标签不存在。");
+    }
+
+    public void DeleteCustomTag(string tagId)
+    {
+        using var db=Connect();
+        using var tx=db.BeginTransaction();
+        using(var clear=db.CreateCommand())
+        {
+            clear.Transaction=tx;
+            clear.CommandText="DELETE FROM user_tag_assignments WHERE tag_id=$tag";
+            clear.Parameters.AddWithValue("$tag",tagId);
+            clear.ExecuteNonQuery();
+        }
+        using(var remove=db.CreateCommand())
+        {
+            remove.Transaction=tx;
+            remove.CommandText="DELETE FROM user_custom_tags WHERE id=$tag";
+            remove.Parameters.AddWithValue("$tag",tagId);
+            if(remove.ExecuteNonQuery()!=1)throw new KeyNotFoundException("标签不存在。");
+        }
+        tx.Commit();
+    }
+
     public void SetEntityTag(string entityKind,string entityId,string tagId,bool selected)
     {
         var kind=CheckedEntityKind(entityKind);
