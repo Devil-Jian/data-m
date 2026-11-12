@@ -99,6 +99,15 @@ public partial class MainWindow
         var heading=new TextBlock{Text="选择样本查看四阶段素材",FontSize=15,
             FontWeight=FontWeights.SemiBold,Margin=new Thickness(0,5,0,9)};
         DockPanel.SetDock(heading,Dock.Top);right.Children.Add(heading);
+        var imageArea=new Border{Height=125,
+            BorderBrush=System.Windows.Media.Brushes.LightGray,
+            BorderThickness=new Thickness(1),
+            Background=System.Windows.Media.Brushes.WhiteSmoke,
+            Margin=new Thickness(0,0,0,8)};
+        var imagePreview=new Image{Stretch=System.Windows.Media.Stretch.Uniform,
+            Margin=new Thickness(6)};
+        imageArea.Child=imagePreview;
+        DockPanel.SetDock(imageArea,Dock.Top);right.Children.Add(imageArea);
         var editor=new StackPanel{Margin=new Thickness(0,10,0,0)};
         var noteLabel=new TextBlock{Text="样本备注",FontWeight=FontWeights.SemiBold,
             Margin=new Thickness(0,0,0,4)};
@@ -249,6 +258,7 @@ public partial class MainWindow
         {
             chosenUnit=(sampleList.SelectedItem as SampleExplorerRow)?.Unit;
             fileList.ItemsSource=null;
+            imagePreview.Source=null;
             noteBox.Text="";
             assignedTags.Text="自定义标签：—";
             noteButton.IsEnabled=chosenUnit is not null;
@@ -327,6 +337,13 @@ public partial class MainWindow
         fileList.SelectionChanged+=(_,_)=>{
             var enabled=fileList.SelectedItem is SampleExplorerAsset;
             locate.IsEnabled=enabled;assetNote.IsEnabled=enabled;assetTag.IsEnabled=enabled;
+            imagePreview.Source=null;
+            if(fileList.SelectedItem is SampleExplorerAsset selected)
+            {
+                var asset=workspace.GetProvenanceAsset(selected.Asset.AssetId);
+                if(asset is not null)
+                    imagePreview.Source=PreviewFromFile(()=>workspace.GetBlobPath(asset));
+            }
         };
         assetNote.Click+=(_,_)=>{
             if(fileList.SelectedItem is not SampleExplorerAsset file)return;
