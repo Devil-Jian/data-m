@@ -168,8 +168,8 @@ public sealed partial class ExperimentWorkspace
         using var cmd=db.CreateCommand();
         cmd.CommandText="""
             SELECT e.id,e.project_id,e.name,
-              COUNT(DISTINCT CASE WHEN a.id IS NOT NULL THEN s.id END),
-              COUNT(a.id)
+              COUNT(DISTINCT CASE WHEN r.id IS NOT NULL THEN s.id END),
+              COUNT(r.id)
             FROM experiment_units e
             LEFT JOIN sample_units s ON s.experiment_id=e.id
             LEFT JOIN sample_unit_assets m ON m.sample_unit_id=s.id
@@ -293,6 +293,25 @@ public sealed partial class ExperimentWorkspace
         cmd.CommandText=$"SELECT 1 FROM {table} WHERE id=$id";
         cmd.Parameters.AddWithValue("$id",id);
         if(cmd.ExecuteScalar() is null)throw new KeyNotFoundException("标签目标不存在。");
+    }
+
+    public IReadOnlySet<string> ListTaggedSampleIds(string projectId,string tagId)
+    {
+        using var db=Connect();
+        using var cmd=db.CreateCommand();
+        cmd.CommandText="""
+            SELECT a.entity_id FROM user_tag_assignments a
+            JOIN sample_units s ON s.id=a.entity_id
+            JOIN experiment_units e ON e.id=s.experiment_id
+            WHERE a.entity_kind='sample' AND a.tag_id=$tag
+              AND e.project_id=$project
+            """;
+        cmd.Parameters.AddWithValue("$project",projectId);
+        cmd.Parameters.AddWithValue("$tag",tagId);
+        var ids=new HashSet<string>(StringComparer.Ordinal);
+        using var rd=cmd.ExecuteReader();
+        while(rd.Read())ids.Add(rd.GetString(0));
+        return ids;
     }
 
     public IReadOnlyList<CustomTag> ListCustomTags()
