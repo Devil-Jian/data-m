@@ -190,6 +190,14 @@ public partial class MainWindow
     private void ProjectTree_PreviewDragOver(object sender,DragEventArgs e)
     {
         var node=e.OriginalSource is DependencyObject origin?TreeItemFrom(origin):null;
+        var sample=ReadSampleDrag(e);
+        if(sample is not null)
+        {
+            e.Effects=node?.Tag is PanelNode && !_libraryMode?
+                DragDropEffects.Link:DragDropEffects.None;
+            e.Handled=true;
+            return;
+        }
         var bundle=ReadDrag(e);
         if(bundle is null||!IsValidDropNode(node)||_libraryMode||
            (node?.Tag is PanelNode or FigureNode && !DragContainsOnlyShow(bundle)))
@@ -248,6 +256,17 @@ public partial class MainWindow
         var data=ReadDrag(e);
         var node=e.OriginalSource is DependencyObject origin?TreeItemFrom(origin):null;
         e.Handled=true;
+        var sample=ReadSampleDrag(e);
+        if(sample is not null)
+        {
+            if(!_libraryMode && node?.Tag is PanelNode samplePanel &&
+                AttachSampleToPanel(samplePanel.PanelId,sample.SampleUnitId))
+            {
+                SelectTreeTag(samplePanel);
+                e.Effects=DragDropEffects.Link;
+            }
+            return;
+        }
         if(data is null||node is null||_workspace is null||!IsValidDropNode(node))return;
         var copy=(e.KeyStates&DragDropKeyStates.ControlKey)!=0;
         try
