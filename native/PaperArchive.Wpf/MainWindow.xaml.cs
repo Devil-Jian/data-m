@@ -467,13 +467,17 @@ public partial class MainWindow : Window
         DetailMeta.Text=tagLabel+
             $"\n数据组：{row.GroupPrefix}\n文件路径：{row.RelativePath}\n"+
             $"大小：{row.SizeLabel}\nAsset ID：{row.Asset.Id}\nSHA-256：{row.Asset.Sha256}";
-        var sameSample = _workspace.ListSameSampleAssets(row.Asset.Id);
-        RelatedHeading.Text = sameSample.Count > 0
-            ? "同一样本（自动索引 · 非加工关系）" : "同组文件";
-        RelatedFiles.ItemsSource = sameSample.Count > 0
-            ? sameSample.Select(x => $"{x.Stage.ToUpperInvariant()}  {x.FileName}").ToArray()
-            : _all.Where(x => x.Asset.GroupId == row.Asset.GroupId)
-                .Select(x => $"{x.StageLabel}  {x.FileName}").ToArray();
+        // The selected asset is included once, so this is a complete sample
+        // inventory rather than a peer list. Collapse only identical content
+        // under identical filename + stage; preserve different hash versions.
+        var sameSample=_workspace.ListSameSampleAssets(row.Asset.Id);
+        var grouped=SameSampleDisplay.Group(sameSample.Append(row.Asset));
+        RelatedHeading.Text=sameSample.Count>0
+            ? "同一样本（按内容合并显示 · 非加工关系）" : "同组文件";
+        RelatedFiles.ItemsSource=sameSample.Count>0
+            ? grouped.Select(x=>x.DisplayText).ToArray()
+            : SameSampleDisplay.Group(_all.Where(x=>x.Asset.GroupId==row.Asset.GroupId)
+                .Select(x=>x.Asset)).Select(x=>x.DisplayText).ToArray();
         UsageHeading.Text="使用位置 · 论文与归档";
         var references=new List<string>();
         var paperReferences=_workspace.ListAssetPaperReferences(row.Asset.Id);
