@@ -53,6 +53,7 @@ public sealed partial class ExperimentWorkspace
         workspace.InitializePaperWorkPreferences();
         workspace.InitializeSampleIndex();
         workspace.InitializeSystemTags();
+        workspace.InitializeSampleUnits();
         return workspace;
     }
 
