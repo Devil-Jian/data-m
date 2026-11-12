@@ -212,6 +212,21 @@ public sealed partial class ExperimentWorkspace
         }
         if(ownedLink is not null)
         {
+            // If another sample uses the same SHOW in this Panel, pass along
+            // ownership of the automatically-created link for final cleanup.
+            using(var transfer=db.CreateCommand())
+            {
+                transfer.Transaction=tx;
+                transfer.CommandText="""
+                    UPDATE panel_sample_links SET created_panel_link_id=$link
+                    WHERE panel_id=$panel AND show_asset_id=(
+                      SELECT asset_id FROM figure_panel_assets WHERE id=$link)
+                      AND created_panel_link_id IS NULL
+                """;
+                transfer.Parameters.AddWithValue("$link",ownedLink);
+                transfer.Parameters.AddWithValue("$panel",panelId);
+                transfer.ExecuteNonQuery();
+            }
             using var clean=db.CreateCommand();
             clean.Transaction=tx;
             clean.CommandText="""
