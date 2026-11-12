@@ -426,10 +426,27 @@ public sealed partial class ExperimentWorkspace
     public void UnlinkPanelAsset(string linkId)
     {
         using var db=Connect();
+        using var tx=db.BeginTransaction();
+        // A manual SHOW unlink must also invalidate the live sample use;
+        // immutable composite history is stored in separate snapshot tables.
+        using(var clear=db.CreateCommand())
+        {
+            clear.Transaction=tx;
+            clear.CommandText="""
+                DELETE FROM panel_sample_links WHERE EXISTS (
+                  SELECT 1 FROM figure_panel_assets l
+                  WHERE l.id=$id AND l.panel_id=panel_sample_links.panel_id
+                    AND l.asset_id=panel_sample_links.show_asset_id)
+                """;
+            clear.Parameters.AddWithValue("$id",linkId);
+            clear.ExecuteNonQuery();
+        }
         using var cmd=db.CreateCommand();
+        cmd.Transaction=tx;
         cmd.CommandText="DELETE FROM figure_panel_assets WHERE id=$id";
         cmd.Parameters.AddWithValue("$id",linkId);
         if(cmd.ExecuteNonQuery()!=1)throw new KeyNotFoundException("组图素材关联不存在。");
+        tx.Commit();
     }
 
     public IReadOnlyList<FigureComposite> ListFigureComposites(string figureId)
