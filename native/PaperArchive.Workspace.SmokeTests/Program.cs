@@ -649,7 +649,14 @@ try
     Assert(archive.PublishWorkspaceArchive(preview).AlreadyArchived &&
         archive.ListWorkspaceRevisions(archived.PaperId).Count==1,
         "repeated archive of same manifest is idempotent");
+    // A new revision must acquire its own explicit Panel/SHOW snapshot;
+    // it cannot inherit the old Figure's history after unlinking.
+    Assert(repo.LinkShowAssets(aPanel.Id,[show.Id])==1,
+        "revision 2 requires deliberate Panel SHOW re-assignment");
     var v3=repo.ImportFigureComposite(figuresNew[0].Id,composPath);
+    repo.ConfirmCompositeSources(v3.Id);
+    var restoredLink=repo.ListPanelAssets(aPanel.Id).Single();
+    repo.UnlinkPanelAsset(restoredLink.Id);
     repo.SetPaperFigureLink(pdfDoc.Id,figuresNew[0].Id,v3.Id,true);
     var revisionPreview=archive.PrepareWorkspaceArchive(repo,paperId,pdfDoc.Id);
     var revision=archive.PublishWorkspaceArchive(revisionPreview,true);
