@@ -203,6 +203,16 @@ public partial class MainWindow
             row.Detail;
         DetailName.Text=row.Name;
         DetailMeta.Text=$"类型：{row.Type}\n状态：{row.Status}\n{row.Detail}";
+        if(row.Item is PanelTemplate panel && _workspace is not null)
+        {
+            var samples=_workspace.ListPanelSampleUses(panel.Id);
+            DetailMeta.Text+="\n当前样本用途："+(samples.Count==0?"无样本关联":
+                string.Join("；",samples.Select(x=>
+                    x.ExperimentName+" / "+x.SampleName+" → "+x.ShowFileName)));
+            RelatedHeading.Text="当前样本单元 · SHOW（非历史快照）";
+            RelatedFiles.ItemsSource=samples.Select(x=>
+                x.ExperimentName+" / "+x.SampleName+" → "+x.ShowFileName).ToArray();
+        }
         if(row.Item is PanelAssetLink link)
         {
             DetailMeta.Text+=$"\nAsset ID：{link.AssetId}\nSHA-256：{link.Sha256}";
@@ -213,7 +223,7 @@ public partial class MainWindow
             if(PreviewImage.Source is null)
                 DetailMeta.Text+="\n图片无法预览：文件可能缺失、损坏或格式不受支持。";
         }
-        else RelatedFiles.ItemsSource=null;
+        else if(row.Item is not PanelTemplate) RelatedFiles.ItemsSource=null;
         if(row.Item is FigureComposite compositeRow && _workspace is not null)
         {
             if(PreviewImage.Source is null)
@@ -244,6 +254,15 @@ public partial class MainWindow
                     CompositeSourcesNotice.Text+="\n存在来源缺失或哈希不匹配，暂不可确认。";
                 ConfirmCompositeSourceButton.IsEnabled=review.Sources.Count>0 &&
                     allReadable && review.Sources.Any(x=>x.Status!="confirmed");
+                var pinned=_workspace.ListCompositeSampleUses(compositeRow.Id);
+                if(pinned.Count>0)
+                {
+                    DetailMeta.Text+="\n保存时的样本用途："+string.Join("；",pinned.Select(x=>
+                        "Panel "+x.PanelLabel+" / "+x.ExperimentName+" / "+
+                        x.SampleName+" → SHOW "+x.ShowAssetId));
+                    CompositeSourcesNotice.Text+="\n已保存 "+pinned.Count+
+                        " 条不可变的 Panel/样本/SHOW 对应关系。";
+                }
                 CompositeSourcesPanel.Visibility=Visibility.Visible;
                 RelatedHeading.Visibility=Visibility.Collapsed;
                 RelatedFiles.Visibility=Visibility.Collapsed;
