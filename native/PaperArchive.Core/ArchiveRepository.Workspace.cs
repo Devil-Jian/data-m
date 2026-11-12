@@ -194,13 +194,21 @@ public sealed partial class ArchiveRepository
             var location=$"Figure {link.FigureNumber} / v{composite.Version}";
             Add(composite.Id,composite.FileName,"composite",location,composite.Sha256,composite.Size);
             var sources=workspace.ListCompositeSources(composite.Id);
+            // D4 requires an exact Panel/SHOW historical snapshot for each
+            // archived composite. Live Panel assignments are not archive evidence.
             if(sources.Count==0)
-                checks.Add(new("no_sources","review",location+" 尚未确认 Panel/SHOW 来源。"));
+                checks.Add(new("missing_show_usage","block",location+
+                    " 未保存任何 Panel/SHOW 来源，不能归档。"));
+            var sampleUses=workspace.ListCompositeSampleUses(composite.Id);
             var sourceList=new List<object>();
             foreach(var source in sources)
             {
                 if(source.Status!="confirmed")
-                    checks.Add(new("source_review","review",location+" Panel "+source.PanelLabel+" 的来源尚未确认。"));
+                    checks.Add(new("show_usage_unconfirmed","block",
+                        location+" Panel "+source.PanelLabel+" 的 SHOW 来源尚未确认。"));
+                if(source.PanelId is null || string.IsNullOrWhiteSpace(source.PanelLabel))
+                    checks.Add(new("show_missing_panel","block",location+
+                        " 的 SHOW 用途缺少精确 Panel ID 或标签。"));
                 var show=workspace.GetProvenanceAsset(source.AssetId);
                 if(show is null)
                 {
@@ -209,6 +217,14 @@ public sealed partial class ArchiveRepository
                 }
                 if(show.Sha256!=source.AssetSha256)
                     checks.Add(new("source_changed","block",location+" 来源 SHA-256 与历史快照不一致。"));
+                if(show.Stage!="show")
+                    checks.Add(new("invalid_show_stage","block",
+                        show.FileName+" 不是 SHOW，禁止作为 Panel 展示素材。"));
+                var system=workspace.GetAssetSystemTags(show.Id);
+                if(system is null || system.Stage!="show" ||
+                    system.ParseStatus!="resolved" || string.IsNullOrWhiteSpace(system.SampleName))
+                    checks.Add(new("show_system_tags_invalid","block",
+                        show.FileName+" 的实验/样本/SHOW 标签尚未可靠识别。"));
                 var panelPath=location+" / Panel "+source.PanelLabel;
                 Add(show.Id,show.FileName,"show",panelPath,source.AssetSha256,show.Size);
                 var processList=new List<object>();
@@ -240,14 +256,25 @@ public sealed partial class ArchiveRepository
                 }
                 if(processList.Count==0)
                     checks.Add(new("untraced_show","review",show.FileName+" 未记录明确的 PROCESS 来源。"));
+                var exactSamples=sampleUses.Where(x=>
+                    x.PanelId==source.PanelId && x.ShowAssetId==show.Id &&
+                    x.ShowSha256==source.AssetSha256).ToArray();
+                if(sampleUses.Any(x=>x.PanelId==source.PanelId &&
+                    x.ShowAssetId==show.Id && x.ShowSha256!=source.AssetSha256))
+                    checks.Add(new("sample_source_changed","block",
+                        show.FileName+" 的样本快照 SHA 与 Panel SHOW 不一致。"));
                 sourceList.Add(new {source.PanelId,source.PanelLabel,show.Id,show.FileName,
-                    source.AssetSha256,source.Status,process=processList});
+                    source.AssetSha256,source.Status,process=processList,
+                    sampleUnits=exactSamples.Select(x=>new {
+                        x.SampleUnitId,x.ExperimentName,x.SampleName,
+                        x.ShowAssetId,x.ShowSha256
+                    }).ToArray()});
             }
             figures.Add(new {link.FigureId,link.FigureNumber,composite.Id,composite.Version,
                 composite.FileName,composite.Sha256,sources=sourceList});
         }
         foreach(var resource in resources)CheckAsset(resource);
-        var manifest=JsonSerializer.Serialize(new {schemaVersion=1,paperId,paper.Name,
+        var manifest=JsonSerializer.Serialize(new {schemaVersion=2,paperId,paper.Name,
             document=new {document.Id,document.FileName,document.Sha256},
             figures,resources=resources.OrderBy(x=>x.Location,StringComparer.Ordinal)
                 .ThenBy(x=>x.Role,StringComparer.Ordinal)
