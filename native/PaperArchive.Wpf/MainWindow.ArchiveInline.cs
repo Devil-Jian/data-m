@@ -140,6 +140,12 @@ public partial class MainWindow
                     var status=ManifestText(source,"Status");
                     var panel=Add(node,$"Panel {label} · "+
                         (status=="confirmed"?"来源已确认":"来源待核对"));
+                    foreach(var sample in ManifestChildren(source,"sampleUnits"))
+                    {
+                        var experiment=ManifestText(sample,"ExperimentName");
+                        var sampleName=ManifestText(sample,"SampleName");
+                        Add(panel,$"样本 · {experiment} / {sampleName}（已选 SHOW）");
+                    }
                     AddAsset(panel,source,"SHOW","show","AssetSha256");
                 }
             }
