@@ -123,10 +123,14 @@ public partial class MainWindow
         var batchTag=new Button{Content="给当前筛选结果批量添加此标签…",
             Margin=new Thickness(0,8,0,0),HorizontalAlignment=HorizontalAlignment.Left};
         editor.Children.Add(batchTag);
-        var experimentNote=new Button{Content="编辑当前实验备注…",
-            HorizontalAlignment=HorizontalAlignment.Left,
+        var experimentControls=new StackPanel{Orientation=Orientation.Horizontal,
             Margin=new Thickness(0,10,0,0)};
-        editor.Children.Add(experimentNote);
+        var experimentNote=new Button{Content="编辑当前实验备注…"};
+        var experimentTag=new Button{Content="给当前实验添加此标签",
+            Margin=new Thickness(8,0,0,0)};
+        experimentControls.Children.Add(experimentNote);
+        experimentControls.Children.Add(experimentTag);
+        editor.Children.Add(experimentControls);
         DockPanel.SetDock(editor,Dock.Bottom);right.Children.Add(editor);
 
         var fileList=new ListView{SelectionMode=SelectionMode.Single,
@@ -140,9 +144,16 @@ public partial class MainWindow
             filesView.Columns.Add(new GridViewColumn{Header=header,
                 DisplayMemberBinding=new System.Windows.Data.Binding(path),Width=width});
         fileList.View=filesView;
-        var locate=new Button{Content="定位选中素材",Margin=new Thickness(0,8,0,0),
-            HorizontalAlignment=HorizontalAlignment.Left,IsEnabled=false};
-        DockPanel.SetDock(locate,Dock.Bottom);right.Children.Add(locate);
+        var assetActions=new StackPanel{Orientation=Orientation.Horizontal,
+            Margin=new Thickness(0,8,0,0)};
+        var locate=new Button{Content="定位选中素材",IsEnabled=false};
+        var assetNote=new Button{Content="编辑文件备注…",
+            IsEnabled=false,Margin=new Thickness(8,0,0,0)};
+        var assetTag=new Button{Content="给文件添加此标签",
+            IsEnabled=false,Margin=new Thickness(8,0,0,0)};
+        assetActions.Children.Add(locate);
+        assetActions.Children.Add(assetNote);assetActions.Children.Add(assetTag);
+        DockPanel.SetDock(assetActions,Dock.Bottom);right.Children.Add(assetActions);
         right.Children.Add(fileList);
         Grid.SetColumn(right,2);columns.Children.Add(right);
         layout.Children.Add(columns);window.Content=layout;
@@ -244,6 +255,7 @@ public partial class MainWindow
             addTag.IsEnabled=chosenUnit is not null;
             removeTag.IsEnabled=chosenUnit is not null;
             experimentNote.IsEnabled=chosenUnit is not null;
+            experimentTag.IsEnabled=chosenUnit is not null;
             if(chosenUnit is null)
             {heading.Text="选择样本查看四阶段素材";return;}
             heading.Text=chosenUnit.ExperimentName+" / "+chosenUnit.SampleName;
@@ -312,8 +324,41 @@ public partial class MainWindow
             }
             catch(Exception ex){ShowError(ex);}
         };
-        fileList.SelectionChanged+=(_,_)=>locate.IsEnabled=
-            fileList.SelectedItem is SampleExplorerAsset;
+        fileList.SelectionChanged+=(_,_)=>{
+            var enabled=fileList.SelectedItem is SampleExplorerAsset;
+            locate.IsEnabled=enabled;assetNote.IsEnabled=enabled;assetTag.IsEnabled=enabled;
+        };
+        assetNote.Click+=(_,_)=>{
+            if(fileList.SelectedItem is not SampleExplorerAsset file)return;
+            try
+            {
+                var previous=workspace.GetEntityAnnotation("asset",file.Asset.AssetId).Note;
+                var changed=Ask("文件备注 · "+file.Name,
+                    "编辑此文件的独立备注（不影响样本备注）",previous,multiline:true);
+                if(changed is not null)
+                    workspace.SetEntityNote("asset",file.Asset.AssetId,changed);
+            }
+            catch(Exception ex){ShowError(ex);}
+        };
+        assetTag.Click+=(_,_)=>{
+            if(fileList.SelectedItem is not SampleExplorerAsset file ||
+                tagPicker.SelectedItem is not CustomTag tag)return;
+            try
+            {
+                workspace.SetEntityTag("asset",file.Asset.AssetId,tag.Id,true);
+                foot.Text="文件标签已保存（与样本、实验标签独立）。";
+            }
+            catch(Exception ex){ShowError(ex);}
+        };
+        experimentTag.Click+=(_,_)=>{
+            if(chosenUnit is null||tagPicker.SelectedItem is not CustomTag tag)return;
+            try
+            {
+                workspace.SetEntityTag("experiment",chosenUnit.ExperimentId,tag.Id,true);
+                foot.Text="实验标签已保存（与样本标签独立）。";
+            }
+            catch(Exception ex){ShowError(ex);}
+        };
         void Navigate()
         {
             if(fileList.SelectedItem is not SampleExplorerAsset item ||
