@@ -54,6 +54,7 @@ public sealed partial class ExperimentWorkspace
         workspace.InitializeSampleIndex();
         workspace.InitializeSystemTags();
         workspace.InitializeSampleUnits();
+        workspace.InitializePanelSampleLinks();
         return workspace;
     }
 
