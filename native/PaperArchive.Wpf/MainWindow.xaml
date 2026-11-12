@@ -223,6 +223,8 @@
                                     VerticalAlignment="Center">
                             <Button Content="详细信息" Click="DetailsView_Click"/>
                             <Button Content="大图标" Click="ThumbnailsView_Click"/>
+                            <Button Content="样本单元…" Margin="8,0,0,0" Click="SampleUnitExplorer_Click"
+                                    ToolTip="按实验和样本查看 RAW / PROCESS / SHOW / QUANT，维护自定义标签与备注"/>
                         </StackPanel>
                         <TextBlock x:Name="CurrentLocation" VerticalAlignment="Center"
                                    FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
