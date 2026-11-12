@@ -307,26 +307,55 @@ public sealed partial class ExperimentWorkspace
         RefreshSampleIndexForResults(db, tx, results);
     }
 
+    /// <summary>
+    /// Related assets are resolved by stable D2 Sample Unit identity first.
+    /// The legacy index is only used when the selected asset has no stable
+    /// membership; fallback never crosses two known experiment names.
+    /// The CTE uses UNION (not UNION ALL) to yield one row per Asset ID.
+    /// Same SHA-256 under distinct Asset IDs is retained for the UI to group.
+    /// </summary>
     public IReadOnlyList<ExperimentAsset> ListSameSampleAssets(string assetId)
     {
-        using var db = Connect();
-        using var cmd = db.CreateCommand();
-        cmd.CommandText = """
-            SELECT a.id,a.result_id,a.group_id,g.prefix,a.stage,
+        using var db=Connect();
+        using var cmd=db.CreateCommand();
+        cmd.CommandText="""
+            WITH candidate_ids(id) AS (
+                SELECT peers.asset_id
+                FROM sample_unit_assets mine
+                JOIN sample_unit_assets peers
+                  ON peers.sample_unit_id=mine.sample_unit_id
+                WHERE mine.asset_id=$id
+                UNION
+                SELECT peers.asset_id
+                FROM sample_asset_index mine
+                JOIN sample_asset_index peers
+                  ON peers.project_id=mine.project_id
+                 AND peers.sample_key=mine.sample_key
+                LEFT JOIN sample_unit_assets stable ON stable.asset_id=mine.asset_id
+                LEFT JOIN asset_system_tags mine_tags ON mine_tags.asset_id=mine.asset_id
+                LEFT JOIN asset_system_tags peer_tags ON peer_tags.asset_id=peers.asset_id
+                WHERE mine.asset_id=$id AND stable.asset_id IS NULL
+                  AND (mine_tags.asset_id IS NULL OR peer_tags.asset_id IS NULL
+                    OR mine_tags.experiment_name=peer_tags.experiment_name COLLATE NOCASE)
+            )
+            SELECT DISTINCT a.id,a.result_id,a.group_id,g.prefix,a.stage,
                    a.relative_path,a.filename,a.size,a.sha256
-            FROM sample_asset_index mine
-            JOIN sample_asset_index peers
-              ON peers.project_id=mine.project_id AND peers.sample_key=mine.sample_key
-            JOIN experiment_assets a ON a.id=peers.asset_id
+            FROM candidate_ids peers
+            JOIN experiment_assets a ON a.id=peers.id
             JOIN experiment_groups g ON g.id=a.group_id
             JOIN experiment_results r ON r.id=a.result_id
-            WHERE mine.asset_id=$id AND a.is_deleted=0 AND r.is_deleted=0
-              AND a.id<>$id ORDER BY a.stage,a.filename
+            JOIN experiment_projects p ON p.id=r.project_id
+            WHERE a.is_deleted=0 AND r.is_deleted=0 AND p.is_deleted=0
+              AND a.id<>$id
+            ORDER BY CASE a.stage
+                WHEN 'raw' THEN 0 WHEN 'process' THEN 1
+                WHEN 'show' THEN 2 WHEN 'quant' THEN 3 ELSE 4 END,
+                a.filename COLLATE NOCASE,a.id
             """;
-        cmd.Parameters.AddWithValue("$id", assetId);
-        using var rd = cmd.ExecuteReader();
-        var result = new List<ExperimentAsset>();
-        while (rd.Read())
+        cmd.Parameters.AddWithValue("$id",assetId);
+        using var rd=cmd.ExecuteReader();
+        var result=new List<ExperimentAsset>();
+        while(rd.Read())
             result.Add(new(rd.GetString(0),rd.GetString(1),rd.GetString(2),
                 rd.GetString(3),rd.GetString(4),rd.GetString(5),rd.GetString(6),
                 rd.GetInt64(7),rd.GetString(8)));
