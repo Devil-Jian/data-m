@@ -856,6 +856,86 @@ try
         repo.ListUnresolvedSampleAssets(project).Any(x=>x.AssetId==csvAsset.Id),
         "an import without RAW/SHOW/QUANT still stores unresolved system labels");
     Console.WriteLine("PASS: V1.6-D2 stable units, cross-result aggregation, tag scopes, notes and restore.");
+    // D3/D4: exact SHOW selection, immutable sample provenance, archive
+    // constraints and manuscript-version pinning.
+    var d3Paper=repo.CreatePaperProject("D3+D4 论文验收");
+    var d3Project=repo.CreateProjectForPaper(d3Paper,"D3 实验项目");
+    var d3Source=Path.Combine(root,"source","D3 ROS实验");
+    Directory.CreateDirectory(d3Source);
+    File.WriteAllBytes(Path.Combine(d3Source,"ROS99_raw.tif"),[41]);
+    File.WriteAllBytes(Path.Combine(d3Source,"ROS99_adjusted.tif"),[42]);
+    File.WriteAllBytes(Path.Combine(d3Source,"ROS99_show.png"),[43]);
+    File.WriteAllBytes(Path.Combine(d3Source,"ROS99_show_v2.png"),[44]);
+    File.WriteAllBytes(Path.Combine(d3Source,"ROS99_quant.tif"),[45]);
+    var d3Import=repo.ImportResult(d3Project,d3Source);
+    var d3Files=repo.ListAssets(d3Import.ResultId);
+    var d3Sample=repo.ListSampleUnits(projectId:d3Project).Single(x=>x.SampleName=="ROS99");
+    var d3Figure=repo.CreateFiguresFast(d3Paper,1,1).Single();
+    var d3Panel=repo.ListPanels(d3Figure.Id).Single();
+    var d3Shows=repo.ListSelectableSampleShows(d3Sample.Id);
+    Assert(d3Shows.Count==2 && d3Shows.All(x=>x.Stage=="show"),
+        "D3 excludes QUANT and RAW from selectable SHOW versions");
+    var showChoiceRequired=false;
+    try{repo.LinkSampleToPanel(d3Panel.Id,d3Sample.Id);}
+    catch(InvalidOperationException){showChoiceRequired=true;}
+    Assert(showChoiceRequired && repo.ListPanelSampleUses(d3Panel.Id).Count==0,
+        "multiple SHOW versions require explicit choice before any link is written");
+    var rejectedQuant=false;
+    try{repo.LinkSampleToPanel(d3Panel.Id,d3Sample.Id,
+        d3Files.Single(x=>x.Stage=="quant").Id);}
+    catch(InvalidOperationException){rejectedQuant=true;}
+    Assert(rejectedQuant && repo.ListPanelAssets(d3Panel.Id).Count==0,
+        "QUANT can never substitute for a selected Panel SHOW");
+    var selectedShow=d3Shows.Single(x=>x.FileName=="ROS99_show_v2.png");
+    var d3Use=repo.LinkSampleToPanel(d3Panel.Id,d3Sample.Id,selectedShow.Id);
+    Assert(d3Use.ShowAssetId==selectedShow.Id &&
+        repo.LinkSampleToPanel(d3Panel.Id,d3Sample.Id,selectedShow.Id)==d3Use &&
+        repo.ListPanelSampleUses(d3Panel.Id).Single().SampleUnitId==d3Sample.Id &&
+        repo.ListPanelAssets(d3Panel.Id).Single().AssetId==selectedShow.Id,
+        "a selected sample SHOW is linked idempotently to exact Panel identity");
+    var d3CompositeFile=Path.Combine(root,"D3_Figure1.png");
+    File.WriteAllBytes(d3CompositeFile,[51,52,53,54]);
+    var d3Version=repo.ImportFigureComposite(d3Figure.Id,d3CompositeFile);
+    var pinnedSample=repo.ListCompositeSampleUses(d3Version.Id).Single();
+    Assert(pinnedSample.PanelId==d3Panel.Id &&
+        pinnedSample.SampleUnitId==d3Sample.Id &&
+        pinnedSample.ShowAssetId==selectedShow.Id &&
+        pinnedSample.ShowSha256==selectedShow.Sha256,
+        "composite snapshots exact experiment, sample, panel, SHOW and content hash");
+    repo.ConfirmCompositeSources(d3Version.Id);
+    var d3Doc=repo.ImportPaperDocument(d3Paper,pdfPath);
+    repo.SetPaperFigureLink(d3Doc.Id,d3Figure.Id,d3Version.Id,true);
+    var d3Archive=ArchiveRepository.Open(repo.Root);
+    var d3Preview=d3Archive.PrepareWorkspaceArchive(repo,d3Paper,d3Doc.Id);
+    Assert(d3Preview.CanPublish &&
+        d3Preview.ManifestJson.Contains(d3Sample.Id) &&
+        d3Preview.ManifestJson.Contains("ROS99_show_v2.png") &&
+        d3Preview.ManifestJson.Contains("\"schemaVersion\":2"),
+        "D4 archive pins exact Figure version, Panel sample provenance and selected SHOW");
+    Assert(repo.UnlinkSampleFromPanel(d3Panel.Id,d3Sample.Id) &&
+        repo.ListPanelSampleUses(d3Panel.Id).Count==0 &&
+        repo.ListPanelAssets(d3Panel.Id).Count==0 &&
+        repo.ListCompositeSampleUses(d3Version.Id).Single()==pinnedSample,
+        "removing live Panel selection preserves immutable historical sample attribution");
+    var restoredPreview=d3Archive.PrepareWorkspaceArchive(repo,d3Paper,d3Doc.Id);
+    Assert(restoredPreview.CanPublish &&
+        restoredPreview.ManifestJson==d3Preview.ManifestJson,
+        "D4 archive is built from immutable version sources, not live Panel links");
+    var d3Published=d3Archive.PublishWorkspaceArchive(restoredPreview);
+    Assert(d3Archive.GetWorkspaceArchiveManifest(d3Published.PaperId,1)
+        ==restoredPreview.ManifestJson,
+        "published revision preserves pinned sample chain byte-for-byte");
+    var d3MissingVersion=repo.ImportFigureComposite(d3Figure.Id,d3CompositeFile);
+    repo.SetPaperFigureLink(d3Doc.Id,d3Figure.Id,d3MissingVersion.Id,true);
+    var missingUse=d3Archive.PrepareWorkspaceArchive(repo,d3Paper,d3Doc.Id);
+    Assert(!missingUse.CanPublish && missingUse.Checks.Any(x=>
+        x.Code=="missing_show_usage"&&x.Level=="block"),
+        "D4 refuses a manuscript whose pinned Figure has no Panel/SHOW source snapshot");
+    repo.SetPaperFigureLink(d3Doc.Id,d3Figure.Id,d3Version.Id,true);
+    Assert(d3Archive.GetWorkspaceArchiveManifest(d3Published.PaperId,1)
+        ==restoredPreview.ManifestJson,
+        "manuscript repinning never modifies a published Revision");
+    Console.WriteLine("PASS: V1.6-D3/D4 sample-to-Panel SHOW choice and immutable archive usage.");
     Console.WriteLine("PASS: V1.6-D1 import-root labels, process subtypes, file versions and conflict flags.");
     Console.WriteLine("PASS: V1.5 figure placeholders, batch numbering, linking, material manifest, versioning, verified exports.");
     Console.WriteLine("PASS: Manuscript PDF/DOCX snapshot and persistent logical move undo.");
