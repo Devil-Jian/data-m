@@ -49,6 +49,44 @@ try
     Assert(File.ReadAllBytes(Path.Combine(source,"raw_data","ROS01_raw.tif")).SequenceEqual(original),"source unchanged");
 
     var show=ros.Single(x=>x.Stage=="show");
+    // D2: sample identities are stable, while experiment/file labels remain separate.
+    var unitsBefore=repo.ListSampleUnits(projectId:project);
+    var rosUnit=unitsBefore.Single(x=>x.ExperimentName=="ROS检测" &&
+        x.SampleName=="ROS01");
+    Assert(rosUnit.RawCount==1 && rosUnit.ProcessCount==2 &&
+        rosUnit.ShowCount==1 && rosUnit.QuantCount==0,
+        "D2 sample overview contains all stage assets from an experiment root");
+    Assert(repo.ListSampleUnitAssets(rosUnit.Id).Count==4 &&
+        repo.GetSampleUnitForAsset(raw.Id)?.Id==rosUnit.Id,
+        "D2 new sample unit members and reverse asset lookup");
+    var custom=repo.CreateCustomTag("批次3");
+    Assert(repo.CreateCustomTag("批次3").Id==custom.Id,
+        "custom tag names are unique and reusable");
+    repo.SetEntityTag("sample",rosUnit.Id,custom.Id,true);
+    repo.SetEntityNote("sample",rosUnit.Id,"ROS 样本，复查显微镜图像");
+    Assert(repo.GetEntityAnnotation("sample",rosUnit.Id).Note.Contains("显微镜") &&
+        repo.GetEntityAnnotation("sample",rosUnit.Id).Tags.Single().Id==custom.Id,
+        "sample notes and custom tag assignments persist");
+    var roExperiment=repo.ListExperimentUnits(project)
+        .Single(x=>x.Name=="ROS检测");
+    Assert(roExperiment.Id==rosUnit.ExperimentId &&
+        roExperiment.SampleCount==1 && roExperiment.AssetCount==4,
+        "experiment overview groups sample members by stable parent ID");
+    repo.SetEntityNote("experiment",roExperiment.Id,"实验批次的总体备注");
+    repo.SetEntityTag("asset",raw.Id,custom.Id,true);
+    Assert(repo.GetEntityAnnotation("asset",raw.Id).Tags.Single().Id==custom.Id,
+        "experiment, sample, asset annotations have independent scopes");
+    Assert(repo.GetEntityAnnotation("experiment",roExperiment.Id)
+        .Note=="实验批次的总体备注",
+        "experiment note is separate from sample note");
+    // A redundant sample-index rebuild cannot mint a new sample ID or drop notes.
+    var d2Preview=repo.PreviewSampleIndexRebuild(project);
+    repo.ApplySampleIndexRebuild(project,d2Preview.Fingerprint);
+    Assert(repo.ListSampleUnits(projectId:project)
+        .Single(x=>x.SampleName=="ROS01"&&x.ExperimentName=="ROS检测").Id==rosUnit.Id &&
+        repo.GetEntityAnnotation("sample",rosUnit.Id).Tags.Single().Id==custom.Id,
+        "sample ID and annotations survive deterministic sample-index rebuild");
+
     // V1.6-D1 parser: filename stages, arbitrary PROCESS subtype and versions.
     Assert(ExperimentWorkspace.ParseAssetName("ROS01_raw.tif").Stage=="raw" &&
         ExperimentWorkspace.ParseAssetName("ROS01_show_v2.png").FileVersion==2 &&
