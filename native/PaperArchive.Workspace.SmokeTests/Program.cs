@@ -292,6 +292,9 @@ try
            movedRos.Single(x=>x.Stage=="show").Sha256==show.Sha256,
            "move preserves asset identity and contents");
     Assert(movedRos.All(x=>x.GroupId==show.GroupId),"complete group move preserves group id");
+    Assert(repo.GetAssetSystemTags(show.Id) is
+        {ExperimentName:"ROS检测",SampleName:"ROS01",Stage:"show"},
+        "moving an imported file across projects retains the imported experiment tag");
     var copiedResult=repo.CreateResult(workingProject,"复制实验结果");
     repo.CopyAssets(movedRos.Select(x=>x.Id),copiedResult);
     var copies=repo.ListAssets(copiedResult);
@@ -299,9 +302,15 @@ try
            "logical copy creates independent Asset IDs");
     Assert(copies.Select(x=>x.Sha256).Order().SequenceEqual(
            movedRos.Select(x=>x.Sha256).Order()),"logical copy shares immutable bytes");
+    Assert(repo.GetAssetSystemTags(copies.Single(x=>x.Stage=="show").Id) is
+        {ExperimentName:"ROS检测",SampleName:"ROS01",Stage:"show"},
+        "logical copied asset inherits original parsed experiment and sample labels");
+    var nameBefore=repo.GetAssetSystemTags(copies[0].Id);
     repo.RenameAsset(copies[0].Id,"renamed.tif");
     Assert(repo.ListAssets(copiedResult).Any(x=>x.Id==copies[0].Id&&x.FileName=="renamed.tif"),
            "rename preserves ID");
+    Assert(repo.GetAssetSystemTags(copies[0].Id)==nameBefore,
+        "file rename cannot silently recompute imported system label snapshot");
     repo.SetAssetDeleted([copies[0].Id],true);
     Assert(repo.ListAssets(copiedResult).Count==3 &&
            repo.ListDeletedAssets(copiedResult).Count==1,"soft delete");
@@ -826,6 +835,15 @@ try
         repo.GetEntityAnnotation("sample",rosUnit.Id).Tags
             .All(x=>x.Id!=rollbackTag.Id),
         "invalid bulk entity rolls back every assignment");
+    var csvOnly=Path.Combine(root,"source","仅CSV实验");
+    Directory.CreateDirectory(csvOnly);
+    File.WriteAllText(Path.Combine(csvOnly,"试验统计.csv"),"sample,value\\nA,1");
+    var csvImport=repo.ImportResult(project,csvOnly);
+    var csvAsset=repo.ListAssets(csvImport.ResultId).Single();
+    Assert(repo.GetAssetSystemTags(csvAsset.Id) is
+        {ExperimentName:"仅CSV实验",Stage:"statistics",ParseStatus:"unresolved"} &&
+        repo.ListUnresolvedSampleAssets(project).Any(x=>x.AssetId==csvAsset.Id),
+        "an import without RAW/SHOW/QUANT still stores unresolved system labels");
     Console.WriteLine("PASS: V1.6-D2 stable units, cross-result aggregation, tag scopes, notes and restore.");
     Console.WriteLine("PASS: V1.6-D1 import-root labels, process subtypes, file versions and conflict flags.");
     Console.WriteLine("PASS: V1.5 figure placeholders, batch numbering, linking, material manifest, versioning, verified exports.");
