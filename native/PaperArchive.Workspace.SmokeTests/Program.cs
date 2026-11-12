@@ -969,6 +969,33 @@ try
     Assert(d3Archive.GetWorkspaceArchiveManifest(d3Published.PaperId,1)
         ==restoredPreview.ManifestJson,
         "manuscript repinning never modifies a published Revision");
+    // The user can deliberately change the SHOW version for a NEW Figure
+    // composite; the previous manuscript/archive version must remain intact.
+    var alternativeShow=d3Shows.Single(x=>x.FileName=="ROS99_show.png");
+    repo.LinkSampleToPanel(d3Panel.Id,d3Sample.Id,alternativeShow.Id);
+    var d3NextVersion=repo.ImportFigureComposite(d3Figure.Id,d3CompositeFile);
+    repo.ConfirmCompositeSources(d3NextVersion.Id);
+    Assert(repo.ListCompositeSampleUses(d3NextVersion.Id).Single().ShowAssetId
+        ==alternativeShow.Id &&
+        repo.ListCompositeSampleUses(d3Version.Id).Single().ShowAssetId
+        ==selectedShow.Id,
+        "sample SHOW version change creates distinct immutable composite snapshots");
+    repo.SetPaperFigureLink(d3Doc.Id,d3Figure.Id,d3NextVersion.Id,true);
+    Assert(repo.ListDocumentSampleReferences(d3Doc.Id).Single().ShowAssetId
+        ==alternativeShow.Id,
+        "manuscript forward index follows deliberate exact Figure-version repinning");
+    var d3SecondPreview=d3Archive.PrepareWorkspaceArchive(repo,d3Paper,d3Doc.Id);
+    Assert(d3SecondPreview.CanPublish &&
+        d3SecondPreview.ManifestJson.Contains(alternativeShow.Id) &&
+        d3SecondPreview.ManifestJson!=restoredPreview.ManifestJson,
+        "new revision contains a new SHOW choice without rewriting prior manifest");
+    var d3SecondArchive=d3Archive.PublishWorkspaceArchive(d3SecondPreview,true);
+    Assert(d3SecondArchive.Revision==2 &&
+        d3Archive.GetWorkspaceArchiveManifest(d3Published.PaperId,1)
+            ==restoredPreview.ManifestJson &&
+        d3Archive.GetWorkspaceArchiveManifest(d3Published.PaperId,2)
+            ==d3SecondPreview.ManifestJson,
+        "archival revisions preserve independent pinned sample and SHOW chains");
     Console.WriteLine("PASS: V1.6-D3/D4 sample-to-Panel SHOW choice and immutable archive usage.");
     Console.WriteLine("PASS: V1.6-D1 import-root labels, process subtypes, file versions and conflict flags.");
     Console.WriteLine("PASS: V1.5 figure placeholders, batch numbering, linking, material manifest, versioning, verified exports.");
