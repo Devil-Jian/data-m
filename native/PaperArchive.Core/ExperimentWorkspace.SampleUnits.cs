@@ -9,6 +9,8 @@ public sealed record SampleUnit(string Id,string ExperimentId,string ExperimentN
 public sealed record SampleUnitAsset(string AssetId,string FileName,string Stage,
     string? ProcessSubtype,int FileVersion,string RelativePath,string Sha256,
     string ResultId,string ParseStatus);
+public sealed record UnresolvedSampleAsset(string AssetId,string ResultId,
+    string FileName,string RelativePath,string ExperimentName,string ParseStatus);
 public sealed record CustomTag(string Id,string Name);
 public sealed record EntityAnnotation(string Note,IReadOnlyList<CustomTag> Tags);
 
@@ -245,6 +247,31 @@ public sealed partial class ExperimentWorkspace
         while(rd.Read())result.Add(new(rd.GetString(0),rd.GetString(1),rd.GetString(2),
             rd.IsDBNull(3)?null:rd.GetString(3),rd.GetInt32(4),rd.GetString(5),
             rd.GetString(6),rd.GetString(7),rd.GetString(8)));
+        return result;
+    }
+
+    public IReadOnlyList<UnresolvedSampleAsset> ListUnresolvedSampleAssets(string projectId)
+    {
+        using var db=Connect();
+        using var cmd=db.CreateCommand();
+        cmd.CommandText="""
+            SELECT a.id,a.result_id,a.filename,a.relative_path,
+              COALESCE(t.experiment_name,labels.experiment_name,r.name),
+              COALESCE(t.parse_status,'unindexed')
+            FROM experiment_assets a
+            JOIN experiment_results r ON r.id=a.result_id
+            JOIN experiment_projects p ON p.id=r.project_id
+            LEFT JOIN asset_system_tags t ON t.asset_id=a.id
+            LEFT JOIN experiment_result_labels labels ON labels.result_id=r.id
+            WHERE p.id=$project AND p.is_deleted=0 AND r.is_deleted=0
+              AND a.is_deleted=0 AND (t.asset_id IS NULL OR t.parse_status<>'resolved')
+            ORDER BY a.filename COLLATE NOCASE
+            """;
+        cmd.Parameters.AddWithValue("$project",projectId);
+        var result=new List<UnresolvedSampleAsset>();
+        using var rd=cmd.ExecuteReader();
+        while(rd.Read())result.Add(new(rd.GetString(0),rd.GetString(1),
+            rd.GetString(2),rd.GetString(3),rd.GetString(4),rd.GetString(5)));
         return result;
     }
 
