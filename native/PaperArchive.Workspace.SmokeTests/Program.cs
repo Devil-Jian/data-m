@@ -764,6 +764,43 @@ try
     Assert(ExperimentWorkspace.Open(repo.Root)
         .GetAssetSystemTags(mismatchAsset.Id)?.ParseStatus=="conflict",
         "system tag conflict persists across workspace reopen");
+    // D2 cross-result grouping: same root inside one project shares a stable unit,
+    // while an identically named experiment in another project remains distinct.
+    var sameExperimentBatch=repo.ImportResult(project,source);
+    var sampleAfterBatch=repo.ListSampleUnits(projectId:project)
+        .Single(x=>x.ExperimentName=="ROS检测"&&x.SampleName=="ROS01");
+    Assert(sampleAfterBatch.Id==rosUnit.Id && sampleAfterBatch.RawCount==2 &&
+        sampleAfterBatch.ShowCount==2 && sampleAfterBatch.ProcessCount==4 &&
+        repo.GetEntityAnnotation("sample",rosUnit.Id).Note.Contains("显微镜"),
+        "same experiment root across imports preserves sample ID and annotations");
+    Assert(repo.ListSampleUnitAssets(rosUnit.Id).Count==8 &&
+        repo.ListTaggedSampleIds(project,custom.Id).Contains(rosUnit.Id),
+        "sample members span results and tag filter returns original ID");
+    var isolatedProject=repo.CreateProject("隔离实验项目");
+    repo.ImportResult(isolatedProject,source);
+    var isolatedUnit=repo.ListSampleUnits(projectId:isolatedProject)
+        .Single(x=>x.SampleName=="ROS01");
+    Assert(isolatedUnit.Id!=rosUnit.Id && isolatedUnit.ExperimentId!=rosUnit.ExperimentId &&
+        repo.GetEntityAnnotation("sample",isolatedUnit.Id).Tags.Count==0 &&
+        repo.ListTaggedSampleIds(isolatedProject,custom.Id).Count==0,
+        "same experimental folder in another project does not share tags or sample identity");
+    repo.SetAssetDeleted([show.Id],true);
+    Assert(repo.ListSampleUnitAssets(rosUnit.Id).Count==7 &&
+        repo.GetEntityAnnotation("sample",rosUnit.Id).Tags.Single().Id==custom.Id,
+        "soft-deleted asset leaves sample annotations intact");
+    repo.SetAssetDeleted([show.Id],false);
+    Assert(repo.ListSampleUnitAssets(rosUnit.Id).Count==8 &&
+        repo.GetSampleUnitForAsset(show.Id)?.Id==rosUnit.Id,
+        "restore rejoins the original sample unit without inventing a new ID");
+    repo.SetEntityTag("sample",rosUnit.Id,custom.Id,false);
+    Assert(repo.GetEntityAnnotation("sample",rosUnit.Id).Tags.Count==0 &&
+        !repo.ListTaggedSampleIds(project,custom.Id).Contains(rosUnit.Id),
+        "custom tag removal never changes automatic sample membership");
+    repo.SetEntityTag("sample",rosUnit.Id,custom.Id,true);
+    Assert(ExperimentWorkspace.Open(repo.Root).GetEntityAnnotation("sample",rosUnit.Id)
+        .Tags.Single().Id==custom.Id,
+        "custom metadata persists across repository reopening");
+    Console.WriteLine("PASS: V1.6-D2 stable units, cross-result aggregation, tag scopes, notes and restore.");
     Console.WriteLine("PASS: V1.6-D1 import-root labels, process subtypes, file versions and conflict flags.");
     Console.WriteLine("PASS: V1.5 figure placeholders, batch numbering, linking, material manifest, versioning, verified exports.");
     Console.WriteLine("PASS: Manuscript PDF/DOCX snapshot and persistent logical move undo.");
