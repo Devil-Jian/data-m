@@ -174,6 +174,7 @@ public sealed partial class ExperimentWorkspace
             insert.Parameters.AddWithValue("$parser",SystemTagParserVersion);
             insert.ExecuteNonQuery();
         }
+        RefreshSampleUnits(db,tx,projectId);
     }
 
     public AssetSystemTags? GetAssetSystemTags(string assetId)
