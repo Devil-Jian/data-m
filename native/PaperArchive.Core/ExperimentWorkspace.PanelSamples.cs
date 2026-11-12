@@ -104,7 +104,7 @@ public sealed partial class ExperimentWorkspace
                 "样本含多张 SHOW，请先选择需要用于该 Panel 的确切文件版本。");
         var chosen=chosenShowAssetId is null?eligible[0]:
             eligible.SingleOrDefault(x=>x.Id==chosenShowAssetId);
-        if(chosen is null || chosen.Id is null)
+        if(chosen.Id is null)
             throw new InvalidOperationException("所选 SHOW 不属于此样本或当前论文。");
         using(var existing=db.CreateCommand())
         {
