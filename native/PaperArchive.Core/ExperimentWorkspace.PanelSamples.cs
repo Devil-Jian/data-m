@@ -250,6 +250,38 @@ public sealed partial class ExperimentWorkspace
         cmd.ExecuteNonQuery();
     }
 
+    public sealed record DocumentSampleReference(
+        string DocumentId,string FigureId,int FigureNumber,string CompositeId,
+        int CompositeVersion,string PanelId,string PanelLabel,string ExperimentName,
+        string SampleName,string SampleUnitId,string ShowAssetId,string ShowSha256);
+
+    /// <summary>Manuscript references the pinned composite snapshot, never live panels.</summary>
+    public IReadOnlyList<DocumentSampleReference> ListDocumentSampleReferences(
+        string documentId)
+    {
+        using var db=Connect();
+        using var cmd=db.CreateCommand();
+        cmd.CommandText="""
+            SELECT l.document_id,f.id,f.number,c.id,c.version,
+                   s.panel_id,s.panel_label,s.experiment_name,s.sample_name,
+                   s.sample_unit_id,s.show_asset_id,s.show_sha256
+            FROM paper_document_figure_versions l
+            JOIN figure_templates f ON f.id=l.figure_id
+            JOIN figure_composites c ON c.id=l.composite_id
+            JOIN composite_sample_source_snapshots s ON s.composite_id=c.id
+            WHERE l.document_id=$document AND l.status='confirmed'
+            ORDER BY f.number,c.version,s.panel_label,s.sample_name
+            """;
+        cmd.Parameters.AddWithValue("$document",documentId);
+        var result=new List<DocumentSampleReference>();
+        using var rd=cmd.ExecuteReader();
+        while(rd.Read())result.Add(new(
+            rd.GetString(0),rd.GetString(1),rd.GetInt32(2),rd.GetString(3),
+            rd.GetInt32(4),rd.GetString(5),rd.GetString(6),rd.GetString(7),
+            rd.GetString(8),rd.GetString(9),rd.GetString(10),rd.GetString(11)));
+        return result;
+    }
+
     public IReadOnlyList<CompositeSampleUse> ListCompositeSampleUses(string compositeId)
     {
         using var db=Connect();
