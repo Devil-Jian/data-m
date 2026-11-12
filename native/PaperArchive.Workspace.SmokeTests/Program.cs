@@ -259,8 +259,8 @@ try
     Assert(another.DataGroupCount==1 && repo.ListAssets(another.ResultId).Single().GroupId!=show.GroupId,
         "identical prefix in different results must remain distinct");
     var secondShow=repo.ListAssets(another.ResultId).Single();
-    Assert(repo.ListSameSampleAssets(secondShow.Id).Count==4,
-        "same sample index spans import batches without merging legacy groups");
+    Assert(repo.ListSameSampleAssets(secondShow.Id).Count==0,
+        "distinct experiment roots must not mix same-named samples in the D2 index");
     Assert(repo.ListSameGroupUpstreamCandidates(secondShow.Id).Count==2,
         "cross-import PROCESS upstream appears as an unconfirmed candidate");
     Assert(repo.ListAssetUpstream(secondShow.Id).Count==0,
@@ -996,6 +996,54 @@ try
         d3Archive.GetWorkspaceArchiveManifest(d3Published.PaperId,2)
             ==d3SecondPreview.ManifestJson,
         "archival revisions preserve independent pinned sample and SHOW chains");
+    // Same-sample display: repeated import with identical bytes is one
+    // visual row, not deleted assets; a different hash is a separate version.
+    var duplicateProject=repo.CreateProject("重复显示测试");
+    var duplicateSource=Path.Combine(root,"source","索引重复实验");
+    Directory.CreateDirectory(duplicateSource);
+    File.WriteAllBytes(Path.Combine(duplicateSource,"TEST01_raw.tif"),[17,18]);
+    File.WriteAllBytes(Path.Combine(duplicateSource,"TEST01_crop.tif"),[19,20]);
+    File.WriteAllBytes(Path.Combine(duplicateSource,"TEST01_show.png"),[21,22]);
+    var duplicateBatch1=repo.ImportResult(duplicateProject,duplicateSource);
+    var duplicateBatch2=repo.ImportResult(duplicateProject,duplicateSource);
+    var duplicateA=repo.ListAssets(duplicateBatch1.ResultId)
+        .Single(x=>x.FileName=="TEST01_show.png");
+    var duplicateB=repo.ListAssets(duplicateBatch2.ResultId)
+        .Single(x=>x.FileName=="TEST01_show.png");
+    var peers=repo.ListSameSampleAssets(duplicateA.Id);
+    Assert(peers.Count==5 && peers.Select(x=>x.Id).Distinct().Count()==5 &&
+        peers.Any(x=>x.Id==duplicateB.Id),
+        "same experiment batches return each distinct Asset ID once");
+    var originalOverview=SameSampleDisplay.Group(peers.Append(duplicateA));
+    Assert(originalOverview.Count==3 &&
+        originalOverview.Single(x=>x.FileName=="TEST01_crop.tif").AssetCount==2 &&
+        originalOverview.Single(x=>x.FileName=="TEST01_show.png").AssetCount==2 &&
+        originalOverview.Single(x=>x.FileName=="TEST01_show.png")
+            .DisplayText.Contains("2 条 Asset 引用"),
+        "repeated content is collapsed only in presentation, retaining both source IDs");
+    File.WriteAllBytes(Path.Combine(duplicateSource,"TEST01_crop.tif"),[19,23]);
+    var variantBatch=repo.ImportResult(duplicateProject,duplicateSource);
+    var variantCrop=repo.ListAssets(variantBatch.ResultId)
+        .Single(x=>x.FileName=="TEST01_crop.tif");
+    var variantPeers=repo.ListSameSampleAssets(variantCrop.Id);
+    var variants=SameSampleDisplay.Group(variantPeers.Append(variantCrop))
+        .Where(x=>x.FileName=="TEST01_crop.tif").ToArray();
+    Assert(variants.Length==2 && variants.All(x=>x.ContentVariantCount==2) &&
+        variants.Select(x=>x.Sha256).Distinct().Count()==2 &&
+        variants.Sum(x=>x.AssetCount)==3,
+        "same filename with different SHA-256 keeps distinct visible versions");
+    var anotherExperiment=Path.Combine(root,"source","另一独立实验");
+    Directory.CreateDirectory(anotherExperiment);
+    File.WriteAllBytes(Path.Combine(anotherExperiment,"TEST01_crop.tif"),[19,20]);
+    File.WriteAllBytes(Path.Combine(anotherExperiment,"TEST01_raw.tif"),[17,18]);
+    var unrelated=repo.ImportResult(duplicateProject,anotherExperiment);
+    Assert(!repo.ListSameSampleAssets(duplicateA.Id)
+        .Any(x=>x.ResultId==unrelated.ResultId),
+        "same sample name in another experiment is excluded from related display");
+    Assert(repo.ListAssets(duplicateBatch1.ResultId).Count==3 &&
+        repo.ListAssets(duplicateBatch2.ResultId).Count==3,
+        "display grouping never removes imported assets or content-addressed hashes");
+    Console.WriteLine("PASS: V1.6 sample display deduplication, stable scope and SHA variants.");
     Console.WriteLine("PASS: V1.6-D3/D4 sample-to-Panel SHOW choice and immutable archive usage.");
     Console.WriteLine("PASS: V1.6-D1 import-root labels, process subtypes, file versions and conflict flags.");
     Console.WriteLine("PASS: V1.5 figure placeholders, batch numbering, linking, material manifest, versioning, verified exports.");
