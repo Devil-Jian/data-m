@@ -375,7 +375,7 @@ public sealed partial class ExperimentWorkspace
         if(ids.Length==0)return 0;
         using var db=Connect();
         using var tx=db.BeginTransaction();
-        var copies=new List<(string Group,string Prefix,string Stage,string Path,string Name,long Size,string Sha)>();
+        var copies=new List<(string SourceId,string Group,string Prefix,string Stage,string Path,string Name,long Size,string Sha)>();
         foreach(var id in ids)
         {
             using var cmd=db.CreateCommand();
@@ -388,7 +388,7 @@ public sealed partial class ExperimentWorkspace
             cmd.Parameters.AddWithValue("$id",id);
             using var rd=cmd.ExecuteReader();
             if(!rd.Read())throw new KeyNotFoundException("源文件不存在："+id);
-            copies.Add((rd.GetString(0),rd.GetString(1),rd.GetString(2),rd.GetString(3),
+            copies.Add((id,rd.GetString(0),rd.GetString(1),rd.GetString(2),rd.GetString(3),
                 rd.GetString(4),rd.GetInt64(5),rd.GetString(6)));
         }
         var groupIds=new Dictionary<string,string>(StringComparer.Ordinal);
@@ -422,7 +422,8 @@ public sealed partial class ExperimentWorkspace
                 INSERT INTO experiment_assets(id,result_id,group_id,stage,relative_path,filename,size,sha256,imported_at)
                 VALUES($id,$result,$group,$stage,$path,$name,$size,$sha,$now)
                 """;
-            ins.Parameters.AddWithValue("$id",NewId());
+            var copiedAssetId=NewId();
+            ins.Parameters.AddWithValue("$id",copiedAssetId);
             ins.Parameters.AddWithValue("$result",targetResultId);
             ins.Parameters.AddWithValue("$group",groupId);
             ins.Parameters.AddWithValue("$stage",copy.Stage);
@@ -432,6 +433,20 @@ public sealed partial class ExperimentWorkspace
             ins.Parameters.AddWithValue("$sha",copy.Sha);
             ins.Parameters.AddWithValue("$now",UtcNow());
             ins.ExecuteNonQuery();
+            // Copy is a new immutable Asset, but retains the source's parsed
+            // experiment/sample labels rather than the destination result title.
+            using var copyTags=db.CreateCommand();
+            copyTags.Transaction=tx;
+            copyTags.CommandText="""
+                INSERT INTO asset_system_tags(asset_id,experiment_name,sample_name,
+                    stage,process_subtype,file_version,parse_status,source_kind,parser_version)
+                SELECT $new,experiment_name,sample_name,stage,process_subtype,
+                    file_version,parse_status,source_kind,parser_version
+                FROM asset_system_tags WHERE asset_id=$source
+                """;
+            copyTags.Parameters.AddWithValue("$new",copiedAssetId);
+            copyTags.Parameters.AddWithValue("$source",copy.SourceId);
+            copyTags.ExecuteNonQuery();
         }
         RefreshSampleIndexForResults(db,tx,[targetResultId]);
         tx.Commit();
