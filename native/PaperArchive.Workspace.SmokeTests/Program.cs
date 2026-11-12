@@ -764,6 +764,10 @@ try
     Assert(ExperimentWorkspace.Open(repo.Root)
         .GetAssetSystemTags(mismatchAsset.Id)?.ParseStatus=="conflict",
         "system tag conflict persists across workspace reopen");
+    Assert(repo.ListUnresolvedSampleAssets(project)
+        .Any(x=>x.AssetId==mismatchAsset.Id&&x.ParseStatus=="conflict") &&
+        repo.GetSampleUnitForAsset(mismatchAsset.Id) is null,
+        "conflicting asset stays in unresolved queue rather than a confirmed sample");
     // D2 cross-result grouping: same root inside one project shares a stable unit,
     // while an identically named experiment in another project remains distinct.
     var sameExperimentBatch=repo.ImportResult(project,source);
@@ -806,6 +810,22 @@ try
     Assert(ExperimentWorkspace.Open(repo.Root).GetEntityAnnotation("sample",rosUnit.Id)
         .Tags.Single().Id==custom.Id,
         "custom metadata persists across repository reopening");
+    var sharedTag=repo.CreateCustomTag("试验备用组");
+    Assert(repo.AssignCustomTagBatch("sample",
+        [rosUnit.Id,isolatedUnit.Id],sharedTag.Id)==2 &&
+        repo.AssignCustomTagBatch("sample",
+        [rosUnit.Id,isolatedUnit.Id],sharedTag.Id)==0 &&
+        repo.ListTaggedSampleIds(project,sharedTag.Id).Contains(rosUnit.Id) &&
+        repo.ListTaggedSampleIds(isolatedProject,sharedTag.Id).Contains(isolatedUnit.Id),
+        "transactional bulk tagging is idempotent and project-filtered");
+    var rollbackTag=repo.CreateCustomTag("需回滚批次");
+    var denied=false;
+    try{repo.AssignCustomTagBatch("sample",[rosUnit.Id,"not-a-sample"],rollbackTag.Id);}
+    catch(KeyNotFoundException){denied=true;}
+    Assert(denied &&
+        repo.GetEntityAnnotation("sample",rosUnit.Id).Tags
+            .All(x=>x.Id!=rollbackTag.Id),
+        "invalid bulk entity rolls back every assignment");
     Console.WriteLine("PASS: V1.6-D2 stable units, cross-result aggregation, tag scopes, notes and restore.");
     Console.WriteLine("PASS: V1.6-D1 import-root labels, process subtypes, file versions and conflict flags.");
     Console.WriteLine("PASS: V1.5 figure placeholders, batch numbering, linking, material manifest, versioning, verified exports.");
