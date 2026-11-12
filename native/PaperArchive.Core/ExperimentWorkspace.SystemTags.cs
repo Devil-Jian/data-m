@@ -92,7 +92,8 @@ public sealed partial class ExperimentWorkspace
 
     /// <summary>
     /// Called in the same SQLite transaction as the import / sample-index
-    /// update. Do not call on warehouse open: legacy reindex is explicit.
+    /// update. Existing tag snapshots stay immutable on routine index maintenance.
+    /// Do not call on warehouse open: legacy reindex is explicit.
     /// </summary>
     private static void RefreshSystemTags(SqliteConnection db,SqliteTransaction tx,string projectId)
     {
@@ -107,7 +108,9 @@ public sealed partial class ExperimentWorkspace
             JOIN experiment_results r ON r.id=a.result_id
             LEFT JOIN sample_asset_index s ON s.asset_id=a.id
             LEFT JOIN experiment_result_labels labels ON labels.result_id=r.id
+            LEFT JOIN asset_system_tags existing ON existing.asset_id=a.id
             WHERE r.project_id=$project AND r.is_deleted=0 AND a.is_deleted=0
+              AND existing.asset_id IS NULL
             ORDER BY a.id
             """;
         query.Parameters.AddWithValue("$project",projectId);
@@ -117,18 +120,6 @@ public sealed partial class ExperimentWorkspace
             while(rd.Read())
                 records.Add((rd.GetString(0),rd.GetString(1),rd.GetString(2),
                     rd.GetString(3),rd.GetString(4),rd.GetString(5),rd.GetString(6)));
-        using(var delete=db.CreateCommand())
-        {
-            delete.Transaction=tx;
-            delete.CommandText="""
-                DELETE FROM asset_system_tags WHERE asset_id IN(
-                  SELECT a.id FROM experiment_assets a
-                  JOIN experiment_results r ON r.id=a.result_id
-                  WHERE r.project_id=$project)
-                """;
-            delete.Parameters.AddWithValue("$project",projectId);
-            delete.ExecuteNonQuery();
-        }
         foreach(var item in records)
         {
             var parsed=ParseAssetName(item.Name,
