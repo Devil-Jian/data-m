@@ -146,6 +146,13 @@ public sealed partial class E3WorkspaceWindow
         _e5GlobalSearch.KeyDown+=(_,e)=>{
             if(e.Key==Key.Escape){_e5GlobalSearch.Clear();SwitchE5Mode("workspace");}
         };
+        Closed+=(_,_)=>{
+            _e5SearchTimer.Stop();
+            _e5PreviewCancel?.Cancel();
+            _e5SearchCancel?.Cancel();
+            _e5PreviewCancel?.Dispose();
+            _e5SearchCancel?.Dispose();
+        };
         SwitchE5Mode("workspace");
     }
 
