@@ -23,16 +23,29 @@ public sealed partial class ExperimentWorkspace
     private readonly string _connectionString;
     public string Root => _root;
 
-    private ExperimentWorkspace(string root)
+    private ExperimentWorkspace(string root,bool readOnly=false)
     {
         _root = Path.GetFullPath(root);
         _connectionString = new SqliteConnectionStringBuilder
         {
             DataSource = Path.Combine(_root, "database", "workspace.db"),
-            Mode = SqliteOpenMode.ReadWriteCreate,
+            Mode = readOnly?SqliteOpenMode.ReadOnly:SqliteOpenMode.ReadWriteCreate,
             ForeignKeys = true,
             Pooling = false
         }.ToString();
+    }
+
+    /// <summary>
+    /// E0 audit opens the existing workspace DB without running schema upgrades,
+    /// creating warehouse directories or writing any source record.
+    /// Use Open() for regular application startup, not for a baseline audit.
+    /// </summary>
+    public static ExperimentWorkspace OpenForE0Audit(string root)
+    {
+        if(!File.Exists(Path.Combine(Path.GetFullPath(root),"database","workspace.db")))
+            throw new FileNotFoundException(
+                "E0 审计需要已有的 workspace.db；不会创建新的数据库。");
+        return new ExperimentWorkspace(root,readOnly:true);
     }
 
     public static ExperimentWorkspace Open(string root)
