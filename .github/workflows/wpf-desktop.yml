@@ -8,6 +8,7 @@ on:
     paths:
       - 'native/PaperArchive.Wpf/**'
       - 'native/PaperArchive.Workspace.SmokeTests/**'
+      - 'native/PaperArchive.E0Audit/**'
       - 'native/PaperArchive.Core/**'
       - 'src-tauri/migrations/**'
       - '.github/workflows/wpf-desktop.yml'
@@ -15,6 +16,7 @@ on:
     paths:
       - 'native/PaperArchive.Wpf/**'
       - 'native/PaperArchive.Workspace.SmokeTests/**'
+      - 'native/PaperArchive.E0Audit/**'
       - 'native/PaperArchive.Core/**'
       - '.github/workflows/wpf-desktop.yml'
   workflow_dispatch:
@@ -33,6 +35,8 @@ jobs:
         run: dotnet run --project native/PaperArchive.Core.SmokeTests/PaperArchive.Core.SmokeTests.csproj -c Release
       - name: Test new experimental workspace
         run: dotnet run --project native/PaperArchive.Workspace.SmokeTests/PaperArchive.Workspace.SmokeTests.csproj -c Release
+      - name: Compile E0 read-only audit CLI
+        run: dotnet build native/PaperArchive.E0Audit/PaperArchive.E0Audit.csproj -c Release
       - name: Compile WPF UI
         run: dotnet build native/PaperArchive.Wpf/PaperArchive.Wpf.csproj -c Release
       - name: Publish portable Windows build
