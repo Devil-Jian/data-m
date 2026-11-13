@@ -303,6 +303,6 @@ Panel 卡片不露出 Asset ID、SHOW 选用、RAW/PROCESS 关系表或“待核
 - **归档库：** 同窗口可选择归档论文和 Revision，并按历史 Manifest v3 阅读 Figure→Panel A/B/C→实验→样本→全部阶段文件；schema 1/2 资源仍只按自身快照显示，绝不从当前 E2 绑定补造历史。
 - **性能与可访问性基础：** WPF 实验/样本/文件列表启用 Recycling Virtualization；图片和完整 Figure 预览使用后台解码与冻结 Bitmap，切换选项取消旧任务；实验列表缓存并在导入后失效；搜索同时支持双击和 Enter 跳转。
 - **测试：** Workspace SmokeTests 增加实验/论文/当前文件名检索、SQL 通配符转义、当前 SHOW 版本隔离、未归组 TXT 文件保持可见、旧实验成员兜底、归档 Revision 1/2 同名文件与不同 SHA 可查询、查询不改变任何历史 Manifest。
-- **Windows CI：** [WPF Desktop run 43394558240](https://github.com/Devil-Jian/data-m/actions/runs/43394558240) **成功**（包含 E5 三入口、全局检索、新回归、文件列表；后续仅进一步优化完整 Figure 的后台预览和关闭窗口取消工作）。Core、旧版兼容、Workspace SmokeTests、E0/E1/E2 CLI、WPF 编译、win-x64 发布与打包成功。最新性能收尾提交的构建单独核对。
+- **Windows CI：** [WPF Desktop run 43395038758](https://github.com/Devil-Jian/data-m/actions/runs/43395038758) **成功**（代码 `cac3fab3`，覆盖 E5 三入口、统一搜索、完整 Figure 异步预览、关闭窗口任务取消及 E5 回归）。Core、旧版兼容、Workspace SmokeTests、E0/E1/E2 CLI、WPF 编译、win-x64 发布与便携版打包全部通过。
 - **本机验收清单：** [E5 专项开发与人工验收文档](./2026-11-13-v16e-e5-unified-navigation-search-acceptance.md) 列出真实拖放、图像预览/打开、Revision 1/2 历史隔离、1366×768/1920×1080 与 125%/150% 缩放及大规模文件浏览测试。未在本轮访问用户 Windows 桌面，不能把 CI 成功等同于人机交互验收。
 - **发布边界：** 本阶段交付新窗口的三入口统一导航与 E5 数据/交互优化；**未删除旧 UI，未强制自动迁移旧库**。在真实旧数据的迁移冲突和鼠标交互通过验收前，不宣称已有完整生产环境发布验证。
