@@ -82,7 +82,7 @@ public sealed partial class ExperimentWorkspace
                   COUNT(DISTINCT CASE WHEN l.source_kind='root_folder' THEN r.id END),
                   COUNT(DISTINCT CASE WHEN l.source_kind='legacy_fallback' OR
                     l.result_id IS NULL THEN r.id END),
-                  COUNT(DISTINCT m.asset_id)
+                  COUNT(DISTINCT CASE WHEN s.id IS NOT NULL THEN m.asset_id END)
                 FROM experiment_units e
                 LEFT JOIN asset_system_tags t ON t.experiment_name=e.name COLLATE NOCASE
                 LEFT JOIN experiment_assets a ON a.id=t.asset_id AND a.is_deleted=0
@@ -158,9 +158,9 @@ public sealed partial class ExperimentWorkspace
             while(rd.Read())
             {
                 var panelId=rd.GetString(0);
-                var ids=linked.GetValueOrDefault(panelId)?
-                    .OrderBy(x=>x,StringComparer.Ordinal).ToArray()??[]:
-                    Array.Empty<string>();
+                var ids=linked.TryGetValue(panelId,out var matched)
+                    ?matched.OrderBy(x=>x,StringComparer.Ordinal).ToArray()
+                    :Array.Empty<string>();
                 var unmapped=rd.GetInt32(6);
                 var decision=ids.Length>1?"multiple_experiments":
                     unmapped>0?"unresolved_assets":
