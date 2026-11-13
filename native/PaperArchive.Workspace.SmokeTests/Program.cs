@@ -1397,7 +1397,8 @@ try
     var e4Archive=ArchiveRepository.Open(repo.Root);
     var e4Preview=e4Archive.PrepareWorkspaceArchiveE4(repo,e4Paper,e4Document.Id);
     Assert(e4Preview.CanPublish && e4Preview.Checks.Count==0 &&
-        e4Preview.ManifestJson.Contains("\\"schemaVersion\\":3") &&
+        System.Text.Json.JsonDocument.Parse(e4Preview.ManifestJson).RootElement
+            .GetProperty("schemaVersion").GetInt32()==3 &&
         e4Preview.Resources.Count(x=>x.Location.Contains("Panel A"))==5 &&
         e4Preview.Resources.Any(x=>x.Role=="raw") &&
         e4Preview.Resources.Any(x=>x.Role=="process") &&
