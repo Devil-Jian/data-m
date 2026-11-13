@@ -97,6 +97,7 @@ public sealed partial class E3WorkspaceWindow : Window
         commands.Children.Add(Action("归档论文",(_,_)=>ArchivePaper()));
         commands.Children.Add(Action("导入完整 Figure",(_,_)=>ImportComposite()));
         commands.Children.Add(Action("解除子图实验",(_,_)=>UnlinkPanel()));
+        commands.Children.Add(Action("导入研究项目",async (_,_)=>await ImportE6ResearchFolder()));
         commands.Children.Add(Action("导入实验文件夹",async (_,_)=>await ImportFolder()));
         figBar.Children.Add(commands);
         _figures.DisplayMemberPath="Number";
@@ -118,10 +119,11 @@ public sealed partial class E3WorkspaceWindow : Window
         _search.Margin=new Thickness(0,7,0,7);
         _search.TextChanged+=(_,_)=>LoadExperiments();
         experimentsHeader.Children.Add(_search);
+        InitializeE6Library(experimentsHeader);
         DockPanel.SetDock(experimentsHeader,Dock.Top);
         experimentsPane.Children.Add(experimentsHeader);
         EnableE5Virtualization(_experiments);
-        _experiments.DisplayMemberPath="ExperimentName";
+        _experiments.DisplayMemberPath="DisplayName";
         _experiments.AllowDrop=true;
         _experiments.DragOver+=(_,e)=>{
             if(e.Data.GetDataPresent(DataFormats.FileDrop))
@@ -132,7 +134,7 @@ public sealed partial class E3WorkspaceWindow : Window
         _experiments.Drop+=async (_,e)=>{
             if(e.Data.GetData(DataFormats.FileDrop) is string[] paths &&
                 paths.Length==1&&Directory.Exists(paths[0]))
-                await ImportFolder(paths[0]);
+                await ImportE6DroppedFolder(paths[0]);
             e.Handled=true;
         };
         _experiments.BorderThickness=new Thickness(0);
@@ -144,6 +146,7 @@ public sealed partial class E3WorkspaceWindow : Window
                 AssignExperiment(_panel,experiment);
         };
         experimentsPane.Children.Add(_experiments);
+        ConfigureE6ExperimentGroups();
 
         var details=Pane();
         Grid.SetColumn(details,2);body.Children.Add(details);
@@ -243,7 +246,12 @@ public sealed partial class E3WorkspaceWindow : Window
             var stack=new StackPanel();
             stack.Children.Add(new TextBlock{Text=panel.Label,FontSize=24,
                 FontWeight=FontWeights.Bold});
-            stack.Children.Add(new TextBlock{Text=binding?.ExperimentName??"＋ 关联实验",
+            var groupName=binding is null?null:
+                AllExperiments().FirstOrDefault(x=>x.ExperimentId==binding.ExperimentId);
+            stack.Children.Add(new TextBlock{Text=binding is null?"＋ 关联实验":
+                groupName is null?binding.ExperimentName:
+                groupName.ResearchName=="未分组实验"?binding.ExperimentName:
+                    groupName.ResearchName+" / "+binding.ExperimentName,
                 FontSize=14,FontWeight=FontWeights.SemiBold,TextWrapping=TextWrapping.Wrap,
                 Margin=new Thickness(0,7,0,3)});
             var count=binding is null? "点击后选择实验":
@@ -274,22 +282,19 @@ public sealed partial class E3WorkspaceWindow : Window
     }
 
     private E1FolderIdentity[] AllExperiments()=>
-        _e5ExperimentCache??=_repo.ListProjects()
+        _e5ExperimentCache??=DecorateE6Folders(_repo.ListProjects()
             .SelectMany(p=>_repo.ListE1FolderIdentities(p.Id))
             .Where(x=>!string.IsNullOrEmpty(x.ExperimentId))
-            .OrderBy(x=>x.ExperimentName,StringComparer.OrdinalIgnoreCase).ToArray();
+            .ToArray());
 
     private void LoadExperiments()
     {
-        var text=_search.Text.Trim();
-        var items=AllExperiments().Where(x=>
-            x.ExperimentName.Contains(text,StringComparison.OrdinalIgnoreCase))
-            .ToArray();
-        _experiments.ItemsSource=items;
+        LoadE6Experiments(_search.Text.Trim());
     }
     private void SelectExperiment()
     {
         if(_experiments.SelectedItem is not E1FolderIdentity experiment)return;
+        _researchSelector.SelectedIndex=-1;
         _experiment=experiment;ShowDetails();
     }
     private void ExperimentDrag(object sender,MouseEventArgs e)
@@ -334,7 +339,8 @@ public sealed partial class E3WorkspaceWindow : Window
         var isBound=_panel is not null&&
             _repo.GetPanelExperiment(_panel.Id)?.ExperimentId==_experiment.ExperimentId;
         _selection.Text=(isBound?"Panel "+_panel!.Label+" · ":"实验资料 · ")+
-            _experiment.ExperimentName;
+            (_experiment.ResearchName=="未分组实验"?"":
+                _experiment.ResearchName+" / ")+_experiment.ExperimentName;
         var sampleUnits=_repo.ListSampleUnits(experimentId:_experiment.ExperimentId);
         _samples.ItemsSource=sampleUnits;
         _status.Text=sampleUnits.Count+" 个样本 · "+_experiment.ActiveFileCount+
