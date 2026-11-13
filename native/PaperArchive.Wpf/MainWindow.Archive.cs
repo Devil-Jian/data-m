@@ -37,6 +37,15 @@ public partial class MainWindow
                 if(manuscript is null)return;
             }
             _archive??=ArchiveRepository.Open(_workspace.Root);
+            // E4 papers are driven by the strict Panel↔Experiment graph.
+            // Legacy D3-only projects remain on their original v2 route
+            // until their mapping is explicitly migrated (never guessed).
+            if(_workspace.ListFigures(paper.Id).Any(figure=>
+                _workspace.ListFigurePanelExperiments(figure.Id).Count>0))
+            {
+                ArchiveE4FromMain(paper,manuscript);
+                return;
+            }
             var preview=_archive.PrepareWorkspaceArchive(_workspace,paper.Id,manuscript.Id);
             var blocked=preview.Checks.Where(x=>x.Level=="block").ToArray();
             if(blocked.Length>0)
@@ -116,6 +125,34 @@ public partial class MainWindow
                     $"已归档 Revision {result.Revision} · {result.FileCount} 条资源，工作台原件保留。");
         }
         catch(Exception ex){ShowError(ex);}
+    }
+
+    private void ArchiveE4FromMain(PaperProject paper,PaperDocument manuscript)
+    {
+        if(_workspace is null||_archive is null)return;
+        var preview=_archive.PrepareWorkspaceArchiveE4(
+            _workspace,paper.Id,manuscript.Id);
+        var blockers=preview.Checks.Where(x=>x.Level=="block")
+            .DistinctBy(x=>x.Code+"|"+x.Message).ToArray();
+        if(blockers.Length>0)
+        {
+            MessageBox.Show(this,"请先完成：\n\n"+
+                string.Join("\n",blockers.Take(8).Select(x=>"· "+x.Message))+
+                (blockers.Length>8?"\n…":""),
+                "归档检查",MessageBoxButton.OK,MessageBoxImage.Warning);
+            return;
+        }
+        if(MessageBox.Show(this,
+            "论文："+paper.Name+"\n全文："+manuscript.FileName+
+            "\nFigure："+preview.FigureCount+" 张"+
+            "\n归档文件："+preview.Resources.Count+" 条"+
+            "\n\n归档后的历史索引将保持不变。",
+            "确认归档",MessageBoxButton.YesNo,MessageBoxImage.Question)
+            !=MessageBoxResult.Yes)return;
+        var result=_archive.PublishWorkspaceArchiveE4(_workspace,preview);
+        OpenArchivedPaper(result.PaperId,result.AlreadyArchived?
+            "内容未变化，仍为 Revision "+result.Revision+"。":
+            "已归档 Revision "+result.Revision+" · "+result.FileCount+" 条文件。");
     }
 
     private void OpenArchivedPaper(string archivePaperId,string message)
