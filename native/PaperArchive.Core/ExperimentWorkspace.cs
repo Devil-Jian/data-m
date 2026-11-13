@@ -276,7 +276,8 @@ public sealed partial class ExperimentWorkspace
             || _root.StartsWith(source + Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))
             throw new IOException("源文件夹不能与数据仓库相互包含。");
         var files = Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories).OrderBy(x=>x,StringComparer.OrdinalIgnoreCase).ToArray();
-        if (files.Length == 0) throw new InvalidOperationException("目录中没有文件。");
+        if (files.Length == 0)
+            return ReconcileEmptyE1Root(projectId,source);
         var resultId = NewId();
         var prepared = new List<(string Relative,string FileName,string Stage,string Prefix,long Size,string Sha)>();
         foreach (var file in files)
