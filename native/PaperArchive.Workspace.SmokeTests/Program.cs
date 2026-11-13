@@ -1061,6 +1061,12 @@ try
         .Single(x=>x.SampleName=="E0A01");
     var e0UnitB=repo.ListSampleUnits(projectId:e0Project)
         .Single(x=>x.SampleName=="E0B01");
+    var e0SourceC=Path.Combine(root,"source","E0_C实验");
+    Directory.CreateDirectory(e0SourceC);
+    File.WriteAllBytes(Path.Combine(e0SourceC,"E0C01_show.png"),[65]);
+    repo.ImportResult(e0Project,e0SourceC);
+    var e0UnitC=repo.ListSampleUnits(projectId:e0Project)
+        .Single(x=>x.SampleName=="E0C01");
     var e0Figures=repo.CreateFiguresFast(e0Paper,3,2);
     var e0Panels1=repo.ListPanels(e0Figures[0].Id);
     var e0Panels2=repo.ListPanels(e0Figures[1].Id);
@@ -1070,12 +1076,13 @@ try
     repo.LinkSampleToPanel(e0Panels2[0].Id,e0UnitA.Id);
     repo.LinkSampleToPanel(e0Panels2[1].Id,e0UnitA.Id);
     repo.LinkSampleToPanel(e0Panels2[1].Id,e0UnitB.Id);
-    var audit=repo.PreviewE0Migration();
+    repo.LinkSampleToPanel(e0Panels3[0].Id,e0UnitC.Id);
+    var audit=ExperimentWorkspace.OpenForE0Audit(repo.Root).PreviewE0Migration();
     var auditAgain=repo.PreviewE0Migration();
     Assert(audit.BaselineFingerprint==auditAgain.BaselineFingerprint &&
         audit.Counts==auditAgain.Counts,
         "E0 repeated previews are deterministic and do not modify source tables");
-    Assert(audit.Panels.Single(x=>x.PanelId==e0Panels1[1].Id).Decision=="ready",
+    Assert(audit.Panels.Single(x=>x.PanelId==e0Panels3[0].Id).Decision=="ready",
         "E0 safely identifies a single-Experiment Panel candidate");
     Assert(audit.Panels.Single(x=>x.PanelId==e0Panels2[0].Id)
         .Decision=="experiment_reused" &&
@@ -1086,7 +1093,7 @@ try
         audit.Issues.Any(x=>x.Code=="panel_multiple_experiments"&&
             x.EntityId==e0Panels2[1].Id),
         "E0 never silently chooses one of multiple Experiments in a Panel");
-    Assert(audit.Panels.Single(x=>x.PanelId==e0Panels3[0].Id).Decision=="empty",
+    Assert(audit.Panels.Single(x=>x.PanelId==e0Panels3[1].Id).Decision=="empty",
         "E0 distinguishes intentionally empty Panel from a data conflict");
     Assert(audit.Experiments.Any(x=>x.ExperimentId==e0UnitA.ExperimentId
         && x.ExperimentName=="E0_A实验"&&x.IndexedAssetCount==2),
@@ -1096,9 +1103,9 @@ try
         repo.ListAssets(e0ImportedB.ResultId).Count==2,
         "E0 does not delete or rewrite legacy Panel links or source assets");
     var baselineBeforeNewImport=audit.BaselineFingerprint;
-    var e0Extra=Path.Combine(root,"source","E0_C实验");
+    var e0Extra=Path.Combine(root,"source","E0_D实验");
     Directory.CreateDirectory(e0Extra);
-    File.WriteAllBytes(Path.Combine(e0Extra,"E0C01_show.png"),[65]);
+    File.WriteAllBytes(Path.Combine(e0Extra,"E0D01_show.png"),[66]);
     repo.ImportResult(e0Project,e0Extra);
     Assert(repo.PreviewE0Migration().BaselineFingerprint!=baselineBeforeNewImport,
         "E0 fingerprint detects changes in live indexed assets");
