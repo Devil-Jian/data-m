@@ -85,6 +85,14 @@ public sealed partial class ExperimentWorkspace
         if(children.Length==0)
             throw new InvalidOperationException(
                 "没有找到实验子文件夹。请使用“导入单个实验文件夹”。");
+        var stages=new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "raw_data","process_data","show_data","quant_data",
+            "raw","process","show","quant"
+        };
+        if(children.All(x=>stages.Contains(Path.GetFileName(x))))
+            throw new InvalidOperationException(
+                "这看起来是一个包含 RAW/PROCESS/SHOW/QUANT 子目录的单个实验，请使用“导入单个实验文件夹”。");
         if(children.All(x=>!Directory.EnumerateFiles(x,"*",SearchOption.AllDirectories).Any()))
             throw new InvalidOperationException("实验子文件夹中没有可导入文件。");
         return new(Path.GetFileName(root),root,
@@ -239,7 +247,8 @@ public sealed partial class ExperimentWorkspace
             IndexE6ResearchAttachment(researchId,
                 Path.Combine(preview.RootPath,fileName),fileName);
         var count=ListE6ResearchExperiments().Count(x=>x.ResearchId==researchId);
-        return new(researchId,name,count,imported,
+        var currentName=ListE6ResearchProjects().Single(x=>x.Id==researchId).Name;
+        return new(researchId,currentName,count,imported,
             ListE6ResearchAttachments(researchId).Count);
     }
 
@@ -302,6 +311,9 @@ public sealed partial class ExperimentWorkspace
                 input.CopyTo(output);
                 output.Flush(true);
             }
+            if(new FileInfo(staging).Length!=source.Length ||
+                new FileInfo(file).Length!=source.Length)
+                throw new IOException("研究项目附件在复制过程中发生变化："+relative);
             using(var stream=File.OpenRead(staging))
                 hash=Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
             var blob=Path.Combine(_root,"blobs","sha256",hash[..2],hash);
