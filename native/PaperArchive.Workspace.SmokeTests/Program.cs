@@ -1492,6 +1492,97 @@ try
         e4Archive.GetWorkspaceArchiveManifest(e4Published.PaperId,2)==
         e4Next.ManifestJson,
         "E5 search and browsing do not mutate frozen archive manifests");
+    // E6: A research project is NOT an E2 Experiment. Each immediate child
+    // folder becomes one independent Experiment, grouped for browsing only.
+    var researchRoot=Path.Combine(root,"source","氧化应激研究");
+    var researchRos=Path.Combine(researchRoot,"ROS");
+    var researchWb=Path.Combine(researchRoot,"WB");
+    var researchViability=Path.Combine(researchRoot,"细胞活力检测");
+    Directory.CreateDirectory(researchRos);
+    Directory.CreateDirectory(researchWb);
+    Directory.CreateDirectory(researchViability);
+    File.WriteAllBytes(Path.Combine(researchRos,"ROS01_raw.tif"),[11,1]);
+    File.WriteAllBytes(Path.Combine(researchRos,"ROS01_crop.tif"),[11,2]);
+    File.WriteAllBytes(Path.Combine(researchRos,"ROS01_show.png"),[11,3]);
+    File.WriteAllBytes(Path.Combine(researchRos,"ROS01_quant.png"),[11,4]);
+    File.WriteAllBytes(Path.Combine(researchWb,"WB01_raw.tif"),[12,1]);
+    File.WriteAllBytes(Path.Combine(researchWb,"WB01_show.png"),[12,2]);
+    File.WriteAllBytes(Path.Combine(researchViability,"CV01_raw.tif"),[13,1]);
+    File.WriteAllBytes(Path.Combine(researchViability,"CV01_show.png"),[13,2]);
+    File.WriteAllText(Path.Combine(researchRoot,"实验方案.txt"),"oxidative stress protocol");
+
+    var e6OldProject=repo.CreateProject("E6 legacy project");
+    repo.ImportResult(e6OldProject,researchRos);
+    var oldRosRoot=repo.ListE1FolderIdentities(e6OldProject).Single();
+    var oldRosSamples=repo.ListSampleUnits(experimentId:oldRosRoot.ExperimentId);
+    var oldRosAssets=repo.ListE1FolderAssets(oldRosRoot.Id)
+        .Select(x=>x.AssetId).OrderBy(x=>x,StringComparer.Ordinal).ToArray();
+    var e6Preview=repo.PreviewE6ResearchImport(researchRoot);
+    Assert(e6Preview.ExperimentFolders.Count==3 &&
+        e6Preview.ExperimentFolders.Contains("ROS") &&
+        e6Preview.ExperimentFolders.Contains("WB") &&
+        e6Preview.ExperimentFolders.Contains("细胞活力检测") &&
+        e6Preview.ResearchFiles.Single()=="实验方案.txt",
+        "E6 preview detects exactly three child experiments and a project-level attachment");
+    var e6First=repo.ImportE6ResearchProject(researchRoot);
+    var e6Experiments=repo.ListE6ResearchExperiments()
+        .Where(x=>x.ResearchId==e6First.ResearchId).ToArray();
+    Assert(e6Experiments.Length==3 &&
+        e6First.ImportedFiles==4 &&
+        e6First.ResearchAttachmentCount==1 &&
+        e6Experiments.Select(x=>x.ExperimentId).Distinct().Count()==3 &&
+        e6Experiments.Single(x=>x.ExperimentName=="ROS").ExperimentId==
+            oldRosRoot.ExperimentId &&
+        repo.ListE1FolderAssets(oldRosRoot.Id)
+            .Select(x=>x.AssetId).OrderBy(x=>x,StringComparer.Ordinal)
+            .SequenceEqual(oldRosAssets) &&
+        repo.ListSampleUnits(experimentId:oldRosRoot.ExperimentId)
+            .Select(x=>x.Id).SequenceEqual(oldRosSamples.Select(x=>x.Id)),
+        "E6 bulk import retains original E1 Experiment/Sample/Asset identity and imports only new child folders");
+    var e6Second=repo.ImportE6ResearchProject(researchRoot);
+    Assert(e6Second.ResearchId==e6First.ResearchId &&
+        e6Second.ImportedFiles==0 &&
+        repo.ListE6ResearchExperiments().Count(x=>x.ResearchId==e6First.ResearchId)==3,
+        "E6 repeated parent-folder scan is idempotent and keeps exactly three experiments");
+    var e6ExtraResearchRoot=Path.Combine(root,"source","线粒体功能研究");
+    var e6ExtraRos=Path.Combine(e6ExtraResearchRoot,"ROS");
+    Directory.CreateDirectory(e6ExtraRos);
+    File.WriteAllBytes(Path.Combine(e6ExtraRos,"ROS01_raw.tif"),[21,1]);
+    File.WriteAllBytes(Path.Combine(e6ExtraRos,"ROS01_show.png"),[21,2]);
+    var otherGroup=Path.Combine(e6ExtraResearchRoot,"ATP检测");
+    Directory.CreateDirectory(otherGroup);
+    File.WriteAllBytes(Path.Combine(otherGroup,"ATP01_show.png"),[22,1]);
+    var e6Other=repo.ImportE6ResearchProject(e6ExtraResearchRoot);
+    var firstRos=e6Experiments.Single(x=>x.ExperimentName=="ROS");
+    var secondRos=repo.ListE6ResearchExperiments().Single(x=>
+        x.ResearchId==e6Other.ResearchId && x.ExperimentName.StartsWith("ROS",StringComparison.Ordinal));
+    Assert(firstRos.ExperimentId!=secondRos.ExperimentId &&
+        repo.ListSampleUnits(experimentId:secondRos.ExperimentId)
+            .Any(x=>x.SampleName=="ROS01") &&
+        repo.ListSampleUnits(experimentId:firstRos.ExperimentId)
+            .Any(x=>x.SampleName=="ROS01"),
+        "E6 same-named experiments and samples in different research groups are isolated");
+    var e6PanelPaper=repo.CreatePaperProject("E6 hierarchy linkage");
+    var e6Figure=repo.CreateFiguresFast(e6PanelPaper,1,3).Single();
+    var e6Panels=repo.ListPanels(e6Figure.Id);
+    foreach(var (panel,experiment) in e6Panels.Zip(e6Experiments))
+        repo.LinkPanelExperiment(panel.Id,experiment.ExperimentId);
+    Assert(e6Panels.All(x=>repo.GetPanelExperiment(x.Id) is not null) &&
+        e6Panels.Select(x=>repo.GetPanelExperiment(x.Id)!.ExperimentId)
+            .Distinct().Count()==3,
+        "E6 Figure A/B/C each binds one child Experiment, never the research-project container");
+    repo.RenameE6ResearchProject(e6First.ResearchId,"氧化应激课题");
+    Assert(repo.ListE6ResearchProjects().Single(x=>x.Id==e6First.ResearchId).Name=="氧化应激课题" &&
+        repo.GetPanelExperiment(e6Panels[0].Id)?.ExperimentId==firstRos.ExperimentId,
+        "E6 renaming a research grouping does not change existing Panel–Experiment links");
+    var attachment=repo.ListE6ResearchAttachments(e6First.ResearchId).Single();
+    Assert(attachment.RelativePath=="实验方案.txt" &&
+        File.Exists(Path.Combine(repo.Root,"blobs","sha256",
+            attachment.Sha256[..2],attachment.Sha256)),
+        "E6 project-level non-experiment documents remain content-addressed");
+    Assert(e4Archive.GetWorkspaceArchiveManifest(e4Published.PaperId,1)==e4Preview.ManifestJson,
+        "E6 changes do not alter immutable historical archive Revisions");
+    Console.WriteLine("PASS: V1.6-E6 research/experiment/sample/file hierarchy, stable IDs and Panel references.");
     Console.WriteLine("PASS: V1.6-E5 global indexed search, current-file isolation and historical revision search.");
     Console.WriteLine("PASS: V1.6-E4 immutable v3 Paper/Figure/Panel/Experiment/Sample/Asset archive.");
     Console.WriteLine("PASS: V1.6-E2 strict 1:1 Panel/Experiment, guarded migration and reversible operations.");
