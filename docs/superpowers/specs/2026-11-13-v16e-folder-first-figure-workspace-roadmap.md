@@ -180,7 +180,7 @@ Panel 卡片不露出 Asset ID、SHOW 选用、RAW/PROCESS 关系表或“待核
 
 | 阶段 | 主目标 | 交付物 | 验收门槛 |
 | --- | --- | --- | --- |
-| **E0：基线/设计冻结** | 制作新旧索引差异清单与真实数据样例 | SQLite 迁移方案、实验根目录身份规则、交互线框、测试用例清单 | 需求确定，旧历史资产/Revision 校验基线可重复执行 |
+| **E0：基线/设计冻结（✅ 已完成，2026-11-13）** | 已审计新旧 SQLite 结构、实现只读审计与 1:1 迁移冲突预览 | `ExperimentWorkspace.E0Audit.cs`、`PaperArchive.E0Audit` CLI、[E0 迁移设计记录](./2026-11-13-v16e-e0-audit-migration-design.md)、回归测试 | Windows SmokeTests/CLI 编译与 WPF 打包已通过；真实用户数据库的审计计数须在本机执行 |
 | **E1：实验自动索引** | 文件夹→实验→样本→资产及旧数据受控迁移 | 索引/增量扫描、归属审计、冲突预览、备份撤销、单元/烟测 | 旧文件不丢；同名样本跨实验隔离；重复导入幂等；RAW/PROCESS/SHOW/QUANT 正确归类 |
 | **E2：严格一对一 Panel 绑定** | Panel ↔ Experiment，替代逐样本关联主流程 | 数据库唯一约束、绑定/替换/解绑/撤销 API、迁移映射 | 数据库拒绝双向重复；既有不确定映射不被自动覆盖；替换不改历史归档 |
 | **E3：新论文工作台** | Figure 卡片、A/B/C、实验拖放与内嵌样本文件详情 | 全新 WPF 视图、实验选择器、预览、搜索/导航 | “创建 Figure→添加 Panel→绑定实验→查看 RAW”无需技术弹窗，键盘也可完成 |
@@ -218,6 +218,20 @@ Panel 卡片不露出 Asset ID、SHOW 选用、RAW/PROCESS 关系表或“待核
 
 ## 11. 本轮边界与下一步
 
-本轮**仅创建阶段性设计文档**；E0～E5 代码均未开始，不宣称任何新 UI、1:1 DB 约束或 Manifest v3 已实现。
+阶段性设计文档提交后，现已实施并完成 **E0 只读审计与迁移设计**（见下文实施记录）。**E1～E5 代码尚未开始；严格 1:1 Panel 数据库约束、新 UI、Manifest v3 均尚未实施。**
 
-下一步从 **E0：基线审计与迁移设计** 开始，优先确认实验文件夹根目录身份和旧 Panel 多关联冲突的真实分布，然后实施 E1。禁止直接把旧 D3 多对多关联表改成 UNIQUE 并删除多余行。
+下一步进入 **E1：实验文件夹身份与稳定样本索引、旧数据安全迁移**。需先取得本机 E0 JSON 并处理旧 Panel 关联与实验根目录身份不明的情况。严禁直接把旧 D3 多对多关联表改为 UNIQUE 并丢弃冲突行。
+
+## 12. E0 完成记录（2026-11-13）
+
+**状态：✅ 已完成（代码实现、自动化验收、迁移方案；真实用户数据本机预览尚未执行）**
+
+- **实现：** 新增 `native/PaperArchive.Core/ExperimentWorkspace.E0Audit.cs`，返回独立实验/样本/资产/Panel 计数、来源身份可信度、Panel→Experiment 候选映射、双向一对一冲突及未映射 SHOW、确定性工作区基线 SHA-256。
+- **只读：** `ExperimentWorkspace.OpenForE0Audit(root)` 以 SQLite ReadOnly 模式读取既有 `workspace.db`，不执行数据库升级或创建新目录；独立检查 `archive.db` 归档 Revision 数量、资源数、Manifest SHA-256 与历史指纹，**不修改旧 Revision**。
+- **可运行工具：** `native/PaperArchive.E0Audit/`，输出 JSON。PowerShell 使用方法及安全约束见 [E0 数据库审计与迁移方案](./2026-11-13-v16e-e0-audit-migration-design.md)。
+- **迁移设计：** 已定义根目录身份登记、D2 稳定实验/样本 ID 复用、旧 Panel 多实验冲突与同实验多 Panel 冲突处理、事务备份/幂等/回滚、旧 Manifest 兼容和 E3 卡片式 UI 操作草图。
+- **测试：** E0 加入 Workspace SmokeTests，覆盖只读审计重复结果一致、单实验候选、Panel 多实验、实验跨 Panel 复用、空 Panel、归档 Manifest 哈希校验、业务数据数量不变和新增资产使指纹变化。
+- **CI：** Windows WPF Desktop 工作流 [run 43357330134](https://github.com/Devil-Jian/data-m/actions/runs/43357330134) **成功**：Core、旧版兼容、Workspace SmokeTests、E0 CLI、WPF 编译与便携版打包全部通过。
+- **已知限制：** 本轮代码审计的是仓库数据模型与测试构造样例；无法远程读取用户 Windows 本机数据。真实旧库存在多少身份冲突/重复引用，须在本机运行审计命令获取。E0 只生成报告，**不会执行 E1/E2 数据改写**。
+
+**E1 前置条件：** 优先以本机报告确认实验根目录身份、缺标签资产数与双向 1:1 冲突数量；开始迁移前做完整 SQLite/Blob 仓库备份并记录双库指纹。
