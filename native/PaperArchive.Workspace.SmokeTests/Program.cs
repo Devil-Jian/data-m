@@ -252,6 +252,35 @@ try
         "sample index rebuild never rewrites assets, hashes, group IDs or usage links");
 
 
+    // E1 controlled legacy migration: no reimport, no Asset rewrite,
+    // no cross-result sample inference, with SQLite backup and guarded undo.
+    var e1LegacyPreview=upgraded.PreviewE1LegacyMigration("old-project");
+    Assert(e1LegacyPreview.Proposals.Count==1 &&
+        e1LegacyPreview.Proposals[0].SampleName=="CV01" &&
+        e1LegacyPreview.Proposals[0].Stage=="show" &&
+        e1LegacyPreview.LegacyFallback==1 &&
+        upgraded.GetAssetSystemTags("old-asset") is null,
+        "E1 read-only preview recognizes a safe legacy SHOW without guessing folder identity");
+    var e1Backup=Path.Combine(root,"e1-backup-test");
+    var e1Applied=upgraded.ApplyE1LegacyMigration("old-project",
+        e1LegacyPreview.Fingerprint,e1Backup);
+    Assert(e1Applied.TagsAdded==1 && File.Exists(e1Applied.BackupPath) &&
+        upgraded.GetAssetSystemTags("old-asset") is
+            {SampleName:"CV01",Stage:"show",SourceKind:"legacy_fallback"} &&
+        upgraded.GetSampleUnitForAsset("old-asset") is not null &&
+        upgraded.ListUsages("old-asset").Single().State=="confirmed",
+        "E1 migration creates missing tags and stable unit with a verified backup");
+    Assert(upgraded.PreviewE1LegacyMigration("old-project").Proposals.Count==0,
+        "E1 migration is idempotent and does not create duplicate tags");
+    Assert(upgraded.UndoE1LegacyMigration(e1Applied.SessionId) &&
+        upgraded.GetAssetSystemTags("old-asset") is null &&
+        upgraded.GetSampleUnitForAsset("old-asset") is null &&
+        !upgraded.UndoE1LegacyMigration(e1Applied.SessionId) &&
+        upgraded.ListAssets("old-result").Single().Id=="old-asset" &&
+        upgraded.ListUsages("old-asset").Single().Id=="old-usage",
+        "E1 guarded undo restores legacy sample state without changing file or usage IDs");
+    Assert(upgraded.PreviewE1LegacyMigration("old-project").Proposals.Count==1,
+        "E1 legacy preview can be repeated after undo");
     var source2=Path.Combine(root,"source","独立实验");
     Directory.CreateDirectory(Path.Combine(source2,"show_data"));
     File.WriteAllBytes(Path.Combine(source2,"show_data","ROS01_show.png"),[12,13,14]);
