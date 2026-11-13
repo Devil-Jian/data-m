@@ -1,0 +1,166 @@
+using Microsoft.Data.Sqlite;
+
+namespace PaperArchive.Core.Workspace;
+
+public sealed record E1FolderIdentity(string Id,string ProjectId,string ExperimentName,
+    string RootPath,int ActiveFileCount);
+public sealed record E1FolderAsset(string AssetId,string RelativePath,string Sha256);
+
+public sealed partial class ExperimentWorkspace
+{
+    private void InitializeE1FolderIndex()
+    {
+        using var db=Connect();
+        using var cmd=db.CreateCommand();
+        cmd.CommandText="""
+            CREATE TABLE IF NOT EXISTS e1_experiment_roots(
+                id TEXT PRIMARY KEY,
+                project_id TEXT NOT NULL REFERENCES experiment_projects(id),
+                experiment_name TEXT NOT NULL COLLATE NOCASE,
+                normalized_root TEXT NOT NULL COLLATE NOCASE,
+                created_at TEXT NOT NULL,
+                UNIQUE(project_id,normalized_root),
+                UNIQUE(project_id,experiment_name)
+            );
+            CREATE TABLE IF NOT EXISTS e1_root_result_batches(
+                result_id TEXT PRIMARY KEY REFERENCES experiment_results(id),
+                root_id TEXT NOT NULL REFERENCES e1_experiment_roots(id)
+            );
+            CREATE TABLE IF NOT EXISTS e1_root_current_assets(
+                root_id TEXT NOT NULL REFERENCES e1_experiment_roots(id),
+                relative_path TEXT NOT NULL COLLATE NOCASE,
+                asset_id TEXT NOT NULL REFERENCES experiment_assets(id),
+                sha256 TEXT NOT NULL,
+                PRIMARY KEY(root_id,relative_path)
+            );
+            CREATE INDEX IF NOT EXISTS ix_e1_root_current_assets_asset
+                ON e1_root_current_assets(asset_id);
+            """;
+        cmd.ExecuteNonQuery();
+    }
+
+    private static string NormalizeE1Root(string path)=>
+        Path.TrimEndingDirectorySeparator(Path.GetFullPath(path))
+            .Replace('\\','/');
+
+    private static (string RootId,string ExperimentName) EnsureE1Root(
+        SqliteConnection db,SqliteTransaction tx,string projectId,string source)
+    {
+        var normalized=NormalizeE1Root(source);
+        using(var existing=db.CreateCommand())
+        {
+            existing.Transaction=tx;
+            existing.CommandText="""
+                SELECT id,experiment_name FROM e1_experiment_roots
+                WHERE project_id=$project AND normalized_root=$root
+                """;
+            existing.Parameters.AddWithValue("$project",projectId);
+            existing.Parameters.AddWithValue("$root",normalized);
+            using var reader=existing.ExecuteReader();
+            if(reader.Read())return(reader.GetString(0),reader.GetString(1));
+        }
+        var basename=Path.GetFileName(normalized);
+        if(string.IsNullOrWhiteSpace(basename))
+            throw new InvalidOperationException("实验根文件夹必须有名称。");
+        var name=basename;
+        for(var suffix=2;;suffix++)
+        {
+            using var exists=db.CreateCommand();
+            exists.Transaction=tx;
+            exists.CommandText="""
+                SELECT 1 FROM experiment_units WHERE project_id=$project AND name=$name
+                UNION
+                SELECT 1 FROM e1_experiment_roots WHERE project_id=$project AND experiment_name=$name
+                """;
+            exists.Parameters.AddWithValue("$project",projectId);
+            exists.Parameters.AddWithValue("$name",name);
+            if(exists.ExecuteScalar() is null)break;
+            name=basename+" ("+suffix+")";
+        }
+        var id=NewId();
+        using var add=db.CreateCommand();
+        add.Transaction=tx;
+        add.CommandText="""
+            INSERT INTO e1_experiment_roots(id,project_id,experiment_name,normalized_root,created_at)
+            VALUES($id,$project,$name,$root,$now)
+            """;
+        add.Parameters.AddWithValue("$id",id);
+        add.Parameters.AddWithValue("$project",projectId);
+        add.Parameters.AddWithValue("$name",name);
+        add.Parameters.AddWithValue("$root",normalized);
+        add.Parameters.AddWithValue("$now",UtcNow());
+        add.ExecuteNonQuery();
+        return(id,name);
+    }
+
+    private static Dictionary<string,(string Asset,string Sha)> ReadE1Current(
+        SqliteConnection db,SqliteTransaction tx,string rootId)
+    {
+        using var cmd=db.CreateCommand();
+        cmd.Transaction=tx;
+        cmd.CommandText="""
+            SELECT relative_path,asset_id,sha256 FROM e1_root_current_assets
+            WHERE root_id=$id
+            """;
+        cmd.Parameters.AddWithValue("$id",rootId);
+        var dict=new Dictionary<string,(string Asset,string Sha)>(
+            StringComparer.OrdinalIgnoreCase);
+        using var reader=cmd.ExecuteReader();
+        while(reader.Read())dict.Add(reader.GetString(0),
+            (reader.GetString(1),reader.GetString(2)));
+        return dict;
+    }
+
+    private static void SaveE1Current(SqliteConnection db,SqliteTransaction tx,
+        string rootId,string relative,string assetId,string sha)
+    {
+        using var cmd=db.CreateCommand();
+        cmd.Transaction=tx;
+        cmd.CommandText="""
+            INSERT INTO e1_root_current_assets(root_id,relative_path,asset_id,sha256)
+            VALUES($root,$path,$asset,$sha)
+            ON CONFLICT(root_id,relative_path)
+            DO UPDATE SET asset_id=excluded.asset_id,sha256=excluded.sha256
+            """;
+        cmd.Parameters.AddWithValue("$root",rootId);
+        cmd.Parameters.AddWithValue("$path",relative);
+        cmd.Parameters.AddWithValue("$asset",assetId);
+        cmd.Parameters.AddWithValue("$sha",sha);
+        cmd.ExecuteNonQuery();
+    }
+
+    public IReadOnlyList<E1FolderIdentity> ListE1FolderIdentities(string projectId)
+    {
+        using var db=Connect();
+        using var cmd=db.CreateCommand();
+        cmd.CommandText="""
+            SELECT r.id,r.project_id,r.experiment_name,r.normalized_root,
+                COUNT(a.asset_id)
+            FROM e1_experiment_roots r
+            LEFT JOIN e1_root_current_assets a ON a.root_id=r.id
+            WHERE r.project_id=$project
+            GROUP BY r.id ORDER BY r.experiment_name COLLATE NOCASE
+            """;
+        cmd.Parameters.AddWithValue("$project",projectId);
+        var rows=new List<E1FolderIdentity>();
+        using var rd=cmd.ExecuteReader();
+        while(rd.Read())rows.Add(new(rd.GetString(0),rd.GetString(1),
+            rd.GetString(2),rd.GetString(3),rd.GetInt32(4)));
+        return rows;
+    }
+
+    public IReadOnlyList<E1FolderAsset> ListE1FolderAssets(string rootId)
+    {
+        using var db=Connect();
+        using var cmd=db.CreateCommand();
+        cmd.CommandText="""
+            SELECT asset_id,relative_path,sha256 FROM e1_root_current_assets
+            WHERE root_id=$root ORDER BY relative_path COLLATE NOCASE
+            """;
+        cmd.Parameters.AddWithValue("$root",rootId);
+        var rows=new List<E1FolderAsset>();
+        using var rd=cmd.ExecuteReader();
+        while(rd.Read())rows.Add(new(rd.GetString(0),rd.GetString(1),rd.GetString(2)));
+        return rows;
+    }
+}
