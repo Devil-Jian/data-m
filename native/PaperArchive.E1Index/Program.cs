@@ -12,6 +12,7 @@ static void Usage()
         apply <warehouse> <projectId> <previewFingerprint> <backupDirectory>
         undo <warehouse> <migrationSessionId>
         relink <warehouse> <folderRootId> <newFolderPath>
+        adopt <warehouse> <existingExperimentId> <legacyFolderPath>
         report <warehouse> [projectId]
         """);
 }
@@ -94,6 +95,12 @@ try
     {
         ExperimentWorkspace.Open(root).RelinkE1FolderRoot(args[2],args[3]);
         Output(new {Relinked=true,RootId=args[2]});
+        return 0;
+    }
+    if(command=="adopt"&&args.Length==4)
+    {
+        Output(ExperimentWorkspace.Open(root)
+            .AdoptE1LegacyFolder(args[2],args[3]));
         return 0;
     }
     Usage();return 2;
