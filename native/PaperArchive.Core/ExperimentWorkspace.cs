@@ -350,6 +350,7 @@ public sealed partial class ExperimentWorkspace
         using var db=Connect();
         using var tx=db.BeginTransaction();
         var (e1RootId,e1ExperimentName)=EnsureE1Root(db,tx,projectId,source);
+        BindE1RootExperiment(db,tx,e1RootId,projectId,e1ExperimentName);
         var previous=ReadE1Current(db,tx,e1RootId);
         // Preserve every prior Asset ID, even if the corresponding source
         // file has changed. Reimports only add changed/new source paths.
