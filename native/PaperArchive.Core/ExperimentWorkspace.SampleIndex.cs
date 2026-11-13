@@ -20,7 +20,8 @@ public sealed partial class ExperimentWorkspace
 {
     private sealed record SampleIndexRow(string AssetId, string SampleKey, string MatchKind);
     private sealed record SampleIndexSource(
-        string AssetId, string FileName, string Stage, string GroupId, string ResultId);
+        string AssetId, string FileName, string Stage, string GroupId,
+        string ResultId,string ExperimentScope);
     private sealed record SampleIndexPlan(
         SampleIndexPreview Preview, SampleIndexRow[] Current, SampleIndexRow[] Proposed);
 
@@ -72,9 +73,11 @@ public sealed partial class ExperimentWorkspace
         using var query = db.CreateCommand();
         query.Transaction = tx;
         query.CommandText = """
-            SELECT a.id,a.filename,a.stage,a.group_id,a.result_id
+            SELECT a.id,a.filename,a.stage,a.group_id,a.result_id,
+                   COALESCE(labels.experiment_name,r.id)
             FROM experiment_assets a
             JOIN experiment_results r ON r.id=a.result_id
+            LEFT JOIN experiment_result_labels labels ON labels.result_id=r.id
             WHERE r.project_id=$project AND r.is_deleted=0 AND a.is_deleted=0
               AND a.stage IN ('raw','process','show','quant')
             ORDER BY a.id
@@ -84,17 +87,20 @@ public sealed partial class ExperimentWorkspace
         using (var reader = query.ExecuteReader())
             while (reader.Read())
                 assets.Add(new(reader.GetString(0), reader.GetString(1),
-                    reader.GetString(2), reader.GetString(3), reader.GetString(4)));
+                    reader.GetString(2), reader.GetString(3), reader.GetString(4),
+                    reader.GetString(5)));
 
         // Anchors are explicit RAW, SHOW and QUANT assets. PROCESS may have any
         // suffix; match only when separated by '_' or '-' to avoid CV01/CV010.
-        var anchors = assets.Where(x => x.Stage is "raw" or "show" or "quant")
-            .Select(x => DetectPrefix(x.FileName))
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderByDescending(x => x.Length)
-            .ThenBy(x => x, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+        var anchorsByExperiment=assets
+            .Where(x=>x.Stage is "raw" or "show" or "quant")
+            .GroupBy(x=>x.ExperimentScope,StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g=>g.Key,g=>g.Select(x=>DetectPrefix(x.FileName))
+                .Where(x=>!string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(x=>x.Length)
+                .ThenBy(x=>x,StringComparer.OrdinalIgnoreCase).ToArray(),
+                StringComparer.OrdinalIgnoreCase);
         var proposed = new List<SampleIndexRow>();
         var unresolved = 0;
         foreach (var asset in assets)
@@ -106,7 +112,9 @@ public sealed partial class ExperimentWorkspace
             }
             var stem = Path.GetFileNameWithoutExtension(asset.FileName);
             var prefix = DetectPrefix(asset.FileName);
-            var matches = anchors.Where(a =>
+            var localAnchors=anchorsByExperiment.GetValueOrDefault(
+                asset.ExperimentScope)??[];
+            var matches = localAnchors.Where(a =>
                 prefix.Equals(a, StringComparison.OrdinalIgnoreCase) ||
                 stem.StartsWith(a + "_", StringComparison.OrdinalIgnoreCase) ||
                 stem.StartsWith(a + "-", StringComparison.OrdinalIgnoreCase)).ToArray();
