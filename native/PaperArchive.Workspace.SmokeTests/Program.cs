@@ -1458,6 +1458,41 @@ try
             e4Preview.ManifestJson &&
         e4Archive.GetWorkspaceArchiveManifest(archived.PaperId,1)==preview.ManifestJson,
         "E4 never rewrites old v3 or legacy v2 archive revisions");
+    // E5: current workspace search and archived revision search stay separate.
+    var e5FileSearch=repo.SearchE5Workspace("E401_show");
+    Assert(e5FileSearch.Any(x=>x.Kind=="file"&&
+            x.ExperimentId==e4Experiment.ExperimentId&&x.Title=="E401_show.png") &&
+        repo.SearchE5Workspace("E4_实验").Any(x=>x.Kind=="experiment" &&
+            x.ExperimentId==e4Experiment.ExperimentId) &&
+        repo.SearchE5Workspace("E4 全实验归档").Any(x=>x.Kind=="paper" &&
+            x.TargetId==e4Paper),
+        "E5 searches active file names, experiment folders and paper titles");
+    Assert(repo.SearchE5Workspace("%").Count==0 &&
+        repo.SearchE5Workspace("_").Count==0 &&
+        repo.SearchE5Workspace("").Count==0,
+        "E5 search treats SQL wildcard characters as literal user input");
+    var e5CurrentFiles=repo.ListE5CurrentExperimentFiles(e4Experiment.ExperimentId);
+    Assert(e5CurrentFiles.Count==5 &&
+        e5CurrentFiles.Single(x=>x.FileName=="E401_show.png").AssetId==latestAsset &&
+        e5CurrentFiles.All(x=>x.AssetId!=oldE4Asset) &&
+        e5CurrentFiles.Any(x=>x.FileName=="实验说明.txt") &&
+        repo.ListE5CurrentExperimentFiles(e0UnitB.ExperimentId).Count>0,
+        "E5 file browser reads live source index without superseded SHOW versions and preserves legacy fallback");
+    var e5ArchiveSearch=e4Archive.SearchE5Archives("E401_show");
+    Assert(e5ArchiveSearch.Any(x=>x.Revision==1&&x.Sha256==
+            e4Preview.Resources.Single(x=>x.SourceId==oldE4Asset).Sha256) &&
+        e5ArchiveSearch.Any(x=>x.Revision==2&&x.Sha256==
+            e4Next.Resources.Single(x=>x.SourceId==latestAsset).Sha256) &&
+        e4Archive.SearchE5Archives("E4 全实验归档")
+            .Any(x=>x.PaperId==e4Published.PaperId) &&
+        e4Archive.SearchE5Archives("%").Count==0,
+        "E5 searches immutable archive filenames and locations across revisions without rewriting history");
+    Assert(e4Archive.GetWorkspaceArchiveManifest(e4Published.PaperId,1)==
+        e4Preview.ManifestJson &&
+        e4Archive.GetWorkspaceArchiveManifest(e4Published.PaperId,2)==
+        e4Next.ManifestJson,
+        "E5 search and browsing do not mutate frozen archive manifests");
+    Console.WriteLine("PASS: V1.6-E5 global indexed search, current-file isolation and historical revision search.");
     Console.WriteLine("PASS: V1.6-E4 immutable v3 Paper/Figure/Panel/Experiment/Sample/Asset archive.");
     Console.WriteLine("PASS: V1.6-E2 strict 1:1 Panel/Experiment, guarded migration and reversible operations.");
     Console.WriteLine("PASS: V1.6-E0 readonly baseline, legacy mapping and conflict preview.");
