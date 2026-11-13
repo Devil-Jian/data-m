@@ -1607,7 +1607,7 @@ try
         proposedMoves[0].RootId==oldMoveRoot.Id &&
         proposedMoves[0].ExperimentId==oldMoveRoot.ExperimentId,
         "E6 detects a genuine moved experiment using the original missing root and exact SHA bytes");
-    var moved=repo.ImportE6ResearchProject(moveResearch,
+    var e6MovedResearch=repo.ImportE6ResearchProject(moveResearch,
         preserveVerifiedMovedIds:true);
     var movedRoot=repo.ListE1FolderIdentities(moveProject).Single();
     Assert(movedRoot.Id==oldMoveRoot.Id &&
@@ -1615,7 +1615,7 @@ try
         movedRoot.RootPath.EndsWith("/新课题分组/ROS",StringComparison.OrdinalIgnoreCase) &&
         repo.ListE1FolderAssets(oldMoveRoot.Id).Select(x=>x.AssetId)
             .OrderBy(x=>x,StringComparer.Ordinal).SequenceEqual(oldMoveAssetIds) &&
-        repo.ListE6ResearchExperiments().Any(x=>x.ResearchId==moved.ResearchId &&
+        repo.ListE6ResearchExperiments().Any(x=>x.ResearchId==e6MovedResearch.ResearchId &&
             x.ExperimentId==oldMoveRoot.ExperimentId),
         "E6 explicitly verified relocation preserves old E1 folder, experiment, sample and asset IDs");
     var stageOnly=Path.Combine(root,"source","E6_stage_folders");
