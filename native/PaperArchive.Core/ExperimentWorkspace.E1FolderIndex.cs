@@ -41,6 +41,41 @@ public sealed partial class ExperimentWorkspace
             "TEXT REFERENCES experiment_units(id)");
     }
 
+    private WorkspaceImportResult ReconcileEmptyE1Root(string projectId,string source)
+    {
+        using var db=Connect();
+        using var tx=db.BeginTransaction();
+        using var query=db.CreateCommand();
+        query.Transaction=tx;
+        query.CommandText="""
+            SELECT r.id,b.result_id FROM e1_experiment_roots r
+            JOIN e1_root_result_batches b ON b.root_id=r.id
+            JOIN experiment_results result ON result.id=b.result_id
+                AND result.is_deleted=0
+            WHERE r.project_id=$project AND r.normalized_root=$source
+            ORDER BY result.imported_at DESC,b.result_id DESC LIMIT 1
+            """;
+        query.Parameters.AddWithValue("$project",projectId);
+        query.Parameters.AddWithValue("$source",NormalizeE1Root(source));
+        string rootId,resultId;
+        using(var rd=query.ExecuteReader())
+        {
+            if(!rd.Read())
+                throw new InvalidOperationException(
+                    "目录中没有文件，且没有可更新的已导入实验。");
+            rootId=rd.GetString(0);
+            resultId=rd.GetString(1);
+        }
+        using var clear=db.CreateCommand();
+        clear.Transaction=tx;
+        clear.CommandText="DELETE FROM e1_root_current_assets WHERE root_id=$id";
+        clear.Parameters.AddWithValue("$id",rootId);
+        clear.ExecuteNonQuery();
+        tx.Commit();
+        // Historical Asset IDs and all archived snapshots stay intact.
+        return new(resultId,0,0);
+    }
+
     private static string NormalizeE1Root(string path)=>
         Path.TrimEndingDirectorySeparator(Path.GetFullPath(path))
             .Replace('\\','/');
