@@ -201,6 +201,134 @@ public sealed partial class ExperimentWorkspace
     }
 
     /// <summary>
+    /// For a legacy Experiment with no recorded original root, the operator
+    /// may explicitly identify its physical folder. Verification compares
+    /// archived Asset SHA-256 against files at the same relative paths; the
+    /// operation NEVER merges two experiments merely by display name.
+    /// </summary>
+    public E1FolderIdentity AdoptE1LegacyFolder(string experimentId,string sourceDirectory)
+    {
+        var path=NormalizeE1Root(sourceDirectory);
+        if(!Directory.Exists(path))throw new DirectoryNotFoundException(path);
+        var warehouse=NormalizeE1Root(_root);
+        if(path.Equals(warehouse,StringComparison.OrdinalIgnoreCase)||
+            path.StartsWith(warehouse+"/",StringComparison.OrdinalIgnoreCase))
+            throw new IOException("实验源目录不能位于仓库内。");
+        using var db=Connect();
+        string projectId,name;
+        using(var info=db.CreateCommand())
+        {
+            info.CommandText="SELECT project_id,name FROM experiment_units WHERE id=$id";
+            info.Parameters.AddWithValue("$id",experimentId);
+            using var rd=info.ExecuteReader();
+            if(!rd.Read())throw new KeyNotFoundException("实验单元不存在。");
+            projectId=rd.GetString(0);
+            name=rd.GetString(1);
+        }
+        var matched=new List<(string Asset,string Result,string Relative,string Sha)>();
+        using(var query=db.CreateCommand())
+        {
+            query.CommandText="""
+                SELECT a.id,a.result_id,a.relative_path,a.sha256
+                FROM sample_unit_assets m
+                JOIN sample_units s ON s.id=m.sample_unit_id
+                JOIN experiment_assets a ON a.id=m.asset_id AND a.is_deleted=0
+                JOIN experiment_results r ON r.id=a.result_id
+                    AND r.project_id=$project AND r.is_deleted=0
+                WHERE s.experiment_id=$experiment
+                ORDER BY a.imported_at,a.id
+                """;
+            query.Parameters.AddWithValue("$project",projectId);
+            query.Parameters.AddWithValue("$experiment",experimentId);
+            using var rd=query.ExecuteReader();
+            while(rd.Read())matched.Add((rd.GetString(0),rd.GetString(1),
+                rd.GetString(2),rd.GetString(3)));
+        }
+        var validated=new Dictionary<string,(string Asset,string Result,string Sha)>(
+            StringComparer.OrdinalIgnoreCase);
+        foreach(var asset in matched)
+        {
+            if(validated.ContainsKey(asset.Relative))continue;
+            var file=Path.GetFullPath(Path.Combine(path,
+                asset.Relative.Replace('/',Path.DirectorySeparatorChar)));
+            // Reject traversal from tampered legacy relative paths.
+            if(!file.StartsWith(path+"/",StringComparison.OrdinalIgnoreCase) &&
+               !file.StartsWith(path+Path.DirectorySeparatorChar,
+                   StringComparison.OrdinalIgnoreCase))
+                continue;
+            if(!File.Exists(file))continue;
+            using var data=File.OpenRead(file);
+            var actual=Convert.ToHexString(
+                System.Security.Cryptography.SHA256.HashData(data));
+            if(actual.Equals(asset.Sha,StringComparison.OrdinalIgnoreCase))
+                validated[asset.Relative]=(asset.Asset,asset.Result,asset.Sha);
+        }
+        if(validated.Count==0)
+            throw new InvalidOperationException(
+                "未找到路径与 SHA-256 同时匹配的原始文件，拒绝认领旧实验根目录。");
+        using var tx=db.BeginTransaction();
+        using(var check=db.CreateCommand())
+        {
+            check.Transaction=tx;
+            check.CommandText="""
+                SELECT id,normalized_root FROM e1_experiment_roots
+                WHERE project_id=$project AND experiment_name=$name
+                """;
+            check.Parameters.AddWithValue("$project",projectId);
+            check.Parameters.AddWithValue("$name",name);
+            using var rd=check.ExecuteReader();
+            if(rd.Read())
+                throw new InvalidOperationException(
+                    "该实验已记录文件夹来源，请使用显式重定位功能。");
+        }
+        using(var check=db.CreateCommand())
+        {
+            check.Transaction=tx;
+            check.CommandText="""
+                SELECT COUNT(*) FROM e1_experiment_roots
+                WHERE project_id=$project AND normalized_root=$root
+                """;
+            check.Parameters.AddWithValue("$project",projectId);
+            check.Parameters.AddWithValue("$root",path);
+            if(Convert.ToInt64(check.ExecuteScalar())!=0)
+                throw new InvalidOperationException("该文件夹已属于另一个实验。");
+        }
+        var rootId=NewId();
+        using(var add=db.CreateCommand())
+        {
+            add.Transaction=tx;
+            add.CommandText="""
+                INSERT INTO e1_experiment_roots(
+                    id,project_id,experiment_name,normalized_root,created_at,experiment_id)
+                VALUES($id,$project,$name,$root,$now,$experiment)
+                """;
+            add.Parameters.AddWithValue("$id",rootId);
+            add.Parameters.AddWithValue("$project",projectId);
+            add.Parameters.AddWithValue("$name",name);
+            add.Parameters.AddWithValue("$root",path);
+            add.Parameters.AddWithValue("$now",UtcNow());
+            add.Parameters.AddWithValue("$experiment",experimentId);
+            add.ExecuteNonQuery();
+        }
+        foreach(var resultId in validated.Values.Select(x=>x.Result).Distinct())
+        {
+            using var batch=db.CreateCommand();
+            batch.Transaction=tx;
+            batch.CommandText="""
+                INSERT INTO e1_root_result_batches(result_id,root_id)
+                VALUES($result,$root)
+                """;
+            batch.Parameters.AddWithValue("$result",resultId);
+            batch.Parameters.AddWithValue("$root",rootId);
+            batch.ExecuteNonQuery();
+        }
+        foreach(var item in validated)
+            SaveE1Current(db,tx,rootId,item.Key,item.Value.Asset,item.Value.Sha);
+        tx.Commit();
+        return new(rootId,experimentId,projectId,name,path,validated.Count);
+    }
+
+    /// <summary>
     /// Explicitly relink a moved source directory. Every currently tracked
     /// path must still contain the same bytes; no Asset ID or tag is rewritten.
     /// This is never performed automatically from a matching folder name.
