@@ -88,8 +88,8 @@ public sealed partial class ExperimentWorkspace
         if(children.All(x=>!Directory.EnumerateFiles(x,"*",SearchOption.AllDirectories).Any()))
             throw new InvalidOperationException("实验子文件夹中没有可导入文件。");
         return new(Path.GetFileName(root),root,
-            children.Select(Path.GetFileName).ToArray(),
-            files.Select(Path.GetFileName).ToArray());
+            children.Select(x=>Path.GetFileName(x)!).ToArray(),
+            files.Select(x=>Path.GetFileName(x)!).ToArray());
     }
 
     public IReadOnlyList<E6ResearchProject> ListE6ResearchProjects()
