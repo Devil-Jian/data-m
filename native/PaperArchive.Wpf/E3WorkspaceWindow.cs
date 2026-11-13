@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using PaperArchive.Core.Workspace;
+using PaperArchive.Core;
 
 namespace PaperArchive.Wpf;
 
@@ -92,6 +93,8 @@ public sealed class E3WorkspaceWindow : Window
         var commands=new WrapPanel{Margin=new Thickness(0,5,0,12)};
         commands.Children.Add(Action("＋ Figure",(_,_)=>CreateFigure()));
         commands.Children.Add(Action("＋ 子图",(_,_)=>CreatePanel()));
+        commands.Children.Add(Action("导入论文全文",(_,_)=>ImportDocument()));
+        commands.Children.Add(Action("归档论文",(_,_)=>ArchivePaper()));
         commands.Children.Add(Action("导入完整 Figure",(_,_)=>ImportComposite()));
         commands.Children.Add(Action("解除子图实验",(_,_)=>UnlinkPanel()));
         commands.Children.Add(Action("导入实验文件夹",async (_,_)=>await ImportFolder()));
@@ -475,6 +478,61 @@ public sealed class E3WorkspaceWindow : Window
             _experiment=null;LoadCards();ShowDetails();
         }
         catch(Exception ex){MessageBox.Show(this,ex.Message,"解除失败");}
+    }
+
+    private void ImportDocument()
+    {
+        if(_paper is null){MessageBox.Show(this,"请先选择论文。");return;}
+        var dialog=new Microsoft.Win32.OpenFileDialog{
+            Title="选择论文全文",
+            Filter="论文全文 (*.pdf;*.doc;*.docx)|*.pdf;*.doc;*.docx",
+            Multiselect=false};
+        if(dialog.ShowDialog(this)!=true)return;
+        try
+        {
+            _repo.ImportPaperDocument(_paper.Id,dialog.FileName);
+            _status.Text="论文全文已导入："+Path.GetFileName(dialog.FileName);
+        }
+        catch(Exception ex){MessageBox.Show(this,ex.Message,"导入论文失败");}
+    }
+
+    private void ArchivePaper()
+    {
+        if(_paper is null){MessageBox.Show(this,"请先选择论文。");return;}
+        try
+        {
+            var docs=_repo.ListPaperDocuments(_paper.Id);
+            if(docs.Count==0){MessageBox.Show(this,"请先导入论文全文。");return;}
+            var document=_repo.GetPrimaryPaperDocument(_paper.Id)??docs
+                .OrderByDescending(x=>x.ImportedAt).First();
+            var archive=ArchiveRepository.Open(_repo.Root);
+            var preview=archive.PrepareWorkspaceArchiveE4(_repo,_paper.Id,document.Id);
+            var blockers=preview.Checks.Where(x=>x.Level=="block")
+                .DistinctBy(x=>x.Code+"|"+x.Message).ToArray();
+            if(blockers.Length>0)
+            {
+                MessageBox.Show(this,"请先完成以下内容：\n\n"+
+                    string.Join("\n",blockers.Take(8).Select(x=>"· "+x.Message))+
+                    (blockers.Length>8?"\n…":""),
+                    "归档检查",MessageBoxButton.OK,MessageBoxImage.Warning);
+                return;
+            }
+            var answer=MessageBox.Show(this,
+                "归档论文："+_paper.Name+"\n论文全文："+document.FileName+
+                "\nFigure："+preview.FigureCount+" 张"+
+                "\n文件："+preview.Resources.Count+" 条"+
+                "\n\n归档后历史版本将保持不变。",
+                "确认归档",MessageBoxButton.YesNo,MessageBoxImage.Question);
+            if(answer!=MessageBoxResult.Yes)return;
+            var published=archive.PublishWorkspaceArchiveE4(_repo,preview);
+            MessageBox.Show(this,
+                published.AlreadyArchived?
+                    "论文内容未变化，仍为 Revision "+published.Revision:
+                    "归档完成：Revision "+published.Revision+
+                    " · "+published.FileCount+" 条文件。",
+                "论文已归档");
+        }
+        catch(Exception ex){MessageBox.Show(this,ex.Message,"归档失败");}
     }
 
     private void CreatePaper()
