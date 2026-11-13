@@ -824,6 +824,11 @@ try
         "E1 incremental reimport records only newly added source files");
     var sampleAfterBatch=repo.ListSampleUnits(projectId:project)
         .Single(x=>x.ExperimentName=="ROS检测"&&x.SampleName=="ROS01");
+    Console.WriteLine("E1 D2 COUNTS: initial="+rosUnit.Id+" after="+sampleAfterBatch.Id+
+        " raw="+sampleAfterBatch.RawCount+" process="+sampleAfterBatch.ProcessCount+
+        " show="+sampleAfterBatch.ShowCount+
+        " files="+string.Join(",",repo.ListSampleUnitAssets(sampleAfterBatch.Id)
+            .Select(x=>x.FileName+":"+x.Stage+":"+x.ParseStatus)));
     Assert(sampleAfterBatch.Id==rosUnit.Id && sampleAfterBatch.RawCount>=1 &&
         sampleAfterBatch.ShowCount>=1 && sampleAfterBatch.ProcessCount>=3 &&
         repo.GetEntityAnnotation("sample",rosUnit.Id).Note.Contains("显微镜"),
