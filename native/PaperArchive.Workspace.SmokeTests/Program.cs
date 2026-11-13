@@ -832,25 +832,11 @@ try
         "E1 incremental reimport records only newly added source files");
     var sampleAfterBatch=repo.ListSampleUnits(projectId:project)
         .Single(x=>x.ExperimentName=="ROS检测"&&x.SampleName=="ROS01");
-    Console.WriteLine("E1 D2 NEW: "+string.Join(",",repo.ListAssets(secondExperimentBatch.ResultId)
-        .Select(x=>x.FileName+":"+x.Stage+":"+
-            (repo.GetAssetSystemTags(x.Id)?.ParseStatus??"NO_TAG")+":"+
-            (repo.GetAssetSystemTags(x.Id)?.SampleName??"NO_SAMPLE")+":"+
-            (repo.GetAssetSystemTags(x.Id)?.ExperimentName??"NO_EXP"))));
-    Console.WriteLine("E1 D2 COUNTS: initial="+rosUnit.Id+" after="+sampleAfterBatch.Id+
-        " raw="+sampleAfterBatch.RawCount+" process="+sampleAfterBatch.ProcessCount+
-        " show="+sampleAfterBatch.ShowCount+
-        " files="+string.Join(",",repo.ListSampleUnitAssets(sampleAfterBatch.Id)
-            .Select(x=>x.FileName+":"+x.Stage+":"+x.ParseStatus)));
     Assert(sampleAfterBatch.Id==rosUnit.Id && sampleAfterBatch.RawCount>=1 &&
         sampleAfterBatch.ShowCount>=1 && sampleAfterBatch.ProcessCount>=3 &&
         repo.GetEntityAnnotation("sample",rosUnit.Id).Note.Contains("显微镜"),
         "same experiment root across imports preserves sample ID and annotations");
     var memberCount=repo.ListSampleUnitAssets(rosUnit.Id).Count;
-    Console.WriteLine("E1 DETAIL D2: members="+memberCount+
-        " original="+sameExperimentBatch.ResultId+" added="+secondExperimentBatch.ResultId+
-        " list="+string.Join(",",repo.ListSampleUnitAssets(rosUnit.Id).Select(x=>x.FileName+":"+x.ResultId))+
-        " tag="+repo.ListTaggedSampleIds(project,custom.Id).Contains(rosUnit.Id));
     Assert(memberCount>=5 &&
         repo.ListSampleUnitAssets(rosUnit.Id).Any(x=>x.ResultId==sameExperimentBatch.ResultId) &&
         repo.ListSampleUnitAssets(rosUnit.Id).Any(x=>x.ResultId==secondExperimentBatch.ResultId) &&
