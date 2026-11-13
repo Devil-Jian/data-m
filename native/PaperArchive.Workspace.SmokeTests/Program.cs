@@ -829,6 +829,10 @@ try
         repo.GetEntityAnnotation("sample",rosUnit.Id).Note.Contains("显微镜"),
         "same experiment root across imports preserves sample ID and annotations");
     var memberCount=repo.ListSampleUnitAssets(rosUnit.Id).Count;
+    Console.WriteLine("E1 DETAIL D2: members="+memberCount+
+        " original="+sameExperimentBatch.ResultId+" added="+secondExperimentBatch.ResultId+
+        " list="+string.Join(",",repo.ListSampleUnitAssets(rosUnit.Id).Select(x=>x.FileName+":"+x.ResultId))+
+        " tag="+repo.ListTaggedSampleIds(project,custom.Id).Contains(rosUnit.Id));
     Assert(memberCount>=5 &&
         repo.ListSampleUnitAssets(rosUnit.Id).Any(x=>x.ResultId==sameExperimentBatch.ResultId) &&
         repo.ListSampleUnitAssets(rosUnit.Id).Any(x=>x.ResultId==secondExperimentBatch.ResultId) &&
