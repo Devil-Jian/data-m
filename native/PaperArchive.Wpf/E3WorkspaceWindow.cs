@@ -383,7 +383,7 @@ public sealed partial class E3WorkspaceWindow : Window
         catch(OperationCanceledException) { }
         catch(IOException) { _status.Text="图片原始副本不可用。"; }
         catch(NotSupportedException) { _status.Text="此图片格式暂不支持内嵌预览，可双击打开。"; }
-        catch(System.Windows.Media.Imaging.FileFormatException) {
+        catch(System.IO.FileFormatException) {
             _status.Text="图片格式无法预览，可双击打开。";
         }
     }
