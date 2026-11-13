@@ -127,9 +127,9 @@ public partial class MainWindow
                 Add(null,"论文全文 · "+name,
                     new(name,"manuscript",ManifestText(document,"Sha256")));
             }
-            var version=root.TryGetProperty("schemaVersion",out var schema)
+            var manifestSchemaVersion=root.TryGetProperty("schemaVersion",out var schema)
                 && schema.ValueKind==JsonValueKind.Number?schema.GetInt32():1;
-            if(version==3)
+            if(manifestSchemaVersion==3)
             {
                 foreach(var figure in ManifestChildren(root,"figures"))
                 {
