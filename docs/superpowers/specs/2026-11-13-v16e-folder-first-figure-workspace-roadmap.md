@@ -182,7 +182,7 @@ Panel 卡片不露出 Asset ID、SHOW 选用、RAW/PROCESS 关系表或“待核
 | --- | --- | --- | --- |
 | **E0：基线/设计冻结（✅ 已完成，2026-11-13）** | 已审计新旧 SQLite 结构、实现只读审计与 1:1 迁移冲突预览 | `ExperimentWorkspace.E0Audit.cs`、`PaperArchive.E0Audit` CLI、[E0 迁移设计记录](./2026-11-13-v16e-e0-audit-migration-design.md)、回归测试 | Windows SmokeTests/CLI 编译与 WPF 打包已通过；真实用户数据库的审计计数须在本机执行 |
 | **E1：实验自动索引（✅ 已完成，2026-11-13）** | 真实根文件夹身份、增量扫描、稳定实验/样本/Asset 索引及旧数据受控迁移 | `ExperimentWorkspace.E1FolderIndex.cs`、`ExperimentWorkspace.E1LegacyMigration.cs`、[E1 开发记录](./2026-11-13-v16e-e1-folder-index-legacy-migration.md)、E1 维护 CLI 与 SmokeTests | Windows Core/旧版/Workspace/CLI/WPF/打包全部通过；用户本机旧数据迁移需自行预览与执行 |
-| **E2：严格一对一 Panel 绑定** | Panel ↔ Experiment，替代逐样本关联主流程 | 数据库唯一约束、绑定/替换/解绑/撤销 API、迁移映射 | 数据库拒绝双向重复；既有不确定映射不被自动覆盖；替换不改历史归档 |
+| **E2：严格一对一 Panel 绑定（✅ 已完成，2026-11-13）** | Panel ↔ Experiment 双向 UNIQUE，安全替换/解绑/撤销与旧 D3 数据受控迁移 | `ExperimentWorkspace.E2PanelExperiments.cs`、`PaperArchive.E2Links` CLI、[E2 开发记录](./2026-11-13-v16e-e2-panel-experiment-one-to-one.md)、回归测试 | Windows Core/旧版/Workspace/E0-E2 CLI/WPF/打包全通过；历史 D3/Revision 不被改写 |
 | **E3：新论文工作台** | Figure 卡片、A/B/C、实验拖放与内嵌样本文件详情 | 全新 WPF 视图、实验选择器、预览、搜索/导航 | “创建 Figure→添加 Panel→绑定实验→查看 RAW”无需技术弹窗，键盘也可完成 |
 | **E4：归档与版本** | 基于实验全文件集合的不可变 Revision | 简化归档预检、Manifest v3、Figure 成图版本绑定、只读归档浏览 | 无 PROCESS 链仍可归档；每条文件可按 Figure/Panel 回溯；修改工作区不影响旧 Revision |
 | **E5：交互收尾/发布** | 统一三大入口、迁移旧 UI、性能与安装验证 | 快捷搜索、错误定位、数据备份/恢复、打包、操作手册 | 大样本列表操作流畅；Windows 手工拖放/预览通过；GitHub Actions 全通过 |
@@ -218,9 +218,9 @@ Panel 卡片不露出 Asset ID、SHOW 选用、RAW/PROCESS 关系表或“待核
 
 ## 11. 本轮边界与下一步
 
-阶段性设计文档提交后，**E0 与 E1 均已完成代码实施和自动化验收**（详见下文记录）。**E2～E5 尚未开始；严格 1:1 Panel 数据库约束、新 Figure UI、Manifest v3 均尚未实施。**
+阶段性设计文档提交后，**E0、E1、E2 已完成代码实施和 Windows 自动化验收**（详见下文记录）。**E3～E5 尚未开始；新 Figure 卡片 UI、实验拖放与 Manifest v3 尚未实施。** E2 的严格 Panel↔Experiment 双向 1:1 约束已在后台数据库实现，但当前 WPF 仍使用旧交互。
 
-下一步进入 **E2：Panel ↔ Experiment 严格一对一索引**。可使用本地 E0/E1 维护工具核验真实旧数据，迁移前必须备份数据库与 Blob 仓库。严禁直接把旧 D3 多对多关联表改为 UNIQUE 并丢弃冲突行。
+下一步进入 **E3：极简 Figure 工作台及实验文件浏览 UI**。E3 必须调用 E2 的新绑定与文件浏览 API，不再让用户逐个维护样本或 SHOW 关联。旧数据的一对一迁移需先运行 E0/E1/E2 预览，并保留全部历史 D3 关联与归档 Revision。
 
 ## 12. E0 完成记录（2026-11-13）
 
@@ -249,3 +249,18 @@ Panel 卡片不露出 Asset ID、SHOW 选用、RAW/PROCESS 关系表或“待核
 - **Windows 自动化：** [WPF Desktop run 43361900800](https://github.com/Devil-Jian/data-m/actions/runs/43361900800) **成功**，Core、旧版 SmokeTests、Workspace SmokeTests、E0/E1 CLI、WPF 编译、发布、打包全部通过。
 - **明确未完成/不在 E1 范围：** E2 的 Panel↔Experiment 双向唯一关联；E3 全新论文卡片工作台；E4 简化归档检查、完整实验文件集合 Manifest v3。旧 D4 的 PROCESS/RAW 人工确认界面与归档检查直到 E4 才会被替换。未上传/连接本机数据库，不能宣称真实旧数据已自动迁移。
 - **E2 交接：** 直接消费 E1 的稳定 `experiment_units.id` 与 E0 冲突预览；对可安全映射的旧 Panel 采用事务写入双向 UNIQUE 关系，其他冲突保留历史，不作自动删除。
+
+## 14. E2 完成记录（2026-11-13）
+
+**状态：✅ 已完成代码实现与自动化验收；真实用户本机旧数据尚未执行迁移**
+
+- **严格 1:1：** 新增 `e2_panel_experiment_links`，使用 `panel_id PRIMARY KEY` + `experiment_id UNIQUE` 在 SQLite 层强制一个 Panel 最多一个实验、一个实验最多一个 Panel；空 Panel 与未使用实验允许存在。
+- **操作 API：** `LinkPanelExperiment`、`UnlinkPanelExperiment`、`UndoPanelExperimentChange`，显式 `replace:true` 才可替换，绝不抢占其他 Panel 已绑定的实验；对同一绑定重复操作幂等。
+- **自动文件检索：** `GetPanelExperiment`、`ListFigurePanelExperiments`、`ListPanelExperimentFiles`，从 Figure/Panel 的稳定 ID 直接取得实验名称、样本及 RAW/PROCESS/SHOW/QUANT 文件，不依赖加工顺序或逐张 SHOW 人工确认。
+- **旧数据迁移：** `PreviewE2LegacyMigration` 读取 E0 旧 D3 关联冲突信息和 E1 文件夹身份，只对无冲突、来源已核实且未被 E2 占用的候选标记 `ready`；`ApplyE2LegacyMigration` 使用仓库外 SQLite 备份、乐观指纹与事务生成绑定；`UndoE2LegacyMigration` 在无后续变化时恢复。无法确定的旧关系仍完整保留，**不自动选一个实验或删除旧映射**。
+- **维护入口：** 新增 `native/PaperArchive.E2Links` CLI，用于预览、受控应用/撤销、绑定/替换/解绑、查看关联实验及文件；具体操作见 [E2 专项开发文档](./2026-11-13-v16e-e2-panel-experiment-one-to-one.md)。
+- **安全保障：** 旧 `panel_sample_links`、`figure_panel_assets`、历史 Figure 完整成图快照、Asset ID、Blob SHA-256 及 `archive.db` Revision/Manifest 全部保留。旧 D3 数据仅用作只读迁移证据。
+- **回归：** 覆盖一对一重复绑定限制、显式替换与最新操作撤销、防旧操作覆盖后续关联、自动查询样本文件、旧 D3 多实验/复用冲突、过期预览拒绝、事务备份与迁移批次撤销、归档 Manifest 指纹不变。
+- **Windows CI：** [WPF Desktop run 43382202862](https://github.com/Devil-Jian/data-m/actions/runs/43382202862) **成功**，Core、旧版兼容、Workspace SmokeTests、E0/E1/E2 CLI、WPF 编译及 Windows 便携版打包全部通过。
+- **明确尚未实现：** E3 新 Figure 卡片工作台及拖动实验的简化 UI；E4 取消旧 PROCESS/RAW 加工关系归档提示与完整实验文件清单 Manifest v3。当前 WPF 前台仍以旧 D3/D4 方式运作。
+- **E3 交接：** Figure 的 A/B/C 卡片只显示实验名称、样本数与文件名；拖入/选择一个实验调用 E2 API，点击卡片使用 `ListPanelExperimentFiles` 展示全部关联文件；不要在前台显示内部 ID。
