@@ -127,7 +127,49 @@ public partial class MainWindow
                 Add(null,"论文全文 · "+name,
                     new(name,"manuscript",ManifestText(document,"Sha256")));
             }
-            foreach(var figure in ManifestChildren(root,"figures"))
+            var version=root.TryGetProperty("schemaVersion",out var schema)
+                && schema.ValueKind==JsonValueKind.Number?schema.GetInt32():1;
+            if(version==3)
+            {
+                foreach(var figure in ManifestChildren(root,"figures"))
+                {
+                    var number=ManifestText(figure,"FigureNumber");
+                    var figureName=ManifestText(figure,"FileName");
+                    var figureNode=Add(null,"Figure "+number+" · "+figureName,
+                        new(figureName,"composite",ManifestText(figure,"Sha256")));
+                    foreach(var panel in ManifestChildren(figure,"sources"))
+                    {
+                        var panelName=ManifestText(panel,"PanelLabel");
+                        var expName=ManifestText(panel,"ExperimentName");
+                        var panelNode=Add(figureNode,
+                            panelName+" · "+expName);
+                        var grouped=new HashSet<string>(StringComparer.Ordinal);
+                        foreach(var sample in ManifestChildren(panel,"sampleUnits"))
+                        {
+                            var sampleNode=Add(panelNode,ManifestText(sample,"SampleName"));
+                            foreach(var asset in ManifestChildren(sample,"assets"))
+                            {
+                                var assetId=ManifestText(asset,"AssetId");
+                                grouped.Add(assetId);
+                                var stage=ManifestText(asset,"Stage").ToUpperInvariant();
+                                Add(sampleNode,stage+" · "+ManifestText(asset,"FileName"),
+                                    new(ManifestText(asset,"FileName"),
+                                        ManifestText(asset,"Stage"),
+                                        ManifestText(asset,"Sha256")));
+                            }
+                        }
+                        foreach(var asset in ManifestChildren(panel,"assets"))
+                        {
+                            if(grouped.Contains(ManifestText(asset,"AssetId")))continue;
+                            Add(panelNode,"其他 · "+ManifestText(asset,"FileName"),
+                                new(ManifestText(asset,"FileName"),
+                                    ManifestText(asset,"Stage"),
+                                    ManifestText(asset,"Sha256")));
+                        }
+                    }
+                }
+            }
+            else foreach(var figure in ManifestChildren(root,"figures"))
             {
                 var name=ManifestText(figure,"FileName");
                 var version=ManifestText(figure,"Version");
