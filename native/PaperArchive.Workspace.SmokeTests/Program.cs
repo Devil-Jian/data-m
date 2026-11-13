@@ -1582,6 +1582,51 @@ try
         "E6 project-level non-experiment documents remain content-addressed");
     Assert(e4Archive.GetWorkspaceArchiveManifest(e4Published.PaperId,1)==e4Preview.ManifestJson,
         "E6 changes do not alter immutable historical archive Revisions");
+    Assert(repo.SearchE5Workspace("氧化应激课题")
+            .Any(x=>x.Kind=="research"&&x.TargetId==e6First.ResearchId) &&
+        repo.SearchE5Workspace("实验方案")
+            .Any(x=>x.Kind=="research_file"&&x.Title=="实验方案.txt"),
+        "E6 research group names and project-level notes are included in global search");
+    var moveOld=Path.Combine(root,"source","old_scientist","ROS");
+    Directory.CreateDirectory(moveOld);
+    File.WriteAllBytes(Path.Combine(moveOld,"MOVE01_raw.tif"),[71,1]);
+    File.WriteAllBytes(Path.Combine(moveOld,"MOVE01_show.png"),[71,2]);
+    var moveProject=repo.CreateProject("E6 旧实验根目录迁移");
+    repo.ImportResult(moveProject,moveOld);
+    var oldMoveRoot=repo.ListE1FolderIdentities(moveProject).Single();
+    var oldMoveAssetIds=repo.ListE1FolderAssets(oldMoveRoot.Id)
+        .Select(x=>x.AssetId).OrderBy(x=>x,StringComparer.Ordinal).ToArray();
+    var moveResearch=Path.Combine(root,"source","新课题分组");
+    Directory.CreateDirectory(moveResearch);
+    Directory.Move(moveOld,Path.Combine(moveResearch,"ROS"));
+    var companion=Path.Combine(moveResearch,"WB");
+    Directory.CreateDirectory(companion);
+    File.WriteAllBytes(Path.Combine(companion,"WB07_show.png"),[73]);
+    var proposedMoves=repo.PreviewE6VerifiedMoves(moveResearch);
+    Assert(proposedMoves.Count==1 &&
+        proposedMoves[0].RootId==oldMoveRoot.Id &&
+        proposedMoves[0].ExperimentId==oldMoveRoot.ExperimentId,
+        "E6 detects a genuine moved experiment using the original missing root and exact SHA bytes");
+    var moved=repo.ImportE6ResearchProject(moveResearch,
+        preserveVerifiedMovedIds:true);
+    var movedRoot=repo.ListE1FolderIdentities(moveProject).Single();
+    Assert(movedRoot.Id==oldMoveRoot.Id &&
+        movedRoot.ExperimentId==oldMoveRoot.ExperimentId &&
+        movedRoot.RootPath.EndsWith("/新课题分组/ROS",StringComparison.OrdinalIgnoreCase) &&
+        repo.ListE1FolderAssets(oldMoveRoot.Id).Select(x=>x.AssetId)
+            .OrderBy(x=>x,StringComparer.Ordinal).SequenceEqual(oldMoveAssetIds) &&
+        repo.ListE6ResearchExperiments().Any(x=>x.ResearchId==moved.ResearchId &&
+            x.ExperimentId==oldMoveRoot.ExperimentId),
+        "E6 explicitly verified relocation preserves old E1 folder, experiment, sample and asset IDs");
+    var stageOnly=Path.Combine(root,"source","E6_stage_folders");
+    Directory.CreateDirectory(Path.Combine(stageOnly,"raw_data"));
+    Directory.CreateDirectory(Path.Combine(stageOnly,"show_data"));
+    File.WriteAllBytes(Path.Combine(stageOnly,"raw_data","T01_raw.tif"),[55]);
+    var wrongLayerRejected=false;
+    try{repo.PreviewE6ResearchImport(stageOnly);}
+    catch(InvalidOperationException){wrongLayerRejected=true;}
+    Assert(wrongLayerRejected,
+        "E6 refuses to treat raw_data/show_data stage subfolders as separate experiments");
     Console.WriteLine("PASS: V1.6-E6 research/experiment/sample/file hierarchy, stable IDs and Panel references.");
     Console.WriteLine("PASS: V1.6-E5 global indexed search, current-file isolation and historical revision search.");
     Console.WriteLine("PASS: V1.6-E4 immutable v3 Paper/Figure/Panel/Experiment/Sample/Asset archive.");
