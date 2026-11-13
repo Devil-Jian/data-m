@@ -281,6 +281,58 @@ try
         "sample index rebuild never rewrites assets, hashes, group IDs or usage links");
 
 
+    // An old result has no trustworthy physical root. Never merge it into
+    // a new experiment by name; the user can explicitly adopt a directory
+    // only after matching existing Asset content and relative paths.
+    var oldAdoptFolder=Path.Combine(root,"source","旧实验真实文件夹");
+    var oldAdoptShow=Path.Combine(oldAdoptFolder,"show_data","CV02_show.png");
+    Directory.CreateDirectory(Path.GetDirectoryName(oldAdoptShow)!);
+    File.WriteAllBytes(oldAdoptShow,[91,92,93]);
+    var adoptSha=Convert.ToHexString(
+        SHA256.HashData(File.ReadAllBytes(oldAdoptShow))).ToLowerInvariant();
+    using(var legacyDb=new Microsoft.Data.Sqlite.SqliteConnection(
+        new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder{
+            DataSource=oldDatabase}.ToString()))
+    {
+        legacyDb.Open();
+        using var insert=legacyDb.CreateCommand();
+        insert.CommandText="""
+            INSERT INTO experiment_groups(id,result_id,prefix)
+            VALUES('old-adopt-group','old-result','CV02');
+            INSERT INTO experiment_assets(id,result_id,group_id,stage,
+                relative_path,filename,size,sha256,imported_at)
+            VALUES('old-adopt-asset','old-result','old-adopt-group',
+                'show','show_data/CV02_show.png','CV02_show.png',3,$sha,'2020');
+            """;
+        insert.Parameters.AddWithValue("$sha",adoptSha);
+        insert.ExecuteNonQuery();
+    }
+    var oldAdoptPreview=upgraded.PreviewE1LegacyMigration("old-project");
+    Assert(oldAdoptPreview.Proposals.Count==1 &&
+        oldAdoptPreview.Proposals.Single().AssetId=="old-adopt-asset",
+        "E1 legacy preview isolates newly untagged historical assets");
+    upgraded.ApplyE1LegacyMigration("old-project",
+        oldAdoptPreview.Fingerprint,e1Backup);
+    var adoptSample=upgraded.GetSampleUnitForAsset("old-adopt-asset");
+    Assert(adoptSample is not null,
+        "E1 legacy migration creates a stable sample unit before physical adoption");
+    var mismatchedRoot=Path.Combine(root,"source","旧实验错误文件夹");
+    Directory.CreateDirectory(Path.Combine(mismatchedRoot,"show_data"));
+    File.WriteAllBytes(Path.Combine(mismatchedRoot,"show_data","CV02_show.png"),[94]);
+    var unsafeAdoptionRejected=false;
+    try{upgraded.AdoptE1LegacyFolder(adoptSample!.ExperimentId,mismatchedRoot);}
+    catch(InvalidOperationException){unsafeAdoptionRejected=true;}
+    Assert(unsafeAdoptionRejected &&
+        upgraded.ListE1FolderIdentities("old-project").Count==0,
+        "E1 rejects guessed legacy folder paths with the same filename but different bytes");
+    var adopted=upgraded.AdoptE1LegacyFolder(adoptSample!.ExperimentId,oldAdoptFolder);
+    var adoptedAgain=upgraded.ImportResult("old-project",oldAdoptFolder);
+    Assert(adopted.ExperimentId==adoptSample.ExperimentId &&
+        adopted.ActiveFileCount==1 &&
+        adoptedAgain.FileCount==0 && adoptedAgain.ResultId=="old-result" &&
+        upgraded.ListE1FolderAssets(adopted.Id).Single().AssetId=="old-adopt-asset",
+        "E1 verified old folder ownership reuses existing Experiment, Sample and Asset IDs");
+    Console.WriteLine("PASS: V1.6-E1 safe legacy folder adoption preserves existing IDs.");
     var source2=Path.Combine(root,"source","独立实验");
     Directory.CreateDirectory(Path.Combine(source2,"show_data"));
     File.WriteAllBytes(Path.Combine(source2,"show_data","ROS01_show.png"),[12,13,14]);
