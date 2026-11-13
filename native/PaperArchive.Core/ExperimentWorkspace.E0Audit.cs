@@ -24,8 +24,11 @@ public sealed record E0PanelCandidate(
     int LegacySampleLinks,int LegacyShowLinks,int UnmappedShowCount,
     string Decision);
 public sealed record E0MigrationIssue(string Code,string EntityId,string Message);
+public sealed record E0ArchiveBaseline(
+    bool DatabaseExists,int Revisions,int Resources,string Fingerprint);
 public sealed record E0MigrationPreview(
     E0BaselineCounts Counts,string BaselineFingerprint,
+    E0ArchiveBaseline Archive,
     IReadOnlyList<E0ExperimentIdentity> Experiments,
     IReadOnlyList<E0PanelCandidate> Panels,
     IReadOnlyList<E0MigrationIssue> Issues)
@@ -207,7 +210,74 @@ public sealed partial class ExperimentWorkspace
 
         var fingerprint=ComputeE0Fingerprint(db,tx);
         tx.Commit();
-        return new(counts,fingerprint,experiments,panels,issues);
+        // archive.db is a separate SQLite database. Read it independently
+        // without ArchiveRepository.Open(), which may execute migrations.
+        var archive=InspectArchiveBaseline(_root,issues);
+        return new(counts,fingerprint,archive,experiments,panels,issues);
+    }
+
+    private static E0ArchiveBaseline InspectArchiveBaseline(
+        string root,List<E0MigrationIssue> issues)
+    {
+        var path=Path.Combine(root,"database","archive.db");
+        if(!File.Exists(path))
+            return new(false,0,0,"");
+        using var db=new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource=path,Mode=SqliteOpenMode.ReadOnly,Pooling=false
+        }.ToString());
+        db.Open();
+        using var tx=db.BeginTransaction(deferred:true);
+        using var hasTable=db.CreateCommand();
+        hasTable.Transaction=tx;
+        hasTable.CommandText="""
+            SELECT COUNT(*) FROM sqlite_master WHERE type='table'
+              AND name='workspace_archive_revisions'
+            """;
+        if(Convert.ToInt64(hasTable.ExecuteScalar())==0)
+        {
+            tx.Commit();
+            return new(true,0,0,"");
+        }
+        var count=0;
+        using var sha=IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        using(var cmd=db.CreateCommand())
+        {
+            cmd.Transaction=tx;
+            cmd.CommandText="""
+                SELECT archive_paper_id,revision,manifest_sha256,manifest_json
+                FROM workspace_archive_revisions
+                ORDER BY archive_paper_id,revision
+                """;
+            using var rd=cmd.ExecuteReader();
+            while(rd.Read())
+            {
+                count++;
+                var manifest=rd.GetString(3);
+                var actual=Convert.ToHexString(
+                    SHA256.HashData(Encoding.UTF8.GetBytes(manifest))).ToLowerInvariant();
+                if(!actual.Equals(rd.GetString(2),StringComparison.OrdinalIgnoreCase))
+                    issues.Add(new("archive_manifest_hash_mismatch",
+                        rd.GetString(0)+":"+rd.GetInt32(1),
+                        "已有归档 Manifest 的字节 SHA-256 不一致，请保护原件并调查。"));
+                for(var i=0;i<rd.FieldCount;i++)
+                {
+                    var bytes=Encoding.UTF8.GetBytes(rd.GetValue(i).ToString()??"");
+                    sha.AppendData(BitConverter.GetBytes(bytes.Length));
+                    sha.AppendData(bytes);
+                }
+            }
+        }
+        int resources=0;
+        using(var cmd=db.CreateCommand())
+        {
+            cmd.Transaction=tx;
+            cmd.CommandText="SELECT COUNT(*) FROM workspace_archive_resources";
+            resources=checked(Convert.ToInt32(Convert.ToInt64(cmd.ExecuteScalar())));
+        }
+        tx.Commit();
+        return new(true,count,resources,
+            Convert.ToHexString(sha.GetHashAndReset()).ToLowerInvariant());
     }
 
     private static string ComputeE0Fingerprint(SqliteConnection db,
