@@ -352,6 +352,20 @@ public sealed partial class ExperimentWorkspace
         var (e1RootId,e1ExperimentName)=EnsureE1Root(db,tx,projectId,source);
         BindE1RootExperiment(db,tx,e1RootId,projectId,e1ExperimentName);
         var previous=ReadE1Current(db,tx,e1RootId);
+        // A source file can temporarily disappear or revert to its previous
+        // bytes. Reuse the original immutable Asset ID instead of making a
+        // duplicate just because its active folder mapping was absent.
+        foreach(var file in prepared)
+        {
+            if(previous.TryGetValue(file.Relative,out var active) &&
+                active.Sha.Equals(file.Sha,StringComparison.OrdinalIgnoreCase))
+                continue;
+            var historical=FindE1HistoricalAsset(db,tx,e1RootId,
+                file.Relative,file.Sha);
+            if(historical is null)continue;
+            SaveE1Current(db,tx,e1RootId,file.Relative,historical,file.Sha);
+            previous[file.Relative]=(historical,file.Sha);
+        }
         // Preserve every prior Asset ID, even if the corresponding source
         // file has changed. Reimports only add changed/new source paths.
         var changed=prepared.Where(x=>!previous.TryGetValue(x.Relative,out var prior)
