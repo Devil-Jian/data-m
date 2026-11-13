@@ -1043,6 +1043,66 @@ try
     Assert(repo.ListAssets(duplicateBatch1.ResultId).Count==3 &&
         repo.ListAssets(duplicateBatch2.ResultId).Count==3,
         "display grouping never removes imported assets or content-addressed hashes");
+    // E0 is strictly read-only: it audits the legacy Panel/Sample/SHOW
+    // graph without applying the future Panel↔Experiment unique constraints.
+    var e0Paper=repo.CreatePaperProject("E0 迁移审计测试论文");
+    var e0Project=repo.CreateProjectForPaper(e0Paper,"E0 数据");
+    var e0SourceA=Path.Combine(root,"source","E0_A实验");
+    var e0SourceB=Path.Combine(root,"source","E0_B实验");
+    Directory.CreateDirectory(e0SourceA);
+    Directory.CreateDirectory(e0SourceB);
+    File.WriteAllBytes(Path.Combine(e0SourceA,"E0A01_raw.tif"),[61]);
+    File.WriteAllBytes(Path.Combine(e0SourceA,"E0A01_show.png"),[62]);
+    File.WriteAllBytes(Path.Combine(e0SourceB,"E0B01_raw.tif"),[63]);
+    File.WriteAllBytes(Path.Combine(e0SourceB,"E0B01_show.png"),[64]);
+    var e0ImportedA=repo.ImportResult(e0Project,e0SourceA);
+    var e0ImportedB=repo.ImportResult(e0Project,e0SourceB);
+    var e0UnitA=repo.ListSampleUnits(projectId:e0Project)
+        .Single(x=>x.SampleName=="E0A01");
+    var e0UnitB=repo.ListSampleUnits(projectId:e0Project)
+        .Single(x=>x.SampleName=="E0B01");
+    var e0Figures=repo.CreateFiguresFast(e0Paper,3,2);
+    var e0Panels1=repo.ListPanels(e0Figures[0].Id);
+    var e0Panels2=repo.ListPanels(e0Figures[1].Id);
+    var e0Panels3=repo.ListPanels(e0Figures[2].Id);
+    repo.LinkSampleToPanel(e0Panels1[0].Id,e0UnitA.Id);
+    repo.LinkSampleToPanel(e0Panels1[1].Id,e0UnitB.Id);
+    repo.LinkSampleToPanel(e0Panels2[0].Id,e0UnitA.Id);
+    repo.LinkSampleToPanel(e0Panels2[1].Id,e0UnitA.Id);
+    repo.LinkSampleToPanel(e0Panels2[1].Id,e0UnitB.Id);
+    var audit=repo.PreviewE0Migration();
+    var auditAgain=repo.PreviewE0Migration();
+    Assert(audit.BaselineFingerprint==auditAgain.BaselineFingerprint &&
+        audit.Counts==auditAgain.Counts,
+        "E0 repeated previews are deterministic and do not modify source tables");
+    Assert(audit.Panels.Single(x=>x.PanelId==e0Panels1[1].Id).Decision=="ready",
+        "E0 safely identifies a single-Experiment Panel candidate");
+    Assert(audit.Panels.Single(x=>x.PanelId==e0Panels2[0].Id)
+        .Decision=="experiment_reused" &&
+        audit.Issues.Any(x=>x.Code=="experiment_reused"&&x.EntityId==e0UnitA.ExperimentId),
+        "E0 detects existing Experiment used by multiple legacy Panels");
+    Assert(audit.Panels.Single(x=>x.PanelId==e0Panels2[1].Id)
+        .ExperimentIds.Count==2 &&
+        audit.Issues.Any(x=>x.Code=="panel_multiple_experiments"&&
+            x.EntityId==e0Panels2[1].Id),
+        "E0 never silently chooses one of multiple Experiments in a Panel");
+    Assert(audit.Panels.Single(x=>x.PanelId==e0Panels3[0].Id).Decision=="empty",
+        "E0 distinguishes intentionally empty Panel from a data conflict");
+    Assert(audit.Experiments.Any(x=>x.ExperimentId==e0UnitA.ExperimentId
+        && x.ExperimentName=="E0_A实验"&&x.IndexedAssetCount==2),
+        "E0 audit reports stable experiment names and per-experiment indexed files");
+    Assert(repo.ListPanelSampleUses(e0Panels2[1].Id).Count==2 &&
+        repo.ListAssets(e0ImportedA.ResultId).Count==2 &&
+        repo.ListAssets(e0ImportedB.ResultId).Count==2,
+        "E0 does not delete or rewrite legacy Panel links or source assets");
+    var baselineBeforeNewImport=audit.BaselineFingerprint;
+    var e0Extra=Path.Combine(root,"source","E0_C实验");
+    Directory.CreateDirectory(e0Extra);
+    File.WriteAllBytes(Path.Combine(e0Extra,"E0C01_show.png"),[65]);
+    repo.ImportResult(e0Project,e0Extra);
+    Assert(repo.PreviewE0Migration().BaselineFingerprint!=baselineBeforeNewImport,
+        "E0 fingerprint detects changes in live indexed assets");
+    Console.WriteLine("PASS: V1.6-E0 readonly baseline, legacy mapping and conflict preview.");
     Console.WriteLine("PASS: V1.6 sample display deduplication, stable scope and SHA variants.");
     Console.WriteLine("PASS: V1.6-D3/D4 sample-to-Panel SHOW choice and immutable archive usage.");
     Console.WriteLine("PASS: V1.6-D1 import-root labels, process subtypes, file versions and conflict flags.");
