@@ -186,6 +186,7 @@ Panel 卡片不露出 Asset ID、SHOW 选用、RAW/PROCESS 关系表或“待核
 | **E3：新论文工作台（✅ 已完成，2026-11-13）** | 新的 Figure A/B/C 卡片、实验拖放/双击关联、样本文件详情与图片预览 | `E3WorkspaceWindow.cs`、主界面入口、[E3 开发记录](./2026-11-13-v16e-e3-minimal-figure-workbench.md)、Windows WPF 编译与回归 | 工作区主流程已实现，CI 通过；真实 Windows 文件夹拖放和图片打开需本机交互验收 |
 | **E4：归档与版本（✅ 已完成，2026-11-13）** | Panel↔Experiment→所有样本/文件的不可变 Revision，免 PROCESS/RAW 人工确认 | `ArchiveRepository.E4.cs`、`ExperimentWorkspace.E4ArchiveIndex.cs`、[E4 专项开发文档](./2026-11-13-v16e-e4-immutable-experiment-archive.md)、v3 历史浏览与一键归档 | v3 全实验清单、增量新版本、历史 Revision/Manifest 不变、Blob 缺失阻断；Windows SmokeTests/WPF 及打包已通过 |
 | **E5：交互收尾/发布（✅ 代码完成，2026-11-13；本机验收待执行）** | 统一窗口三主入口、全局检索、冻结 Revision 文件浏览、异步预览和文件列表虚拟化 | `E3WorkspaceWindow.E5.cs`、`ExperimentWorkspace.E5Search.cs`、`ArchiveRepository.E5Search.cs`、[E5 专项文档](./2026-11-13-v16e-e5-unified-navigation-search-acceptance.md)、Workspace SmokeTests | Windows 自动化构建已通过；真实鼠标拖放、高 DPI、海量文件/安装体验仍须用户本机验收，未宣称已完成 |
+| **E6：研究项目四级目录（✅ 代码完成，2026-11-13；本机验收待执行）** | 研究项目→独立实验→样本→文件，一键导入外层研究目录、旧 E1 ID 保留、核验后重定位移动目录 | `ExperimentWorkspace.E6ResearchProjects.cs`、`ExperimentWorkspace.E6VerifiedMoves.cs`、`E3WorkspaceWindow.E6.cs`、[E6 专项文档](./2026-11-13-v16e-e6-research-project-hierarchy.md)、SmokeTests | 三实验根目录隔离、同名样本隔离、重复导入/移动 ID 稳定、Figure 一对一与旧 Revision 保护；Windows CI 已通过 |
 
 各阶段严格顺序：**E1 数据质量 → E2 一对一约束 → E3 新 UI → E4 新归档 → E5 收尾**；E0 是实施前的短准备。每阶段独立提交、运行原有 SmokeTests、增加针对性测试，Windows WPF 构建绿灯后才进入下一阶段。
 
@@ -218,7 +219,7 @@ Panel 卡片不露出 Asset ID、SHOW 选用、RAW/PROCESS 关系表或“待核
 
 ## 11. 本轮边界与下一步
 
-阶段性设计文档提交后，**E0、E1、E2、E3、E4、E5 的计划内代码均已实施，Windows 自动化验收已覆盖现有功能**（详见下文记录）。E4 使用不可变 Manifest v3；E5 在新窗口中统一“论文工作台 / 实验资料库 / 论文档案库”三个入口，补齐当前实验与归档 Revision 搜索、文件浏览和基础性能优化。
+阶段性设计文档提交后，**E0–E5 已完成，新增 E6 研究项目四级目录也已完成代码实现与 Windows 自动化验收**（详见下文记录）。E4 使用不可变 Manifest v3；E5 在新窗口中统一“论文工作台 / 实验资料库 / 论文档案库”；E6 在 E1 Experiment 之上增加 ResearchProject 组织层，实现“氧化应激研究 → ROS/WB/细胞活力检测 → 样本 → 文件”，不改变 Panel↔Experiment 一对一约束。
 
 **仍待真实 Windows 人工验收**：拖入真实实验文件夹、图片预览与默认程序打开、不同屏幕缩放及大数据集性能；本轮未远程读取或迁移用户 Windows 本机实验数据库。旧 WPF 窗口继续作为历史兼容入口，不把旧 D3-only 论文强行改成 E2 关系。
 
@@ -306,3 +307,18 @@ Panel 卡片不露出 Asset ID、SHOW 选用、RAW/PROCESS 关系表或“待核
 - **Windows CI：** [WPF Desktop run 43395038758](https://github.com/Devil-Jian/data-m/actions/runs/43395038758) **成功**（代码 `cac3fab3`，覆盖 E5 三入口、统一搜索、完整 Figure 异步预览、关闭窗口任务取消及 E5 回归）。Core、旧版兼容、Workspace SmokeTests、E0/E1/E2 CLI、WPF 编译、win-x64 发布与便携版打包全部通过。
 - **本机验收清单：** [E5 专项开发与人工验收文档](./2026-11-13-v16e-e5-unified-navigation-search-acceptance.md) 列出真实拖放、图像预览/打开、Revision 1/2 历史隔离、1366×768/1920×1080 与 125%/150% 缩放及大规模文件浏览测试。未在本轮访问用户 Windows 桌面，不能把 CI 成功等同于人机交互验收。
 - **发布边界：** 本阶段交付新窗口的三入口统一导航与 E5 数据/交互优化；**未删除旧 UI，未强制自动迁移旧库**。在真实旧数据的迁移冲突和鼠标交互通过验收前，不宣称已有完整生产环境发布验证。
+
+## 18. E6 研究项目四级目录开发完成记录（2026-11-13）
+
+**状态：✅ E6 代码、测试与 Windows 便携版构建已完成；真实用户 Windows 数据/拖放仍待本地人工验收。**
+
+- **确认的数据模型：** `ResearchProject → Experiment → Sample → Asset`，研究项目只负责组织实验，不链接 Figure/Panel，也不限制论文对多个研究项目的引用。E2 继续强制 Panel 与 Experiment 双向一对一。
+- **新增表：** `e6_research_projects`、`e6_research_experiments`、`e6_research_attachments`，采用增量建表；E1 根目录 ID、Experiment ID、Sample ID、Asset ID、现有 Paper/Figure/Panel ID 和已归档 Revision 不改写。未编组的旧实验仍可使用。
+- **一键导入研究项目：** `ImportE6ResearchProject` 自动将父目录的三个直接子文件夹 ROS、WB、细胞活力检测识别为三个实验，内部仍用 E1 解析样本及 RAW/PROCESS/SHOW/QUANT；研究根目录下的方案/笔记等保存为研究项目附件。旧 E1 原路径已登记时优先复用原 Experiment ID；重复导入零新增 Asset。
+- **已移动实验的兼容：** `PreviewE6VerifiedMoves` 只识别旧物理根路径确已消失、目录名一致、所有当前相对路径与 SHA-256 全部匹配、候选唯一的实验；导入界面显示后由用户明确确认，才通过 `preserveVerifiedMovedIds:true` 调用既有 E1 安全重定位，保留 Figure Panel 关联及全部旧文件 ID。复制目录/仅同名不能自动合并。
+- **UI：** `E3WorkspaceWindow.E6.cs` 为实验资料库增加研究项目分组、“导入研究项目”“导入单个实验”“重命名研究项目”及研究级资料浏览，支持 Windows 目录拖入时选择导入层级。Figure 卡片显示“研究项目 / 实验”，实际绑定仍为唯一 Experiment ID。
+- **搜索：** E5 全局搜索补充研究项目名称、研究级附件与研究目录下实验，双击跳转到对应资料。内部数据库 ID 不显示。
+- **测试：** 在 Workspace SmokeTests 中验证“三个实验/同名样本跨组隔离、E1 原 ID 保留、二次导入幂等、Panel 一对一、研究重命名、根目录 TXT 附件的 SHA Blob、搬迁后明确确认保留原 ID、阶段子目录防误识别、全局搜索、E4 旧 Manifest 不变”。
+- **Windows CI：** [WPF Desktop run 43415216256](https://github.com/Devil-Jian/data-m/actions/runs/43415216256) **成功**（代码提交 `1e87df2a`），Core、旧版兼容、Workspace SmokeTests（含 E6）、E0/E1/E2 CLI、WPF 编译、win-x64 便携版打包全部通过。
+- **边界：** 研究项目级附件不自动算进任何一个 Panel 的实验归档；旧项目与实验根路径有歧义时不基于同名静默合并。批量导入的各子实验采用 E1 独立事务，部分成功时保留已导入部分，修复后可重复增量导入。
+- **本地体验验收：** 按 [E6 详细开发/操作文档](./2026-11-13-v16e-e6-research-project-hierarchy.md) 验证真实“氧化应激研究/ROS/WB/细胞活力检测”文件夹的导入预览、样本归组、图片预览、Figure 关联与旧 Revision 不变；未远程读取或迁移用户真实 Windows 数据。
