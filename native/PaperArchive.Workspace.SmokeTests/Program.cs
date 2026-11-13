@@ -1372,6 +1372,92 @@ try
         repo.PreviewE0Migration().Archive.Fingerprint==e2ArchivedFingerprint,
         "E2 binding changes preserve original assets and historical revision checksums");
     Directory.Delete(e2BackupDir,recursive:true);
+    // E4: a Figure subpanel means an entire independent experiment. Nothing
+    // needs to be manually linked to SHOW, PROCESS, RAW or QUANT.
+    var e4Paper=repo.CreatePaperProject("E4 全实验归档");
+    var e4Project=repo.CreateProjectForPaper(e4Paper,"E4 实验资料");
+    var e4Folder=Path.Combine(root,"source","E4_实验");
+    Directory.CreateDirectory(e4Folder);
+    File.WriteAllBytes(Path.Combine(e4Folder,"E401_raw.tif"),[101,1]);
+    File.WriteAllBytes(Path.Combine(e4Folder,"E401_crop.tif"),[101,2]);
+    File.WriteAllBytes(Path.Combine(e4Folder,"E401_show.png"),[101,3]);
+    File.WriteAllBytes(Path.Combine(e4Folder,"E401_quant.png"),[101,4]);
+    File.WriteAllText(Path.Combine(e4Folder,"实验说明.txt"),"E4 notes");
+    var e4Imported=repo.ImportResult(e4Project,e4Folder);
+    var e4Experiment=repo.ListE1FolderIdentities(e4Project).Single();
+    var e4Figure=repo.CreateFiguresFast(e4Paper,1,1).Single();
+    var e4Panel=repo.ListPanels(e4Figure.Id).Single();
+    repo.LinkPanelExperiment(e4Panel.Id,e4Experiment.ExperimentId);
+    var e4DocFile=Path.Combine(root,"source","E4manuscript.pdf");
+    File.WriteAllBytes(e4DocFile,[37,80,68,70,45,49,46,52]);
+    var e4Document=repo.ImportPaperDocument(e4Paper,e4DocFile);
+    var e4FigureFile=Path.Combine(root,"source","E4Figure.png");
+    File.WriteAllBytes(e4FigureFile,[137,80,78,71,13,10,26,10,42]);
+    repo.ImportFigureComposite(e4Figure.Id,e4FigureFile);
+    var e4Archive=ArchiveRepository.Open(repo.Root);
+    var e4Preview=e4Archive.PrepareWorkspaceArchiveE4(repo,e4Paper,e4Document.Id);
+    Assert(e4Preview.CanPublish && e4Preview.Checks.Count==0 &&
+        e4Preview.ManifestJson.Contains("\\"schemaVersion\\":3") &&
+        e4Preview.Resources.Count(x=>x.Location.Contains("Panel A"))==5 &&
+        e4Preview.Resources.Any(x=>x.Role=="raw") &&
+        e4Preview.Resources.Any(x=>x.Role=="process") &&
+        e4Preview.Resources.Any(x=>x.Role=="show") &&
+        e4Preview.Resources.Any(x=>x.Role=="quant") &&
+        e4Preview.Resources.Any(x=>x.FileName=="实验说明.txt") &&
+        e4Preview.ManifestJson.Contains(e4Experiment.ExperimentId),
+        "E4 archive collects all sample stages and experiment notes without processing review");
+    var e4Published=e4Archive.PublishWorkspaceArchiveE4(repo,e4Preview);
+    Assert(e4Published.Revision==1 &&
+        !e4Published.AlreadyArchived &&
+        e4Archive.GetWorkspaceArchiveManifest(e4Published.PaperId,1)==
+            e4Preview.ManifestJson &&
+        e4Archive.PublishWorkspaceArchiveE4(repo,e4Preview).AlreadyArchived,
+        "E4 published full experiment snapshot is immutable and idempotent");
+    var oldE4Asset=repo.ListE1FolderAssets(e4Experiment.Id)
+        .Single(x=>x.RelativePath=="E401_show.png").AssetId;
+    File.WriteAllBytes(Path.Combine(e4Folder,"E401_show.png"),[101,9]);
+    var changedE4=repo.ImportResult(e4Project,e4Folder);
+    Assert(changedE4.FileCount==1,
+        "E4 new revision follows only the changed immutable experiment file");
+    var e4Next=e4Archive.PrepareWorkspaceArchiveE4(repo,e4Paper,e4Document.Id);
+    var latestAsset=repo.ListE1FolderAssets(e4Experiment.Id)
+        .Single(x=>x.RelativePath=="E401_show.png").AssetId;
+    Assert(e4Next.CanPublish &&
+        e4Next.ManifestSha256!=e4Preview.ManifestSha256 &&
+        latestAsset!=oldE4Asset &&
+        e4Next.Resources.Any(x=>x.SourceId==latestAsset) &&
+        !e4Next.Resources.Any(x=>x.SourceId==oldE4Asset),
+        "E4 snapshot excludes historical superseded SHOW versions");
+    var e4Second=e4Archive.PublishWorkspaceArchiveE4(repo,e4Next);
+    Assert(e4Second.Revision==2 &&
+        e4Archive.GetWorkspaceArchiveManifest(e4Published.PaperId,1)==
+            e4Preview.ManifestJson &&
+        e4Archive.GetWorkspaceArchiveManifest(e4Published.PaperId,2)==
+            e4Next.ManifestJson,
+        "E4 new import creates a second snapshot without changing Revision 1");
+    var staleE4=false;
+    try{e4Archive.PublishWorkspaceArchiveE4(repo,e4Preview);}
+    catch(InvalidOperationException){staleE4=true;}
+    Assert(staleE4,"E4 rejects stale workbench relationships after newer source import");
+    var broken=repo.ListE1FolderAssets(e4Experiment.Id)
+        .Single(x=>x.AssetId==latestAsset);
+    var brokenBlob=Path.Combine(repo.Root,"blobs","sha256",
+        broken.Sha256[..2],broken.Sha256);
+    var stash=brokenBlob+".e4test";
+    File.Move(brokenBlob,stash);
+    try
+    {
+        var e4Broken=e4Archive.PrepareWorkspaceArchiveE4(repo,e4Paper,e4Document.Id);
+        Assert(!e4Broken.CanPublish &&
+            e4Broken.Checks.Any(x=>x.Code=="missing_blob"),
+            "E4 archive blocks when original imported bytes are missing");
+    }
+    finally{File.Move(stash,brokenBlob);}
+    Assert(e4Archive.GetWorkspaceArchiveManifest(e4Published.PaperId,1)==
+            e4Preview.ManifestJson &&
+        e4Archive.GetWorkspaceArchiveManifest(archived.PaperId,1)==preview.ManifestJson,
+        "E4 never rewrites old v3 or legacy v2 archive revisions");
+    Console.WriteLine("PASS: V1.6-E4 immutable v3 Paper/Figure/Panel/Experiment/Sample/Asset archive.");
     Console.WriteLine("PASS: V1.6-E2 strict 1:1 Panel/Experiment, guarded migration and reversible operations.");
     Console.WriteLine("PASS: V1.6-E0 readonly baseline, legacy mapping and conflict preview.");
     Console.WriteLine("PASS: V1.6 sample display deduplication, stable scope and SHA variants.");
