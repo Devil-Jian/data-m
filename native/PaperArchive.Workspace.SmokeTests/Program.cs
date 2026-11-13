@@ -230,28 +230,6 @@ try
         "quant stage migration is idempotent on repeated open");
     // Old databases are never silently regrouped. Operators can preview,
     // apply and undo an index-only rebuild without touching legacy identities.
-    var oldPreview=upgraded.PreviewSampleIndexRebuild("old-project");
-    Assert(oldPreview.IndexedCount==1 && oldPreview.Changes.Count==1,
-        "old sample index rebuild has a read-only preview");
-    var staleRejected=false;
-    try{upgraded.ApplySampleIndexRebuild("old-project","invalid-preview");}
-    catch(InvalidOperationException){staleRejected=true;}
-    Assert(staleRejected &&
-        upgraded.PreviewSampleIndexRebuild("old-project").Changes.Count==1,
-        "unverified rebuild tokens must not write any rows");
-    upgraded.ApplySampleIndexRebuild("old-project",oldPreview.Fingerprint);
-    Assert(upgraded.PreviewSampleIndexRebuild("old-project").Changes.Count==0,
-        "old sample index safely rebuilt");
-    Assert(upgraded.UndoLastSampleIndexRebuild("old-project") &&
-        upgraded.PreviewSampleIndexRebuild("old-project").Changes.Count==1,
-        "manual sample index rebuild is reversible");
-    Assert(upgraded.ListAssets("old-result").Single().Id=="old-asset" &&
-        upgraded.ListAssets("old-result").Single().GroupId=="old-group" &&
-        upgraded.ListAssets("old-result").Single().Sha256==oldAsset.Sha256 &&
-        upgraded.ListUsages("old-asset").Single().State=="confirmed",
-        "sample index rebuild never rewrites assets, hashes, group IDs or usage links");
-
-
     // E1 controlled legacy migration: no reimport, no Asset rewrite,
     // no cross-result sample inference, with SQLite backup and guarded undo.
     var e1LegacyPreview=upgraded.PreviewE1LegacyMigration("old-project");
@@ -281,6 +259,28 @@ try
         "E1 guarded undo restores legacy sample state without changing file or usage IDs");
     Assert(upgraded.PreviewE1LegacyMigration("old-project").Proposals.Count==1,
         "E1 legacy preview can be repeated after undo");
+    var oldPreview=upgraded.PreviewSampleIndexRebuild("old-project");
+    Assert(oldPreview.IndexedCount==1 && oldPreview.Changes.Count==1,
+        "old sample index rebuild has a read-only preview");
+    var staleRejected=false;
+    try{upgraded.ApplySampleIndexRebuild("old-project","invalid-preview");}
+    catch(InvalidOperationException){staleRejected=true;}
+    Assert(staleRejected &&
+        upgraded.PreviewSampleIndexRebuild("old-project").Changes.Count==1,
+        "unverified rebuild tokens must not write any rows");
+    upgraded.ApplySampleIndexRebuild("old-project",oldPreview.Fingerprint);
+    Assert(upgraded.PreviewSampleIndexRebuild("old-project").Changes.Count==0,
+        "old sample index safely rebuilt");
+    Assert(upgraded.UndoLastSampleIndexRebuild("old-project") &&
+        upgraded.PreviewSampleIndexRebuild("old-project").Changes.Count==1,
+        "manual sample index rebuild is reversible");
+    Assert(upgraded.ListAssets("old-result").Single().Id=="old-asset" &&
+        upgraded.ListAssets("old-result").Single().GroupId=="old-group" &&
+        upgraded.ListAssets("old-result").Single().Sha256==oldAsset.Sha256 &&
+        upgraded.ListUsages("old-asset").Single().State=="confirmed",
+        "sample index rebuild never rewrites assets, hashes, group IDs or usage links");
+
+
     var source2=Path.Combine(root,"source","独立实验");
     Directory.CreateDirectory(Path.Combine(source2,"show_data"));
     File.WriteAllBytes(Path.Combine(source2,"show_data","ROS01_show.png"),[12,13,14]);
