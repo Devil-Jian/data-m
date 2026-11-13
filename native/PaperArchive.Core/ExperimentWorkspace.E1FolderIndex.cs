@@ -179,9 +179,15 @@ public sealed partial class ExperimentWorkspace
         using var cmd=db.CreateCommand();
         cmd.CommandText="""
             SELECT r.id,r.experiment_id,r.project_id,r.experiment_name,r.normalized_root,
-                COUNT(a.asset_id)
+                COUNT(CASE WHEN batch.root_id IS NOT NULL
+                    AND active.id IS NOT NULL THEN current.asset_id END)
             FROM e1_experiment_roots r
-            LEFT JOIN e1_root_current_assets a ON a.root_id=r.id
+            LEFT JOIN e1_root_current_assets current ON current.root_id=r.id
+            LEFT JOIN experiment_assets a ON a.id=current.asset_id AND a.is_deleted=0
+            LEFT JOIN e1_root_result_batches batch ON batch.result_id=a.result_id
+                AND batch.root_id=r.id
+            LEFT JOIN experiment_results active ON active.id=a.result_id
+                AND active.is_deleted=0
             WHERE r.project_id=$project
             GROUP BY r.id ORDER BY r.experiment_name COLLATE NOCASE
             """;
@@ -204,9 +210,9 @@ public sealed partial class ExperimentWorkspace
         var path=NormalizeE1Root(newSourceDirectory);
         if(!Directory.Exists(path))
             throw new DirectoryNotFoundException(path);
-        if(path.Equals(_root,StringComparison.OrdinalIgnoreCase)||
-            path.StartsWith(_root+Path.DirectorySeparatorChar,
-                StringComparison.OrdinalIgnoreCase))
+        var warehouseRoot=NormalizeE1Root(_root);
+        if(path.Equals(warehouseRoot,StringComparison.OrdinalIgnoreCase)||
+            path.StartsWith(warehouseRoot+"/",StringComparison.OrdinalIgnoreCase))
             throw new IOException("实验根目录不能放在数据仓库内部。");
         var expected=ListE1FolderAssets(rootId);
         if(expected.Count==0)
@@ -244,8 +250,14 @@ public sealed partial class ExperimentWorkspace
         using var db=Connect();
         using var cmd=db.CreateCommand();
         cmd.CommandText="""
-            SELECT asset_id,relative_path,sha256 FROM e1_root_current_assets
-            WHERE root_id=$root ORDER BY relative_path COLLATE NOCASE
+            SELECT current.asset_id,current.relative_path,current.sha256
+            FROM e1_root_current_assets current
+            JOIN experiment_assets a ON a.id=current.asset_id AND a.is_deleted=0
+            JOIN experiment_results r ON r.id=a.result_id AND r.is_deleted=0
+            JOIN e1_root_result_batches batch ON batch.result_id=a.result_id
+                AND batch.root_id=current.root_id
+            WHERE current.root_id=$root
+            ORDER BY current.relative_path COLLATE NOCASE
             """;
         cmd.Parameters.AddWithValue("$root",rootId);
         var rows=new List<E1FolderAsset>();
