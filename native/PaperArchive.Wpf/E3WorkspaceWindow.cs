@@ -550,7 +550,6 @@ public sealed partial class E3WorkspaceWindow : Window
     }
     private async Task ImportFolder(string? selectedPath=null)
     {
-        if(_paper is null){MessageBox.Show(this,"请先选择或新建论文。");return;}
         if(selectedPath is null)
         {
             var dialog=new Microsoft.Win32.OpenFolderDialog{
@@ -562,9 +561,20 @@ public sealed partial class E3WorkspaceWindow : Window
         try
         {
             IsEnabled=false;
-            var paperId=_paper.Id;
-            var project=_repo.ListProjectsForPaper(paperId).FirstOrDefault();
-            var projectId=project?.Id??_repo.CreateProjectForPaper(paperId,"实验资料");
+            // An experiment is a reusable source folder; importing it must
+            // not require creating a paper or Figure beforehand.
+            string projectId;
+            if(_paper is not null)
+            {
+                var project=_repo.ListProjectsForPaper(_paper.Id).FirstOrDefault();
+                projectId=project?.Id??_repo.CreateProjectForPaper(_paper.Id,"实验资料");
+            }
+            else
+            {
+                var standalone=_repo.ListProjects()
+                    .FirstOrDefault(x=>x.Name=="独立实验资料库");
+                projectId=standalone?.Id??_repo.CreateProject("独立实验资料库");
+            }
             await Task.Run(()=>_repo.ImportResult(projectId,selectedPath));
             _e5ExperimentCache=null;
             LoadExperiments();
