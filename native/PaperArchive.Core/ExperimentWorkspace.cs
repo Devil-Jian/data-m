@@ -355,7 +355,7 @@ public sealed partial class ExperimentWorkspace
         // file has changed. Reimports only add changed/new source paths.
         var changed=prepared.Where(x=>!previous.TryGetValue(x.Relative,out var prior)
             || !prior.Sha.Equals(x.Sha,StringComparison.OrdinalIgnoreCase)).ToArray();
-        if(changed.Length==0 && prepared.Length==previous.Count)
+        if(changed.Length==0 && prepared.Count==previous.Count)
         {
             using var previousResult=db.CreateCommand();
             previousResult.Transaction=tx;
