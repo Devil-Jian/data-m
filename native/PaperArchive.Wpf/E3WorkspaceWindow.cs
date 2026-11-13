@@ -274,7 +274,8 @@ public sealed partial class E3WorkspaceWindow : Window
     }
 
     private E1FolderIdentity[] AllExperiments()=>
-        _repo.ListProjects().SelectMany(p=>_repo.ListE1FolderIdentities(p.Id))
+        _e5ExperimentCache??=_repo.ListProjects()
+            .SelectMany(p=>_repo.ListE1FolderIdentities(p.Id))
             .Where(x=>!string.IsNullOrEmpty(x.ExperimentId))
             .OrderBy(x=>x.ExperimentName,StringComparer.OrdinalIgnoreCase).ToArray();
 
@@ -338,49 +339,33 @@ public sealed partial class E3WorkspaceWindow : Window
         _samples.ItemsSource=sampleUnits;
         _status.Text=sampleUnits.Count+" 个样本 · "+_experiment.ActiveFileCount+
             " 个文件，单击文件预览，双击打开。";
-        _samples.SelectedItem=sampleUnits.FirstOrDefault();
+        // Experiment view defaults to ALL files, including unclassified
+        // attachments. Clicking a sample narrows the list.
+        _samples.SelectedIndex=-1;
         FilterFiles();
     }
     private void FilterFiles()
     {
-        if(_experiment is null)return;
+        if(_experiment is null)
+        {
+            _files.ItemsSource=null;
+            return;
+        }
         var sample=_samples.SelectedItem as SampleUnit;
-        var files=new List<FileItem>();
-        if(sample is not null)
-        {
-            files.AddRange(_repo.ListSampleUnitAssets(sample.Id).Select(x=>
-                new FileItem(x.FileName,x.Stage,sample.SampleName,x.Sha256,x.RelativePath)));
-        }
-        else if(_panel is not null&&
-            _repo.GetPanelExperiment(_panel.Id)?.ExperimentId==_experiment.ExperimentId)
-        {
-            files.AddRange(_repo.ListPanelExperimentFiles(_panel.Id).Select(x=>
-                new FileItem(x.FileName,x.Stage,x.SampleName,x.Sha256,x.RelativePath)));
-        }
-        else
-        {
-            foreach(var unit in _repo.ListSampleUnits(experimentId:_experiment.ExperimentId))
-                files.AddRange(_repo.ListSampleUnitAssets(unit.Id).Select(x=>
-                    new FileItem(x.FileName,x.Stage,unit.SampleName,x.Sha256,x.RelativePath)));
-        }
-        // The root index also contains unclassified experiment documents.
-        // Do not include files from OTHER samples when one sample is selected.
-        if(sample is null)
-        {
-            var indexed=_repo.ListE1FolderAssets(_experiment.Id);
-            var known=_repo.ListSampleUnits(experimentId:_experiment.ExperimentId)
-                .SelectMany(x=>_repo.ListSampleUnitAssets(x.Id))
-                .Select(x=>x.AssetId).ToHashSet(StringComparer.Ordinal);
-            foreach(var asset in indexed.Where(x=>!known.Contains(x.AssetId)))
-                if(!files.Any(x=>x.RelativePath==asset.RelativePath&&
-                                  x.Sha256.Equals(asset.Sha256,StringComparison.OrdinalIgnoreCase)))
-                    files.Add(new FileItem(Path.GetFileName(asset.RelativePath),
-                        "其他",null,asset.Sha256,asset.RelativePath));
-        }
-        _files.ItemsSource=files.GroupBy(x=>x.RelativePath+"|"+x.Sha256,
-            StringComparer.OrdinalIgnoreCase).Select(x=>x.First())
-            .OrderBy(x=>x.Stage=="show"?0:x.Stage=="raw"?1:x.Stage=="process"?2:3)
-            .ThenBy(x=>x.Name,StringComparer.OrdinalIgnoreCase).ToArray();
+        // Files are read from the current E1 source membership. An earlier
+        // imported version belongs to its historical Revision, not here.
+        var files=_repo.ListE5CurrentExperimentFiles(_experiment.ExperimentId)
+            .Where(x=>sample is null || x.SampleId==sample.Id)
+            .GroupBy(x=>x.AssetId,StringComparer.Ordinal)
+            .Select(x=>x.First())
+            .Select(x=>new FileItem(x.FileName,x.Stage,x.SampleName,
+                x.Sha256,x.RelativePath))
+            .OrderBy(x=>x.Stage=="show"?0:x.Stage=="raw"?1:
+                x.Stage=="process"?2:x.Stage=="quant"?3:4)
+            .ThenBy(x=>x.Sample,StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x=>x.Name,StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        _files.ItemsSource=files;
     }
     private async void PreviewSelected()
     {
@@ -581,6 +566,7 @@ public sealed partial class E3WorkspaceWindow : Window
             var project=_repo.ListProjectsForPaper(paperId).FirstOrDefault();
             var projectId=project?.Id??_repo.CreateProjectForPaper(paperId,"实验资料");
             await Task.Run(()=>_repo.ImportResult(projectId,selectedPath));
+            _e5ExperimentCache=null;
             LoadExperiments();
             var matched=AllExperiments().FirstOrDefault(x=>
                 x.RootPath.Equals(Path.TrimEndingDirectorySeparator(
