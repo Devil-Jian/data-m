@@ -1,0 +1,23 @@
+{
+  "name": "data-m-ui-comparison",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/*", "demos/*"],
+  "scripts": {
+    "dev:shadcn": "npm run dev -w @data-m/demo-shadcn",
+    "dev:mantine": "npm run dev -w @data-m/demo-mantine",
+    "dev:fluent": "npm run dev -w @data-m/demo-fluent",
+    "build:shadcn": "npm run build -w @data-m/demo-shadcn",
+    "build:mantine": "npm run build -w @data-m/demo-mantine",
+    "build:fluent": "npm run build -w @data-m/demo-fluent",
+    "build:all": "npm run build:shadcn && npm run build:mantine && npm run build:fluent"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.1.0"
+  }
+}

@@ -1,0 +1,7 @@
+@import "tailwindcss";
+/* Locally owned shadcn-style Radix components + Tailwind utilities. */
+.dm-shadcn{font-family:Inter,"Segoe UI",sans-serif}
+.dm-shadcn .dm-header button[data-variant="ghost"]{color:#dbe7f7}
+.dm-shadcn .dm-header button[data-variant="ghost"]:hover{background:#33435c}
+.dm-shadcn .dm-project-picker button[role="combobox"]{color:#fff;border-color:transparent;background:transparent;max-width:225px}
+.dm-shadcn .dm-project-picker button[role="combobox"]>span{white-space:nowrap;text-overflow:ellipsis;overflow:hidden}

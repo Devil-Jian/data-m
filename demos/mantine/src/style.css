@@ -1,0 +1,11 @@
+.dm-mantine{font-family:"Segoe UI",Arial,sans-serif}
+.dm-mantine .dm-header .mantine-Button-root[data-variant="subtle"]{color:#dbeafe}
+.dm-mantine .dm-header .mantine-Button-root[data-variant="subtle"]:hover{background:#344460}
+.dm-mantine .dm-project-picker .mantine-Select-input{background:transparent;color:#f8fafc;border-color:transparent;font-size:11px}
+.dm-mantine .dm-project-picker .mantine-Select-section{color:#d2e0f4}
+.dm-mantine .dm-stage-filter .mantine-Checkbox-root{margin:0}
+.dm-mantine .dm-filter-toolbar .mantine-Select-root{min-width:130px}
+.dm-mantine .dm-workspace-toolbar .mantine-TextInput-root{min-width:170px}
+.dm-mantine .dm-modal .mantine-TextInput-root{width:100%}
+.dm-mantine .dm-matrix .mantine-Badge-root{max-width:130px}
+.dm-mantine .dm-header .mantine-Button-root{white-space:nowrap}

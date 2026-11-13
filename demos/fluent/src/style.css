@@ -1,0 +1,13 @@
+.fluent-root{height:100vh;background:#f8fafc}
+.dm-fluent{font-family:"Segoe UI Variable","Segoe UI",system-ui,sans-serif}
+.dm-fluent .dm-header .fui-Button[data-appearance="subtle"]{color:#deebff}
+.dm-fluent .dm-header .fui-Button[data-appearance="subtle"]:hover{background:#364760}
+.dm-fluent .dm-project-picker .fui-Dropdown{background:transparent;color:#fff;border-color:transparent;max-width:225px}
+.dm-fluent .dm-project-picker .fui-Dropdown svg{color:#d5e4f8}
+.dm-fluent .dm-filter-toolbar .fui-Dropdown{min-width:125px}
+.dm-fluent .dm-workspace-toolbar .fui-Input{min-width:170px}
+.dm-fluent .dm-modal .fui-Input{width:100%}
+.dm-fluent .dm-primary-nav .fui-Button{height:30px}
+.dm-fluent .dm-stage-filter .fui-Checkbox{margin:-5px}
+.dm-fluent .dm-app .dm-asset-cell .dm-preview{border-radius:3px}
+.dm-fluent .dm-header button{white-space:nowrap}

@@ -1,0 +1,26 @@
+name: Build UI demo variants
+on:
+  push:
+    branches: [feat/ui-framework-comparison]
+  pull_request:
+    paths:
+      - 'demos/**'
+      - 'packages/**'
+      - 'package.json'
+      - '.github/workflows/ui-demos.yml'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [shadcn, mantine, fluent]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install workspaces
+        run: npm install --no-audit --no-fund
+      - name: Build ${{ matrix.variant }} demo
+        run: npm run build:${{ matrix.variant }}
