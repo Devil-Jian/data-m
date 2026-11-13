@@ -181,7 +181,7 @@ Panel 卡片不露出 Asset ID、SHOW 选用、RAW/PROCESS 关系表或“待核
 | 阶段 | 主目标 | 交付物 | 验收门槛 |
 | --- | --- | --- | --- |
 | **E0：基线/设计冻结（✅ 已完成，2026-11-13）** | 已审计新旧 SQLite 结构、实现只读审计与 1:1 迁移冲突预览 | `ExperimentWorkspace.E0Audit.cs`、`PaperArchive.E0Audit` CLI、[E0 迁移设计记录](./2026-11-13-v16e-e0-audit-migration-design.md)、回归测试 | Windows SmokeTests/CLI 编译与 WPF 打包已通过；真实用户数据库的审计计数须在本机执行 |
-| **E1：实验自动索引** | 文件夹→实验→样本→资产及旧数据受控迁移 | 索引/增量扫描、归属审计、冲突预览、备份撤销、单元/烟测 | 旧文件不丢；同名样本跨实验隔离；重复导入幂等；RAW/PROCESS/SHOW/QUANT 正确归类 |
+| **E1：实验自动索引（✅ 已完成，2026-11-13）** | 真实根文件夹身份、增量扫描、稳定实验/样本/Asset 索引及旧数据受控迁移 | `ExperimentWorkspace.E1FolderIndex.cs`、`ExperimentWorkspace.E1LegacyMigration.cs`、[E1 开发记录](./2026-11-13-v16e-e1-folder-index-legacy-migration.md)、E1 维护 CLI 与 SmokeTests | Windows Core/旧版/Workspace/CLI/WPF/打包全部通过；用户本机旧数据迁移需自行预览与执行 |
 | **E2：严格一对一 Panel 绑定** | Panel ↔ Experiment，替代逐样本关联主流程 | 数据库唯一约束、绑定/替换/解绑/撤销 API、迁移映射 | 数据库拒绝双向重复；既有不确定映射不被自动覆盖；替换不改历史归档 |
 | **E3：新论文工作台** | Figure 卡片、A/B/C、实验拖放与内嵌样本文件详情 | 全新 WPF 视图、实验选择器、预览、搜索/导航 | “创建 Figure→添加 Panel→绑定实验→查看 RAW”无需技术弹窗，键盘也可完成 |
 | **E4：归档与版本** | 基于实验全文件集合的不可变 Revision | 简化归档预检、Manifest v3、Figure 成图版本绑定、只读归档浏览 | 无 PROCESS 链仍可归档；每条文件可按 Figure/Panel 回溯；修改工作区不影响旧 Revision |
@@ -218,9 +218,9 @@ Panel 卡片不露出 Asset ID、SHOW 选用、RAW/PROCESS 关系表或“待核
 
 ## 11. 本轮边界与下一步
 
-阶段性设计文档提交后，现已实施并完成 **E0 只读审计与迁移设计**（见下文实施记录）。**E1～E5 代码尚未开始；严格 1:1 Panel 数据库约束、新 UI、Manifest v3 均尚未实施。**
+阶段性设计文档提交后，**E0 与 E1 均已完成代码实施和自动化验收**（详见下文记录）。**E2～E5 尚未开始；严格 1:1 Panel 数据库约束、新 Figure UI、Manifest v3 均尚未实施。**
 
-下一步进入 **E1：实验文件夹身份与稳定样本索引、旧数据安全迁移**。需先取得本机 E0 JSON 并处理旧 Panel 关联与实验根目录身份不明的情况。严禁直接把旧 D3 多对多关联表改为 UNIQUE 并丢弃冲突行。
+下一步进入 **E2：Panel ↔ Experiment 严格一对一索引**。可使用本地 E0/E1 维护工具核验真实旧数据，迁移前必须备份数据库与 Blob 仓库。严禁直接把旧 D3 多对多关联表改为 UNIQUE 并丢弃冲突行。
 
 ## 12. E0 完成记录（2026-11-13）
 
@@ -235,3 +235,17 @@ Panel 卡片不露出 Asset ID、SHOW 选用、RAW/PROCESS 关系表或“待核
 - **已知限制：** 本轮代码审计的是仓库数据模型与测试构造样例；无法远程读取用户 Windows 本机数据。真实旧库存在多少身份冲突/重复引用，须在本机运行审计命令获取。E0 只生成报告，**不会执行 E1/E2 数据改写**。
 
 **E1 前置条件：** 优先以本机报告确认实验根目录身份、缺标签资产数与双向 1:1 冲突数量；开始迁移前做完整 SQLite/Blob 仓库备份并记录双库指纹。
+
+## 13. E1 完成记录（2026-11-13）
+
+**状态：✅ 已完成代码实现与自动化验收；真实用户 Windows 数据尚未执行迁移**
+
+- **文件夹身份：** 新增 `e1_experiment_roots`、`e1_root_result_batches`、`e1_root_current_assets`，建立规范源根路径与稳定 Experiment ID 的对应关系；同名不同路径的实验分离。用户在旧数据中主动认领旧实验时，必须核验相对路径和 SHA-256，拒绝按名称猜测合并。
+- **增量扫描：** `ImportResult` 现支持相同源根目录未变化时零 Asset 新增；仅变更文件生成新 Asset/版本；已移动的原 Asset 不误认为仍属于当前源目录。删除/恢复文件、整个文件夹暂时变空和 SHA 完全恢复时，保留历史 Asset 并尽可能复用其稳定 ID。
+- **样本索引：** 原 `sample_asset_index` 的开放 PROCESS 后缀锚点收敛在同实验来源范围；D1/D2 标签与稳定样本单元保留，RAW/PROCESS/SHOW/QUANT 不需要加工先后确认。
+- **旧数据迁移：** 新增 `PreviewE1LegacyMigration`、`ApplyE1LegacyMigration`、`UndoE1LegacyMigration`，支持基线指纹拒绝陈旧操作、外部 SQLite BackupDatabase 备份、事务补建缺失系统标签、受保护撤销。真实身份不明的旧结果不会自动跨文件夹合并。
+- **维护入口：** `native/PaperArchive.E1Index` 支持 `projects`、`preview`、`apply`、`undo`、`folders`、`adopt`、`relink`；命令与安全注意事项见 [E1 专项开发文档](./2026-11-13-v16e-e1-folder-index-legacy-migration.md)。
+- **测试：** 包含重复扫描幂等、项目/文件夹身份隔离、增量文件版本、移动后重扫、删除与恢复及空目录、旧库标签预览/备份/撤销、对错误 SHA 文件夹拒绝认领、核验成功后复用历史 Experiment/Sample/Asset ID，以及 D1–D4 全量历史兼容。
+- **Windows 自动化：** [WPF Desktop run 43361900800](https://github.com/Devil-Jian/data-m/actions/runs/43361900800) **成功**，Core、旧版 SmokeTests、Workspace SmokeTests、E0/E1 CLI、WPF 编译、发布、打包全部通过。
+- **明确未完成/不在 E1 范围：** E2 的 Panel↔Experiment 双向唯一关联；E3 全新论文卡片工作台；E4 简化归档检查、完整实验文件集合 Manifest v3。旧 D4 的 PROCESS/RAW 人工确认界面与归档检查直到 E4 才会被替换。未上传/连接本机数据库，不能宣称真实旧数据已自动迁移。
+- **E2 交接：** 直接消费 E1 的稳定 `experiment_units.id` 与 E0 冲突预览；对可安全映射的旧 Panel 采用事务写入双向 UNIQUE 关系，其他冲突保留历史，不作自动删除。
