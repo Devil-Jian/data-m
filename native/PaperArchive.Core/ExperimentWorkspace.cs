@@ -68,6 +68,8 @@ public sealed partial class ExperimentWorkspace
         workspace.InitializeSystemTags();
         workspace.InitializeSampleUnits();
         workspace.InitializePanelSampleLinks();
+        workspace.InitializeE1FolderIndex();
+        workspace.InitializeE1LegacyMigration();
         return workspace;
     }
 
@@ -347,6 +349,41 @@ public sealed partial class ExperimentWorkspace
         }
         using var db=Connect();
         using var tx=db.BeginTransaction();
+        var (e1RootId,e1ExperimentName)=EnsureE1Root(db,tx,projectId,source);
+        var previous=ReadE1Current(db,tx,e1RootId);
+        // Preserve every prior Asset ID, even if the corresponding source
+        // file has changed. Reimports only add changed/new source paths.
+        var changed=prepared.Where(x=>!previous.TryGetValue(x.Relative,out var prior)
+            || !prior.Sha.Equals(x.Sha,StringComparison.OrdinalIgnoreCase)).ToArray();
+        if(changed.Length==0 && prepared.Length==previous.Count)
+        {
+            using var previousResult=db.CreateCommand();
+            previousResult.Transaction=tx;
+            previousResult.CommandText="""
+                SELECT b.result_id FROM e1_root_result_batches b
+                JOIN experiment_results r ON r.id=b.result_id AND r.is_deleted=0
+                WHERE b.root_id=$root ORDER BY r.imported_at DESC,b.result_id DESC LIMIT 1
+                """;
+            previousResult.Parameters.AddWithValue("$root",e1RootId);
+            var currentResult=previousResult.ExecuteScalar() as string;
+            if(currentResult is not null)
+            {
+                tx.Commit();
+                return new(currentResult,0,0);
+            }
+        }
+        if(changed.Length==0)
+        {
+            // A deleted source path is removed only from the active folder
+            // index. Historical immutable assets and snapshots are retained.
+            using var clean=db.CreateCommand();
+            clean.Transaction=tx;
+            clean.CommandText="DELETE FROM e1_root_current_assets WHERE root_id=$root";
+            clean.Parameters.AddWithValue("$root",e1RootId);
+            clean.ExecuteNonQuery();
+            tx.Commit();
+            return new(resultId,0,0);
+        }
         using (var insert=db.CreateCommand())
         {
             insert.Transaction=tx;
@@ -357,6 +394,17 @@ public sealed partial class ExperimentWorkspace
             insert.Parameters.AddWithValue("$now",UtcNow());
             insert.ExecuteNonQuery();
         }
+        using(var rootBatch=db.CreateCommand())
+        {
+            rootBatch.Transaction=tx;
+            rootBatch.CommandText="""
+                INSERT INTO e1_root_result_batches(result_id,root_id)
+                VALUES($result,$root)
+                """;
+            rootBatch.Parameters.AddWithValue("$result",resultId);
+            rootBatch.Parameters.AddWithValue("$root",e1RootId);
+            rootBatch.ExecuteNonQuery();
+        }
         // Preserve the selected import-root label, independent of result and project names.
         using(var label=db.CreateCommand())
         {
@@ -366,12 +414,11 @@ public sealed partial class ExperimentWorkspace
                 VALUES($result,$name,'root_folder')
                 """;
             label.Parameters.AddWithValue("$result",resultId);
-            label.Parameters.AddWithValue("$name",
-                Path.GetFileName(source.TrimEnd(Path.DirectorySeparatorChar)));
+            label.Parameters.AddWithValue("$name",e1ExperimentName);
             label.ExecuteNonQuery();
         }
         var groups=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
-        foreach(var item in prepared)
+        foreach(var item in changed)
         {
             if(!groups.TryGetValue(item.Prefix,out var groupId))
             {
@@ -391,7 +438,8 @@ public sealed partial class ExperimentWorkspace
                 INSERT INTO experiment_assets(id,result_id,group_id,stage,relative_path,filename,size,sha256,imported_at)
                 VALUES($id,$result,$group,$stage,$path,$name,$size,$sha,$now)
                 """;
-            cmd.Parameters.AddWithValue("$id",NewId());
+            var importedAssetId=NewId();
+            cmd.Parameters.AddWithValue("$id",importedAssetId);
             cmd.Parameters.AddWithValue("$result",resultId);
             cmd.Parameters.AddWithValue("$group",groupId);
             cmd.Parameters.AddWithValue("$stage",item.Stage);
@@ -401,11 +449,28 @@ public sealed partial class ExperimentWorkspace
             cmd.Parameters.AddWithValue("$sha",item.Sha);
             cmd.Parameters.AddWithValue("$now",UtcNow());
             cmd.ExecuteNonQuery();
+            SaveE1Current(db,tx,e1RootId,item.Relative,importedAssetId,item.Sha);
+        }
+        // Source paths missing from the new scan are no longer active. Their
+        // historical Asset IDs remain in the workspace and archived revisions.
+        var currentPaths=new HashSet<string>(
+            prepared.Select(x=>x.Relative),StringComparer.OrdinalIgnoreCase);
+        foreach(var stale in previous.Keys.Where(x=>!currentPaths.Contains(x)))
+        {
+            using var clean=db.CreateCommand();
+            clean.Transaction=tx;
+            clean.CommandText="""
+                DELETE FROM e1_root_current_assets
+                WHERE root_id=$root AND relative_path=$path
+                """;
+            clean.Parameters.AddWithValue("$root",e1RootId);
+            clean.Parameters.AddWithValue("$path",stale);
+            clean.ExecuteNonQuery();
         }
         // Keep cross-batch sample hints current without altering legacy group IDs.
         RefreshSampleIndex(db,tx,projectId);
         tx.Commit();
-        return new(resultId,prepared.Count,groups.Count);
+        return new(resultId,changed.Length,groups.Count);
     }
 
     public string ExportOriginal(ExperimentAsset asset,string destinationDirectory)
