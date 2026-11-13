@@ -1094,6 +1094,64 @@ try
     Assert(repo.ListAssets(duplicateBatch1.ResultId).Count==3 &&
         repo.ListAssets(duplicateBatch2.ResultId).Count==3,
         "display grouping never removes imported assets or content-addressed hashes");
+    // E1 root identity: independent directories with identical basenames
+    // are distinct experiments, even when sample filenames match.
+    var rootsProject=repo.CreateProject("E1 双重根目录测试");
+    var rootA=Path.Combine(root,"source","E1_labA","SharedName");
+    var rootB=Path.Combine(root,"source","E1_labB","SharedName");
+    Directory.CreateDirectory(rootA);
+    Directory.CreateDirectory(rootB);
+    File.WriteAllBytes(Path.Combine(rootA,"R01_raw.tif"),[81]);
+    File.WriteAllBytes(Path.Combine(rootA,"R01_show.png"),[82]);
+    File.WriteAllBytes(Path.Combine(rootB,"R01_raw.tif"),[83]);
+    File.WriteAllBytes(Path.Combine(rootB,"R01_show.png"),[84]);
+    var rootBatchA=repo.ImportResult(rootsProject,rootA);
+    var rootBatchB=repo.ImportResult(rootsProject,rootB);
+    var roots=repo.ListE1FolderIdentities(rootsProject);
+    Assert(roots.Count==2 && roots.Select(x=>x.ExperimentId).Distinct().Count()==2 &&
+        roots.All(x=>x.ExperimentId.Length>0) &&
+        roots.Select(x=>x.ExperimentName).Distinct(StringComparer.OrdinalIgnoreCase).Count()==2 &&
+        repo.ListSampleUnits(projectId:rootsProject).Count(x=>x.SampleName=="R01")==2,
+        "different physical roots with the same name cannot merge their experiments or samples");
+    var firstRoot=roots.Single(x=>x.ExperimentName=="SharedName");
+    var sourceIds=repo.ListE1FolderAssets(firstRoot.Id).Select(x=>x.AssetId).ToArray();
+    var relocated=Path.Combine(root,"source","E1_labMoved","SharedName");
+    Directory.CreateDirectory(relocated);
+    foreach(var file in Directory.GetFiles(rootA))
+        File.Copy(file,Path.Combine(relocated,Path.GetFileName(file)));
+    repo.RelinkE1FolderRoot(firstRoot.Id,relocated);
+    var identicalRescan=repo.ImportResult(rootsProject,relocated);
+    Assert(identicalRescan.FileCount==0 &&
+        identicalRescan.ResultId==rootBatchA.ResultId &&
+        repo.ListE1FolderIdentities(rootsProject).Count==2 &&
+        repo.ListE1FolderAssets(firstRoot.Id).Select(x=>x.AssetId)
+            .SequenceEqual(sourceIds),
+        "explicit root relocation preserves the stable Experiment and source Asset IDs");
+    var removedFile=Path.Combine(relocated,"R01_raw.tif");
+    File.Delete(removedFile);
+    var removedScan=repo.ImportResult(rootsProject,relocated);
+    Assert(removedScan.FileCount==0 &&
+        repo.ListE1FolderAssets(firstRoot.Id).Count==1 &&
+        repo.ListAssets(rootBatchA.ResultId).Count==2,
+        "removed source file disappears from current folder index but historical asset stays");
+    File.WriteAllBytes(removedFile,[81]);
+    var restoredScan=repo.ImportResult(rootsProject,relocated);
+    Assert(restoredScan.FileCount==0 &&
+        repo.ListE1FolderAssets(firstRoot.Id).Count==2 &&
+        repo.ListE1FolderAssets(firstRoot.Id).Select(x=>x.AssetId)
+            .SequenceEqual(sourceIds),
+        "restored identical bytes reuse their original Asset ID without duplicate import");
+    File.WriteAllBytes(Path.Combine(relocated,"R01_show.png"),[85]);
+    var newVersion=repo.ImportResult(rootsProject,relocated);
+    Assert(newVersion.FileCount==1 &&
+        repo.ListAssets(newVersion.ResultId).Single().Sha256!=
+            repo.ListAssets(rootBatchA.ResultId).Single(x=>x.Stage=="show").Sha256 &&
+        repo.ListE1FolderAssets(firstRoot.Id).Count==2 &&
+        repo.ListSampleUnits(projectId:rootsProject).Count(x=>x.SampleName=="R01")==2,
+        "changing one folder file creates one new immutable version without mixing experiments");
+    Assert(repo.ListAssets(rootBatchB.ResultId).Count==2,
+        "different physical experiment retains independent original source assets");
+    Console.WriteLine("PASS: V1.6-E1 physical root isolation, relink, removed/restored assets and versions.");
     // E0 is strictly read-only: it audits the legacy Panel/Sample/SHOW
     // graph without applying the future Panel↔Experiment unique constraints.
     var e0Paper=repo.CreatePaperProject("E0 迁移审计测试论文");
