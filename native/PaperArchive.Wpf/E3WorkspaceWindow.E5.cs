@@ -264,6 +264,17 @@ public sealed partial class E3WorkspaceWindow
             SelectE5FrozenFile(selected.FileSha);
             return;
         }
+        if(selected.Kind is "research" or "research_file")
+        {
+            SwitchE5Mode("experiments");
+            _researchSelector.SelectedItem=_researchSelector.Items
+                .Cast<E6ResearchProject>()
+                .FirstOrDefault(x=>x.Id==selected.TargetId);
+            if(selected.Kind=="research_file")
+                _files.SelectedItem=_files.Items.Cast<FileItem>()
+                    .FirstOrDefault(x=>x.Name==selected.Title);
+            return;
+        }
         if(selected.Kind=="paper")
         {
             SwitchE5Mode("workspace");
