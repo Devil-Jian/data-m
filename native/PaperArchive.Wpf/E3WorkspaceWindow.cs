@@ -14,7 +14,7 @@ namespace PaperArchive.Wpf;
 /// in visible text; only experiment names, Figure labels and file names do.
 /// The legacy workspace remains available during the E3/E4 transition.
 /// </summary>
-public sealed class E3WorkspaceWindow : Window
+public sealed partial class E3WorkspaceWindow : Window
 {
     private readonly ExperimentWorkspace _repo;
     private readonly ListBox _papers=new();
@@ -120,6 +120,7 @@ public sealed class E3WorkspaceWindow : Window
         experimentsHeader.Children.Add(_search);
         DockPanel.SetDock(experimentsHeader,Dock.Top);
         experimentsPane.Children.Add(experimentsHeader);
+        EnableE5Virtualization(_experiments);
         _experiments.DisplayMemberPath="ExperimentName";
         _experiments.AllowDrop=true;
         _experiments.DragOver+=(_,e)=>{
@@ -155,9 +156,11 @@ public sealed class E3WorkspaceWindow : Window
         d.Children.Add(_selection);
         Grid.SetRow(_status,1);_status.Margin=new Thickness(0,7,0,11);
         d.Children.Add(_status);
+        EnableE5Virtualization(_samples);
         _samples.DisplayMemberPath="SampleName";
         _samples.SelectionChanged+=(_,_)=>FilterFiles();
         Grid.SetRow(_samples,2);d.Children.Add(_samples);
+        EnableE5Virtualization(_files);
         _files.DisplayMemberPath="Display";
         _files.SelectionChanged+=(_,_)=>PreviewSelected();
         _files.MouseDoubleClick+=(_,_)=>OpenSelected();
@@ -168,6 +171,8 @@ public sealed class E3WorkspaceWindow : Window
         imageBorder.Child=_preview;
         Grid.SetRow(imageBorder,4);d.Children.Add(imageBorder);
         details.Child=d;
+
+        InitializeE5Shell(root,top,body,c,figBar,scroller,experimentsPane);
 
         ReloadPapers();
         LoadExperiments();
@@ -377,25 +382,25 @@ public sealed class E3WorkspaceWindow : Window
             .OrderBy(x=>x.Stage=="show"?0:x.Stage=="raw"?1:x.Stage=="process"?2:3)
             .ThenBy(x=>x.Name,StringComparer.OrdinalIgnoreCase).ToArray();
     }
-    private void PreviewSelected()
+    private async void PreviewSelected()
     {
         _preview.Source=null;
+        _e5PreviewCancel?.Cancel();
         if(_files.SelectedItem is not FileItem file)return;
-        if(!new[]{".png",".jpg",".jpeg",".bmp",".tif",".tiff",".gif",".webp"}
-            .Contains(Path.GetExtension(file.Name),StringComparer.OrdinalIgnoreCase))
-            return;
+        if(!E5IsPreviewable(file.Name))return;
+        using var cancellation=new CancellationTokenSource();
+        _e5PreviewCancel=cancellation;
         try
         {
-            if(file.Sha256.Length!=64||!file.Sha256.All(Uri.IsHexDigit))return;
-            var blob=Path.Combine(_repo.Root,"blobs","sha256",file.Sha256[..2],file.Sha256);
-            using var stream=File.OpenRead(blob);
-            var bitmap=new BitmapImage();
-            bitmap.BeginInit();bitmap.CacheOption=BitmapCacheOption.OnLoad;
-            bitmap.DecodePixelWidth=780;bitmap.StreamSource=stream;
-            bitmap.EndInit();bitmap.Freeze();
-            _preview.Source=bitmap;
+            var bitmap=await LoadE5BitmapAsync(file.Sha256,cancellation.Token);
+            if(!cancellation.IsCancellationRequested)_preview.Source=bitmap;
         }
-        catch { /* Keep unsupported images in the file list. */ }
+        catch(OperationCanceledException) { }
+        catch(IOException) { _status.Text="图片原始副本不可用。"; }
+        catch(NotSupportedException) { _status.Text="此图片格式暂不支持内嵌预览，可双击打开。"; }
+        catch(System.Windows.Media.Imaging.FileFormatException) {
+            _status.Text="图片格式无法预览，可双击打开。";
+        }
     }
     private void OpenSelected()
     {
