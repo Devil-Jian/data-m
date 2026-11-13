@@ -150,7 +150,7 @@ public sealed partial class ExperimentWorkspace
         var rows=new List<E6ResearchAttachment>();
         using var rd=cmd.ExecuteReader();
         while(rd.Read())rows.Add(new(rd.GetString(0),rd.GetString(1),
-            rd.GetString(2),rd.GetString(3)==""?0:rd.GetInt64(3)));
+            rd.GetString(2),rd.GetInt64(3)));
         return rows;
     }
 
