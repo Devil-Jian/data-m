@@ -184,7 +184,7 @@ Panel 卡片不露出 Asset ID、SHOW 选用、RAW/PROCESS 关系表或“待核
 | **E1：实验自动索引（✅ 已完成，2026-11-13）** | 真实根文件夹身份、增量扫描、稳定实验/样本/Asset 索引及旧数据受控迁移 | `ExperimentWorkspace.E1FolderIndex.cs`、`ExperimentWorkspace.E1LegacyMigration.cs`、[E1 开发记录](./2026-11-13-v16e-e1-folder-index-legacy-migration.md)、E1 维护 CLI 与 SmokeTests | Windows Core/旧版/Workspace/CLI/WPF/打包全部通过；用户本机旧数据迁移需自行预览与执行 |
 | **E2：严格一对一 Panel 绑定（✅ 已完成，2026-11-13）** | Panel ↔ Experiment 双向 UNIQUE，安全替换/解绑/撤销与旧 D3 数据受控迁移 | `ExperimentWorkspace.E2PanelExperiments.cs`、`PaperArchive.E2Links` CLI、[E2 开发记录](./2026-11-13-v16e-e2-panel-experiment-one-to-one.md)、回归测试 | Windows Core/旧版/Workspace/E0-E2 CLI/WPF/打包全通过；历史 D3/Revision 不被改写 |
 | **E3：新论文工作台（✅ 已完成，2026-11-13）** | 新的 Figure A/B/C 卡片、实验拖放/双击关联、样本文件详情与图片预览 | `E3WorkspaceWindow.cs`、主界面入口、[E3 开发记录](./2026-11-13-v16e-e3-minimal-figure-workbench.md)、Windows WPF 编译与回归 | 工作区主流程已实现，CI 通过；真实 Windows 文件夹拖放和图片打开需本机交互验收 |
-| **E4：归档与版本** | 基于实验全文件集合的不可变 Revision | 简化归档预检、Manifest v3、Figure 成图版本绑定、只读归档浏览 | 无 PROCESS 链仍可归档；每条文件可按 Figure/Panel 回溯；修改工作区不影响旧 Revision |
+| **E4：归档与版本（✅ 已完成，2026-11-13）** | Panel↔Experiment→所有样本/文件的不可变 Revision，免 PROCESS/RAW 人工确认 | `ArchiveRepository.E4.cs`、`ExperimentWorkspace.E4ArchiveIndex.cs`、[E4 专项开发文档](./2026-11-13-v16e-e4-immutable-experiment-archive.md)、v3 历史浏览与一键归档 | v3 全实验清单、增量新版本、历史 Revision/Manifest 不变、Blob 缺失阻断；Windows SmokeTests/WPF 及打包已通过 |
 | **E5：交互收尾/发布** | 统一三大入口、迁移旧 UI、性能与安装验证 | 快捷搜索、错误定位、数据备份/恢复、打包、操作手册 | 大样本列表操作流畅；Windows 手工拖放/预览通过；GitHub Actions 全通过 |
 
 各阶段严格顺序：**E1 数据质量 → E2 一对一约束 → E3 新 UI → E4 新归档 → E5 收尾**；E0 是实施前的短准备。每阶段独立提交、运行原有 SmokeTests、增加针对性测试，Windows WPF 构建绿灯后才进入下一阶段。
@@ -218,9 +218,9 @@ Panel 卡片不露出 Asset ID、SHOW 选用、RAW/PROCESS 关系表或“待核
 
 ## 11. 本轮边界与下一步
 
-阶段性设计文档提交后，**E0、E1、E2、E3 已完成代码实施和 Windows 自动化验收**（详见下文记录）。**E4～E5 尚未开始；完整实验文件集合的不可变归档 Manifest v3 尚未实施。** 新 E3 Figure 卡片窗口从原 WPF 顶栏「论文工作台」进入，旧界面继续作为兼容回退入口。
+阶段性设计文档提交后，**E0、E1、E2、E3、E4 已完成代码实施和 Windows 自动化验收**（详见下文记录）。**E5 尚未开始。** E4 新论文归档使用 Manifest v3，冻结 Paper→Figure→Panel→Experiment→Sample→Asset 全部文件，取消 PROCESS/RAW 的加工关系人工确认；旧 schema 1/2 历史数据继续只读兼容。
 
-下一步进入 **E4：简化归档预检与论文版本完整溯源**，用 Panel↔Experiment→全部样本/文件的冻结索引替换旧 D4 的 PROCESS/RAW 加工关系核对，不改写历史 Revision；E5 再整合三个主导航入口与全面交互验收。
+下一步进入 **E5：三入口整合、全局检索、性能优化和真实 Windows 交互验收**。E3 的新工作台仍由旧 WPF 顶栏启动，尚未替换整个主程序 UI；未取得用户本机真实数据库，不能宣称旧库已迁移。
 
 ## 12. E0 完成记录（2026-11-13）
 
@@ -277,3 +277,17 @@ Panel 卡片不露出 Asset ID、SHOW 选用、RAW/PROCESS 关系表或“待核
 - **Windows CI：** [WPF Desktop run 43387018254](https://github.com/Devil-Jian/data-m/actions/runs/43387018254) **成功**（代码版本 `dd8c2ecd`，覆盖文件夹拖入、文件预览与切换 Figure 选中状态修复），Core、旧版兼容、Workspace SmokeTests、E0/E1/E2 CLI、WPF 编译及 win-x64 便携版打包全部成功。
 - **尚未完成：** E4 的论文归档逻辑重构、PROCESS/RAW 待核对提示移除、新 Manifest v3；E5 三主入口导航整合、全局搜索及 Windows 大数据量性能/人工体验验收。
 - **E4 交接：** 使用 E2 的 `GetPanelExperiment`、`ListFigurePanelExperiments`、`ListPanelExperimentFiles` 生成每次归档冻结文件集合，不能使用当前工作区重新解释旧 Revision。
+
+## 16. E4 完成记录（2026-11-13）
+
+**状态：✅ 已完成代码实现与 Windows 自动化验收；真实用户本机历史库及鼠标交互仍待验收。**
+
+- **数据来源：** 新增 `ExperimentWorkspace.E4ArchiveIndex.cs`，按唯一 Panel—Experiment 链读取当前 E1 根文件夹下的全部有效 Asset，包括 RAW、PROCESS、SHOW、QUANT、无法归到 Sample 的实验级附件；对无 E1 根目录身份的旧实验，仅使用 D2 已有样本成员关系，不凭文件名虚构加工链。
+- **Manifest v3：** 新增 `ArchiveRepository.E4.cs`，冻结 Paper、论文全文、Figure 及其当前完整成图版本、Panel 字母、唯一 Experiment、每个样本和完整 Asset 文件清单（稳定 ID、文件名、阶段、相对路径、大小及 SHA-256），资源表可以按 Panel/Role/Asset 查询。历史 schema 1/2 Manifest 不修改、不重写。
+- **简化检查：** 仅阻断全文/完整 Figure/Panel/实验缺失、实验无可归档文件、Blob 不存在或 SHA/大小不匹配；不再检查 PROCESS→RAW 或 SHOW→PROCESS 人工加工关系，不弹“来源待核对”确认框。提交前重新生成 Manifest 对比哈希，并再次校验原始内容。
+- **新界面：** E3 工作台增加“导入论文全文”“归档论文”；旧顶栏归档对已经使用 E2 绑定的论文自动走 E4 简化流程，尚未迁移的纯旧 D3 论文仍保留原 v2 兼容归档路径。
+- **历史浏览：** `MainWindow.ArchiveInline.cs` 同时支持原 v2 来源树和新 v3 的 Figure → Panel A/B/C → 实验 → 样本 → 文件名层级；均基于当次 Revision 固定 Manifest，而不是当前工作区。
+- **回归：** `Workspace SmokeTests` 增加 v3 完整实验文件归档（包括 QUANT 和实验级 TXT）、无 PROCESS 链直接归档、重复归档幂等、修改 SHOW 后只将当前版本写入 Revision 2、Revision 1 不变、过期预览拒绝、Blob 丢失阻断，以及旧 v2 Revision 保持不变。
+- **Windows CI：** [WPF Desktop run 43390165494](https://github.com/Devil-Jian/data-m/actions/runs/43390165494) **成功**（代码提交 `24dc735c`），Core、旧版兼容、Workspace SmokeTests（含 E4）、E0/E1/E2 CLI、WPF 编译、win-x64 发布和便携版打包全部通过。
+- **已知边界：** E4 新流程要求论文已迁移到 E2 一对一关系；E1 索引须先同步外部源文件变化；历史旧 D3 论文仍走原版归档检查。新 UI 暂为独立窗口，Windows 手工拖放/文件打开/归档导航尚需本地验收。
+- **E5 交接：** 整合“论文工作台 / 实验资料库 / 论文档案库”三个统一导航入口；从新工作台直接打开冻结 Revision，完善跨文件名搜索、图片加载/长列表性能与键鼠交互。禁止 E5 再恢复人工 PROCESS/RAW 核对为常规归档条件。
