@@ -217,12 +217,19 @@ public sealed partial class ExperimentWorkspace
     }
 
     public E6ResearchImportResult ImportE6ResearchProject(
-        string researchDirectory,string? displayName=null)
+        string researchDirectory,string? displayName=null,
+        bool preserveVerifiedMovedIds=false)
     {
         var preview=PreviewE6ResearchImport(researchDirectory);
+        // The caller must explicitly opt into relocating verified legacy
+        // roots, after displaying the old/new paths in its preview dialog.
+        var verifiedMoves=preserveVerifiedMovedIds?
+            PreviewE6VerifiedMoves(researchDirectory):[];
         var name=(displayName??preview.Name).Trim();
         if(name.Length is <1 or >180)throw new ArgumentException("研究项目名称须为 1–180 个字符。");
         var researchId=EnsureE6ResearchProject(preview.RootPath,name);
+        foreach(var move in verifiedMoves)
+            RelinkE1FolderRoot(move.RootId,move.NewPath);
         var projectId=GetE6SharedProject();
         var imported=0;
         foreach(var folderName in preview.ExperimentFolders)
