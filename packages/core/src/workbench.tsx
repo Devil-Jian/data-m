@@ -229,7 +229,7 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
           <UI.Check checked={selection.includes(rep.id)} onChange={v=>setSelected(rep.id,v)}/>
           <strong>{rep.name.replace(/\.[^.]+$/,'')}</strong>
         </div><small>{rep.value.toFixed(2)} {assay.metricUnit}</small><div>{sampleBadges(rep)}</div></td>
-        {visibleStages.map(s=><td key={s.id}>{row(rep,s)}</td>)}
+        {visibleStages.map(s=><td key={s.id}>{row(rep,s.id)}</td>)}
       </tr>)}</tbody>
     </table></div>;
     return <div className={view==='list'?'dm-list':'dm-table-outer'}>
@@ -241,7 +241,7 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
       </tr></thead><tbody>{filtered.map(rep=><tr key={rep.id}>
         <td><UI.Check checked={selection.includes(rep.id)} onChange={v=>setSelected(rep.id,v)}/></td>
         <td className="dm-nowrap"><strong>{rep.name}</strong></td><td>{rep.value.toFixed(2)}</td>
-        <td>{sampleBadges(rep)}</td>{visibleStages.map(s=><td key={s.id}>{s==='raw'?rep.name:s==='processed'?rep.procName:s==='stats'?(rep.inStats?'已纳入':'—'):(rep.isRep?'展示源':'—')}</td>)}
+        <td>{sampleBadges(rep)}</td>{visibleStages.map(s=><td key={s.id}>{s.id==='raw'?rep.name:s.id==='processed'?rep.procName:s.id==='stats'?(rep.inStats?'已纳入':'—'):(rep.isRep?'展示源':'—')}</td>)}
       </tr>)}</tbody></table>
     </div>;
   }
