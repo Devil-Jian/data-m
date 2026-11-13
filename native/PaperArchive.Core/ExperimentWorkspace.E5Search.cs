@@ -86,10 +86,22 @@ public sealed partial class ExperimentWorkspace
                 FROM paper_projects p
                 WHERE p.name LIKE $pattern ESCAPE '\' COLLATE NOCASE
                 UNION ALL
-                SELECT 'experiment',e.experiment_name,'实验资料库',e.id,
-                       e.experiment_id
+                SELECT 'research',p.name,'研究项目',p.id,NULL
+                FROM e6_research_projects p
+                WHERE p.name LIKE $pattern ESCAPE '\' COLLATE NOCASE
+                UNION ALL
+                SELECT 'research_file',a.relative_path,p.name,p.id,NULL
+                FROM e6_research_attachments a
+                JOIN e6_research_projects p ON p.id=a.research_id
+                WHERE a.relative_path LIKE $pattern ESCAPE '\' COLLATE NOCASE
+                UNION ALL
+                SELECT 'experiment',e.experiment_name,
+                       COALESCE(p.name,'未分组实验'),e.id,e.experiment_id
                 FROM e1_experiment_roots e
+                LEFT JOIN e6_research_experiments x ON x.root_id=e.id
+                LEFT JOIN e6_research_projects p ON p.id=x.research_id
                 WHERE e.experiment_name LIKE $pattern ESCAPE '\' COLLATE NOCASE
+                   OR p.name LIKE $pattern ESCAPE '\' COLLATE NOCASE
                 UNION ALL
                 SELECT 'file',a.filename,e.experiment_name||' / '||
                     COALESCE(sample.sample_name,'其他文件'),a.id,
