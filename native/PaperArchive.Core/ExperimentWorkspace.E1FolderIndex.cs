@@ -119,8 +119,13 @@ public sealed partial class ExperimentWorkspace
         using var cmd=db.CreateCommand();
         cmd.Transaction=tx;
         cmd.CommandText="""
-            SELECT relative_path,asset_id,sha256 FROM e1_root_current_assets
-            WHERE root_id=$id
+            SELECT current.relative_path,current.asset_id,current.sha256
+            FROM e1_root_current_assets current
+            JOIN experiment_assets a ON a.id=current.asset_id AND a.is_deleted=0
+            JOIN experiment_results r ON r.id=a.result_id AND r.is_deleted=0
+            JOIN e1_root_result_batches batch ON batch.result_id=a.result_id
+                AND batch.root_id=current.root_id
+            WHERE current.root_id=$id
             """;
         cmd.Parameters.AddWithValue("$id",rootId);
         var dict=new Dictionary<string,(string Asset,string Sha)>(
