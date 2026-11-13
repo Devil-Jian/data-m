@@ -305,8 +305,10 @@ public sealed class E3WorkspaceWindow : Window
             _status.Text="选择实验后双击，或直接拖入对应子图。";
             return;
         }
-        _selection.Text=(_panel is null?"实验资料":("Panel "+_panel.Label))+
-            " · "+_experiment.ExperimentName;
+        var isBound=_panel is not null&&
+            _repo.GetPanelExperiment(_panel.Id)?.ExperimentId==_experiment.ExperimentId;
+        _selection.Text=(isBound?"Panel "+_panel!.Label+" · ":"实验资料 · ")+
+            _experiment.ExperimentName;
         var sampleUnits=_repo.ListSampleUnits(experimentId:_experiment.ExperimentId);
         _samples.ItemsSource=sampleUnits;
         _status.Text=sampleUnits.Count+" 个样本 · "+_experiment.ActiveFileCount+
@@ -336,14 +338,20 @@ public sealed class E3WorkspaceWindow : Window
                 files.AddRange(_repo.ListSampleUnitAssets(unit.Id).Select(x=>
                     new FileItem(x.FileName,x.Stage,unit.SampleName,x.Sha256,x.RelativePath)));
         }
-        // The E1 root index also contains unclassified experiment documents;
-        // don't lose them just because no stable sample name can be inferred.
-        var indexed=_repo.ListE1FolderAssets(_experiment.Id);
-        foreach(var asset in indexed)
-            if(!files.Any(x=>x.RelativePath==asset.RelativePath&&
-                              x.Sha256.Equals(asset.Sha256,StringComparison.OrdinalIgnoreCase)))
-                files.Add(new FileItem(Path.GetFileName(asset.RelativePath),
-                    "其他",null,asset.Sha256,asset.RelativePath));
+        // The root index also contains unclassified experiment documents.
+        // Do not include files from OTHER samples when one sample is selected.
+        if(sample is null)
+        {
+            var indexed=_repo.ListE1FolderAssets(_experiment.Id);
+            var known=_repo.ListSampleUnits(experimentId:_experiment.ExperimentId)
+                .SelectMany(x=>_repo.ListSampleUnitAssets(x.Id))
+                .Select(x=>x.AssetId).ToHashSet(StringComparer.Ordinal);
+            foreach(var asset in indexed.Where(x=>!known.Contains(x.AssetId)))
+                if(!files.Any(x=>x.RelativePath==asset.RelativePath&&
+                                  x.Sha256.Equals(asset.Sha256,StringComparison.OrdinalIgnoreCase)))
+                    files.Add(new FileItem(Path.GetFileName(asset.RelativePath),
+                        "其他",null,asset.Sha256,asset.RelativePath));
+        }
         _files.ItemsSource=files.GroupBy(x=>x.RelativePath+"|"+x.Sha256,
             StringComparer.OrdinalIgnoreCase).Select(x=>x.First())
             .OrderBy(x=>x.Stage=="show"?0:x.Stage=="raw"?1:x.Stage=="process"?2:3)
