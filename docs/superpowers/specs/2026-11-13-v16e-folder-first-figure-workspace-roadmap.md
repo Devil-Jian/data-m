@@ -185,7 +185,7 @@ Panel 卡片不露出 Asset ID、SHOW 选用、RAW/PROCESS 关系表或“待核
 | **E2：严格一对一 Panel 绑定（✅ 已完成，2026-11-13）** | Panel ↔ Experiment 双向 UNIQUE，安全替换/解绑/撤销与旧 D3 数据受控迁移 | `ExperimentWorkspace.E2PanelExperiments.cs`、`PaperArchive.E2Links` CLI、[E2 开发记录](./2026-11-13-v16e-e2-panel-experiment-one-to-one.md)、回归测试 | Windows Core/旧版/Workspace/E0-E2 CLI/WPF/打包全通过；历史 D3/Revision 不被改写 |
 | **E3：新论文工作台（✅ 已完成，2026-11-13）** | 新的 Figure A/B/C 卡片、实验拖放/双击关联、样本文件详情与图片预览 | `E3WorkspaceWindow.cs`、主界面入口、[E3 开发记录](./2026-11-13-v16e-e3-minimal-figure-workbench.md)、Windows WPF 编译与回归 | 工作区主流程已实现，CI 通过；真实 Windows 文件夹拖放和图片打开需本机交互验收 |
 | **E4：归档与版本（✅ 已完成，2026-11-13）** | Panel↔Experiment→所有样本/文件的不可变 Revision，免 PROCESS/RAW 人工确认 | `ArchiveRepository.E4.cs`、`ExperimentWorkspace.E4ArchiveIndex.cs`、[E4 专项开发文档](./2026-11-13-v16e-e4-immutable-experiment-archive.md)、v3 历史浏览与一键归档 | v3 全实验清单、增量新版本、历史 Revision/Manifest 不变、Blob 缺失阻断；Windows SmokeTests/WPF 及打包已通过 |
-| **E5：交互收尾/发布** | 统一三大入口、迁移旧 UI、性能与安装验证 | 快捷搜索、错误定位、数据备份/恢复、打包、操作手册 | 大样本列表操作流畅；Windows 手工拖放/预览通过；GitHub Actions 全通过 |
+| **E5：交互收尾/发布（✅ 代码完成，2026-11-13；本机验收待执行）** | 统一窗口三主入口、全局检索、冻结 Revision 文件浏览、异步预览和文件列表虚拟化 | `E3WorkspaceWindow.E5.cs`、`ExperimentWorkspace.E5Search.cs`、`ArchiveRepository.E5Search.cs`、[E5 专项文档](./2026-11-13-v16e-e5-unified-navigation-search-acceptance.md)、Workspace SmokeTests | Windows 自动化构建已通过；真实鼠标拖放、高 DPI、海量文件/安装体验仍须用户本机验收，未宣称已完成 |
 
 各阶段严格顺序：**E1 数据质量 → E2 一对一约束 → E3 新 UI → E4 新归档 → E5 收尾**；E0 是实施前的短准备。每阶段独立提交、运行原有 SmokeTests、增加针对性测试，Windows WPF 构建绿灯后才进入下一阶段。
 
@@ -218,9 +218,9 @@ Panel 卡片不露出 Asset ID、SHOW 选用、RAW/PROCESS 关系表或“待核
 
 ## 11. 本轮边界与下一步
 
-阶段性设计文档提交后，**E0、E1、E2、E3、E4 已完成代码实施和 Windows 自动化验收**（详见下文记录）。**E5 尚未开始。** E4 新论文归档使用 Manifest v3，冻结 Paper→Figure→Panel→Experiment→Sample→Asset 全部文件，取消 PROCESS/RAW 的加工关系人工确认；旧 schema 1/2 历史数据继续只读兼容。
+阶段性设计文档提交后，**E0、E1、E2、E3、E4、E5 的计划内代码均已实施，Windows 自动化验收已覆盖现有功能**（详见下文记录）。E4 使用不可变 Manifest v3；E5 在新窗口中统一“论文工作台 / 实验资料库 / 论文档案库”三个入口，补齐当前实验与归档 Revision 搜索、文件浏览和基础性能优化。
 
-下一步进入 **E5：三入口整合、全局检索、性能优化和真实 Windows 交互验收**。E3 的新工作台仍由旧 WPF 顶栏启动，尚未替换整个主程序 UI；未取得用户本机真实数据库，不能宣称旧库已迁移。
+**仍待真实 Windows 人工验收**：拖入真实实验文件夹、图片预览与默认程序打开、不同屏幕缩放及大数据集性能；本轮未远程读取或迁移用户 Windows 本机实验数据库。旧 WPF 窗口继续作为历史兼容入口，不把旧 D3-only 论文强行改成 E2 关系。
 
 ## 12. E0 完成记录（2026-11-13）
 
@@ -291,3 +291,18 @@ Panel 卡片不露出 Asset ID、SHOW 选用、RAW/PROCESS 关系表或“待核
 - **Windows CI：** [WPF Desktop run 43390165494](https://github.com/Devil-Jian/data-m/actions/runs/43390165494) **成功**（代码提交 `24dc735c`），Core、旧版兼容、Workspace SmokeTests（含 E4）、E0/E1/E2 CLI、WPF 编译、win-x64 发布和便携版打包全部通过。
 - **已知边界：** E4 新流程要求论文已迁移到 E2 一对一关系；E1 索引须先同步外部源文件变化；历史旧 D3 论文仍走原版归档检查。新 UI 暂为独立窗口，Windows 手工拖放/文件打开/归档导航尚需本地验收。
 - **E5 交接：** 整合“论文工作台 / 实验资料库 / 论文档案库”三个统一导航入口；从新工作台直接打开冻结 Revision，完善跨文件名搜索、图片加载/长列表性能与键鼠交互。禁止 E5 再恢复人工 PROCESS/RAW 核对为常规归档条件。
+
+## 17. E5 开发完成记录（2026-11-13）
+
+**状态：✅ E5 代码与自动化验收完成；真实 Windows 鼠标/键盘/高 DPI 和旧库迁移验收待本机执行。**
+
+- **统一工作台：** `native/PaperArchive.Wpf/E3WorkspaceWindow.E5.cs` 将「论文工作台」「实验资料库」「论文档案库」合并为同一个窗口内的三个主导航页面。旧主程序顶栏「论文工作台」打开新三入口窗口；旧界面保留以兼容尚未迁移的 D3/D4 论文。
+- **独立实验资料库：** 无需先创建论文即可导入实验文件夹。可点击选择文件夹或将 Windows 目录拖入实验列表；已有实验依 E1 物理根身份与稳定 Experiment ID 增量更新。
+- **统一搜索：** 新增 `ExperimentWorkspace.SearchE5Workspace` 和 `ArchiveRepository.SearchE5Archives`，在工作区按论文、实验、当前文件名查找，在归档历史按 Revision/文件名/归档位置查找。搜索输入约 300ms 后执行、后台查询、有界 LIMIT、取消过时结果；`%/_` 作为普通文字，数据库 ID 不在 UI 显示。
+- **文件浏览一致性：** 新增 `ListE5CurrentExperimentFiles`，日常只显示同实验当前 E1 根目录映射的有效文件及未归组附件，不显示已经被新文件替代的旧 Asset；历史 SHA/版本仍可在冻结 Revision 中检索。旧根目录尚未核实的实验仍用 D2 已有成员兜底，不猜测加工关系。
+- **归档库：** 同窗口可选择归档论文和 Revision，并按历史 Manifest v3 阅读 Figure→Panel A/B/C→实验→样本→全部阶段文件；schema 1/2 资源仍只按自身快照显示，绝不从当前 E2 绑定补造历史。
+- **性能与可访问性基础：** WPF 实验/样本/文件列表启用 Recycling Virtualization；图片和完整 Figure 预览使用后台解码与冻结 Bitmap，切换选项取消旧任务；实验列表缓存并在导入后失效；搜索同时支持双击和 Enter 跳转。
+- **测试：** Workspace SmokeTests 增加实验/论文/当前文件名检索、SQL 通配符转义、当前 SHOW 版本隔离、未归组 TXT 文件保持可见、旧实验成员兜底、归档 Revision 1/2 同名文件与不同 SHA 可查询、查询不改变任何历史 Manifest。
+- **Windows CI：** [WPF Desktop run 43394558240](https://github.com/Devil-Jian/data-m/actions/runs/43394558240) **成功**（包含 E5 三入口、全局检索、新回归、文件列表；后续仅进一步优化完整 Figure 的后台预览和关闭窗口取消工作）。Core、旧版兼容、Workspace SmokeTests、E0/E1/E2 CLI、WPF 编译、win-x64 发布与打包成功。最新性能收尾提交的构建单独核对。
+- **本机验收清单：** [E5 专项开发与人工验收文档](./2026-11-13-v16e-e5-unified-navigation-search-acceptance.md) 列出真实拖放、图像预览/打开、Revision 1/2 历史隔离、1366×768/1920×1080 与 125%/150% 缩放及大规模文件浏览测试。未在本轮访问用户 Windows 桌面，不能把 CI 成功等同于人机交互验收。
+- **发布边界：** 本阶段交付新窗口的三入口统一导航与 E5 数据/交互优化；**未删除旧 UI，未强制自动迁移旧库**。在真实旧数据的迁移冲突和鼠标交互通过验收前，不宣称已有完整生产环境发布验证。
