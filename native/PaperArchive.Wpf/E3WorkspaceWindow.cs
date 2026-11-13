@@ -419,26 +419,25 @@ public sealed partial class E3WorkspaceWindow : Window
         box.Focus();
         return dialog.ShowDialog()==true?box.Text.Trim():null;
     }
-    private void PreviewFigureImage()
+    private async void PreviewFigureImage()
     {
         if(_figure is null)return;
         var current=_repo.ListFigureShowData(_figure.Id)
             .FirstOrDefault(x=>x.IsCurrent);
         if(current is null)return;
         _status.Text="完整 Figure · "+current.FileName;
+        _e5PreviewCancel?.Cancel();
+        var cancellation=new CancellationTokenSource();
+        _e5PreviewCancel=cancellation;
         try
         {
-            if(current.Sha256.Length!=64 || !current.Sha256.All(Uri.IsHexDigit))return;
-            var blob=Path.Combine(_repo.Root,"blobs","sha256",
-                current.Sha256[..2],current.Sha256);
-            using var stream=File.OpenRead(blob);
-            var image=new BitmapImage();
-            image.BeginInit();image.CacheOption=BitmapCacheOption.OnLoad;
-            image.DecodePixelWidth=780;image.StreamSource=stream;
-            image.EndInit();image.Freeze();
-            _preview.Source=image;
+            var image=await LoadE5BitmapAsync(current.Sha256,cancellation.Token);
+            if(!cancellation.IsCancellationRequested)_preview.Source=image;
         }
-        catch { /* Existing unsupported images remain available in the archive. */ }
+        catch(OperationCanceledException) { }
+        catch(IOException) { _status.Text="完整 Figure 的原始副本缺失。"; }
+        catch(NotSupportedException) { _status.Text="此 Figure 格式暂不支持预览。"; }
+        catch(System.IO.FileFormatException) { _status.Text="此 Figure 图片无法解码。"; }
     }
     private void ImportComposite()
     {
