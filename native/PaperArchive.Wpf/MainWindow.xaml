@@ -35,6 +35,11 @@
         <Border Grid.Row="1" Background="White" BorderBrush="{StaticResource BorderBrushSoft}"
                 BorderThickness="0,0,0,1">
             <DockPanel Margin="13,4" LastChildFill="False">
+                <Button DockPanel.Dock="Left" Content="论文工作台" FontWeight="SemiBold"
+                        Padding="15,5" Margin="0,0,10,0" MinWidth="112"
+                        Background="#FFE7EFFB" BorderBrush="#FFB9CDE8"
+                        ToolTip="新 Figure 卡片工作台：实验文件夹自动索引，拖入 A/B/C 子图"
+                        Click="E3Launch_Click"/>
                 <StackPanel x:Name="WorkflowMenus" DockPanel.Dock="Left" Orientation="Horizontal">
                     <Menu Background="Transparent" BorderThickness="0" VerticalAlignment="Center">
                         <MenuItem Header="新建 ▾" Padding="14,5">
