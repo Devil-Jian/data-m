@@ -92,6 +92,8 @@ public sealed class E3WorkspaceWindow : Window
         var commands=new WrapPanel{Margin=new Thickness(0,5,0,12)};
         commands.Children.Add(Action("＋ Figure",(_,_)=>CreateFigure()));
         commands.Children.Add(Action("＋ 子图",(_,_)=>CreatePanel()));
+        commands.Children.Add(Action("导入完整 Figure",(_,_)=>ImportComposite()));
+        commands.Children.Add(Action("解除子图实验",(_,_)=>UnlinkPanel()));
         commands.Children.Add(Action("导入实验文件夹",async (_,_)=>await ImportFolder()));
         figBar.Children.Add(commands);
         _figures.DisplayMemberPath="Number";
@@ -300,9 +302,11 @@ public sealed class E3WorkspaceWindow : Window
         _samples.ItemsSource=null;_files.ItemsSource=null;_preview.Source=null;
         if(_experiment is null)
         {
-            _selection.Text=_panel is null?"选择实验或子图":
+            _selection.Text=_panel is null?"Figure 成图":
                 "Panel "+_panel.Label+" · 未关联";
-            _status.Text="选择实验后双击，或直接拖入对应子图。";
+            _status.Text=_panel is null?"选择子图或实验。也可以导入完整 Figure 成图。":
+                "选择实验后双击，或直接拖入对应子图。";
+            PreviewFigureImage();
             return;
         }
         var isBound=_panel is not null&&
@@ -409,6 +413,57 @@ public sealed class E3WorkspaceWindow : Window
         box.Focus();
         return dialog.ShowDialog()==true?box.Text.Trim():null;
     }
+    private void PreviewFigureImage()
+    {
+        if(_figure is null)return;
+        var current=_repo.ListFigureShowData(_figure.Id)
+            .FirstOrDefault(x=>x.IsCurrent);
+        if(current is null)return;
+        _status.Text="完整 Figure · "+current.FileName;
+        try
+        {
+            if(current.Sha256.Length!=64 || !current.Sha256.All(Uri.IsHexDigit))return;
+            var blob=Path.Combine(_repo.Root,"blobs","sha256",
+                current.Sha256[..2],current.Sha256);
+            using var stream=File.OpenRead(blob);
+            var image=new BitmapImage();
+            image.BeginInit();image.CacheOption=BitmapCacheOption.OnLoad;
+            image.DecodePixelWidth=780;image.StreamSource=stream;
+            image.EndInit();image.Freeze();
+            _preview.Source=image;
+        }
+        catch { /* Existing unsupported images remain available in the archive. */ }
+    }
+    private void ImportComposite()
+    {
+        if(_figure is null){MessageBox.Show(this,"请先选择 Figure。");return;}
+        var dialog=new Microsoft.Win32.OpenFileDialog{
+            Title="导入完整 Figure "+_figure.Number,
+            Filter="科研图片|*.tif;*.tiff;*.png;*.jpg;*.jpeg;*.bmp;*.webp",
+            Multiselect=false};
+        if(dialog.ShowDialog(this)!=true)return;
+        try
+        {
+            _repo.ImportFigureComposite(_figure.Id,dialog.FileName);
+            _experiment=null;_panel=null;
+            LoadCards();ShowDetails();
+        }
+        catch(Exception ex){MessageBox.Show(this,ex.Message,"导入完整 Figure 失败");}
+    }
+    private void UnlinkPanel()
+    {
+        if(_panel is null||_repo.GetPanelExperiment(_panel.Id) is null)return;
+        if(MessageBox.Show(this,"解除子图与实验的关联？实验文件不会删除。",
+            "解除实验关联",MessageBoxButton.YesNo,MessageBoxImage.Question)
+            !=MessageBoxResult.Yes)return;
+        try
+        {
+            _repo.UnlinkPanelExperiment(_panel.Id);
+            _experiment=null;LoadCards();ShowDetails();
+        }
+        catch(Exception ex){MessageBox.Show(this,ex.Message,"解除失败");}
+    }
+
     private void CreatePaper()
     {
         var name=AskName(this,"新建论文");
