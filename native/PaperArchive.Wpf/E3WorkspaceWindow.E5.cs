@@ -240,9 +240,10 @@ public sealed partial class E3WorkspaceWindow
     private void ActivateE5SearchResult()
     {
         if(_e5Results.SelectedItem is not E5SearchRow selected)return;
-        _e5GlobalSearch.TextChanged-=E5SearchTextChangedNoOp;
         _e5SearchTimer.Stop();
+        _e5SearchCancel?.Cancel();
         _e5GlobalSearch.Clear();
+        _e5SearchTimer.Stop();
         if(selected.Kind=="archive")
         {
             SwitchE5Mode("archive");
@@ -271,9 +272,6 @@ public sealed partial class E3WorkspaceWindow
                     .FirstOrDefault(x=>x.Name==selected.Title);
         }
     }
-
-    // Keeping an explicit empty handler out of the observable navigation path.
-    private void E5SearchTextChangedNoOp(object sender,TextChangedEventArgs e) { }
 
     private Grid BuildE5ArchivePane()
     {
@@ -473,7 +471,7 @@ public sealed partial class E3WorkspaceWindow
         catch(OperationCanceledException) { }
         catch(IOException) { _e5ArchiveInfo.Text+=" · 原始副本缺失"; }
         catch(NotSupportedException) { _e5ArchiveInfo.Text+=" · 图片格式暂不支持预览"; }
-        catch(System.Windows.Media.Imaging.FileFormatException) {
+        catch(System.IO.FileFormatException) {
             _e5ArchiveInfo.Text+=" · 无法解码";
         }
     }
