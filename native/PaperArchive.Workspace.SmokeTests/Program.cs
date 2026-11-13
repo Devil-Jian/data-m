@@ -832,6 +832,11 @@ try
         "E1 incremental reimport records only newly added source files");
     var sampleAfterBatch=repo.ListSampleUnits(projectId:project)
         .Single(x=>x.ExperimentName=="ROS检测"&&x.SampleName=="ROS01");
+    Console.WriteLine("E1 D2 NEW: "+string.Join(",",repo.ListAssets(secondExperimentBatch.ResultId)
+        .Select(x=>x.FileName+":"+x.Stage+":"+
+            (repo.GetAssetSystemTags(x.Id)?.ParseStatus??"NO_TAG")+":"+
+            (repo.GetAssetSystemTags(x.Id)?.SampleName??"NO_SAMPLE")+":"+
+            (repo.GetAssetSystemTags(x.Id)?.ExperimentName??"NO_EXP"))));
     Console.WriteLine("E1 D2 COUNTS: initial="+rosUnit.Id+" after="+sampleAfterBatch.Id+
         " raw="+sampleAfterBatch.RawCount+" process="+sampleAfterBatch.ProcessCount+
         " show="+sampleAfterBatch.ShowCount+
