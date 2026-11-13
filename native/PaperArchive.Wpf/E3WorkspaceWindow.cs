@@ -118,6 +118,19 @@ public sealed class E3WorkspaceWindow : Window
         DockPanel.SetDock(experimentsHeader,Dock.Top);
         experimentsPane.Children.Add(experimentsHeader);
         _experiments.DisplayMemberPath="ExperimentName";
+        _experiments.AllowDrop=true;
+        _experiments.DragOver+=(_,e)=>{
+            if(e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                e.Effects=DragDropEffects.Copy;e.Handled=true;
+            }
+        };
+        _experiments.Drop+=async (_,e)=>{
+            if(e.Data.GetData(DataFormats.FileDrop) is string[] paths &&
+                paths.Length==1&&Directory.Exists(paths[0]))
+                await ImportFolder(paths[0]);
+            e.Handled=true;
+        };
         _experiments.BorderThickness=new Thickness(0);
         _experiments.SelectionChanged+=(_,_)=>SelectExperiment();
         _experiments.PreviewMouseLeftButtonDown+=(_,e)=>_dragStart=e.GetPosition(_experiments);
@@ -487,24 +500,28 @@ public sealed class E3WorkspaceWindow : Window
         }
         catch(Exception ex){MessageBox.Show(this,ex.Message,"无法创建子图");}
     }
-    private async Task ImportFolder()
+    private async Task ImportFolder(string? selectedPath=null)
     {
         if(_paper is null){MessageBox.Show(this,"请先选择或新建论文。");return;}
-        var dialog=new Microsoft.Win32.OpenFolderDialog{
-            Title="选择实验根文件夹",Multiselect=false};
-        if(dialog.ShowDialog(this)!=true)return;
-        var name=Path.GetFileName(Path.TrimEndingDirectorySeparator(dialog.FolderName));
+        if(selectedPath is null)
+        {
+            var dialog=new Microsoft.Win32.OpenFolderDialog{
+                Title="选择实验根文件夹",Multiselect=false};
+            if(dialog.ShowDialog(this)!=true)return;
+            selectedPath=dialog.FolderName;
+        }
+        var name=Path.GetFileName(Path.TrimEndingDirectorySeparator(selectedPath));
         try
         {
             IsEnabled=false;
             var paperId=_paper.Id;
             var project=_repo.ListProjectsForPaper(paperId).FirstOrDefault();
             var projectId=project?.Id??_repo.CreateProjectForPaper(paperId,"实验资料");
-            await Task.Run(()=>_repo.ImportResult(projectId,dialog.FolderName));
+            await Task.Run(()=>_repo.ImportResult(projectId,selectedPath));
             LoadExperiments();
             var matched=AllExperiments().FirstOrDefault(x=>
                 x.RootPath.Equals(Path.TrimEndingDirectorySeparator(
-                    Path.GetFullPath(dialog.FolderName)).Replace('\\','/'),
+                    Path.GetFullPath(selectedPath)).Replace('\\','/'),
                     StringComparison.OrdinalIgnoreCase));
             _experiment=matched;
             if(matched is not null)_experiments.SelectedItem=
