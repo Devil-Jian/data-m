@@ -212,13 +212,15 @@ public sealed partial class E3WorkspaceWindow
         SwitchE5Mode("search");
         try
         {
+            _e5Archive??=ArchiveRepository.Open(_repo.Root);
+            var archiveRepository=_e5Archive;
             var rows=await Task.Run(()=>
             {
                 cancellation.Token.ThrowIfCancellationRequested();
                 var workspace=_repo.SearchE5Workspace(query,70)
                     .Select(x=>new E5SearchRow(x.Kind,x.Title,x.Context,
                         x.TargetId,x.ExperimentId));
-                var archive=ArchiveRepository.Open(_repo.Root)
+                var archive=archiveRepository
                     .SearchE5Archives(query,70)
                     .Select(x=>new E5SearchRow("archive",x.FileName,
                         x.PaperName+" / Revision "+x.Revision+" / "+x.Location,
@@ -263,6 +265,9 @@ public sealed partial class E3WorkspaceWindow
             return;
         }
         SwitchE5Mode("experiments");
+        // Search may have left a local library-name filter active; clear it
+        // before navigating to a file from an unrelated experiment.
+        if(!string.IsNullOrEmpty(_search.Text))_search.Clear();
         if(selected.ExperimentId is not null)
         {
             _experiments.SelectedItem=_experiments.Items.Cast<E1FolderIdentity>()
