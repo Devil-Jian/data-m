@@ -33,6 +33,7 @@ public sealed partial class E3WorkspaceWindow
             async (_,_)=>await ImportE6ResearchFolder()));
         actions.Children.Add(Action("导入单个实验",
             async (_,_)=>await ImportFolder()));
+        actions.Children.Add(Action("重命名研究项目",(_,_)=>RenameE6SelectedResearch()));
         header.Children.Add(actions);
         _e6LibraryHint.Text="按研究项目分组；可导入完整研究文件夹，也可单独导入实验。";
         header.Children.Add(_e6LibraryHint);
@@ -110,6 +111,30 @@ public sealed partial class E3WorkspaceWindow
         _files.ItemsSource=_repo.ListE6ResearchAttachments(research.Id)
             .Select(file=>new FileItem(file.RelativePath,"研究资料",null,
                 file.Sha256,file.RelativePath)).ToArray();
+    }
+
+    private void RenameE6SelectedResearch()
+    {
+        if(_researchSelector.SelectedItem is not E6ResearchProject selected)
+        {
+            MessageBox.Show(this,"请先在“研究项目文件 / 说明资料”中选择研究项目。");
+            return;
+        }
+        var name=AskName(this,"重命名研究项目："+selected.Name);
+        if(string.IsNullOrWhiteSpace(name))return;
+        try
+        {
+            _repo.RenameE6ResearchProject(selected.Id,name);
+            _e5ExperimentCache=null;
+            RefreshE6Projects();
+            _researchSelector.SelectedItem=_researchSelector.Items
+                .Cast<E6ResearchProject>().FirstOrDefault(x=>x.Id==selected.Id);
+            LoadExperiments();LoadCards();
+        }
+        catch(Exception error)
+        {
+            MessageBox.Show(this,error.Message,"无法重命名研究项目");
+        }
     }
 
     private async Task ImportE6ResearchFolder(string? path=null)
