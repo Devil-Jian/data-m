@@ -71,6 +71,7 @@ public sealed partial class ExperimentWorkspace
         workspace.InitializeE1FolderIndex();
         workspace.InitializeE1LegacyMigration();
         workspace.InitializeE2PanelExperiments();
+        workspace.InitializeE6ResearchProjects();
         return workspace;
     }
 
