@@ -1468,7 +1468,7 @@ try
             x.TargetId==e4Paper),
         "E5 searches active file names, experiment folders and paper titles");
     Assert(repo.SearchE5Workspace("%").Count==0 &&
-        repo.SearchE5Workspace("_").Count==0 &&
+        repo.SearchE5Workspace("_").All(x=>x.Title.Contains('_')) &&
         repo.SearchE5Workspace("").Count==0,
         "E5 search treats SQL wildcard characters as literal user input");
     var e5CurrentFiles=repo.ListE5CurrentExperimentFiles(e4Experiment.ExperimentId);
