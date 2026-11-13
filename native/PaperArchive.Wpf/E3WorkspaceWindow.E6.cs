@@ -125,7 +125,15 @@ public sealed partial class E3WorkspaceWindow
             path=dialog.FolderName;
         }
         E6ResearchImportPreview plan;
-        try{plan=await Task.Run(()=>_repo.PreviewE6ResearchImport(path));}
+        IReadOnlyList<E6VerifiedMove> verifiedMoves;
+        try
+        {
+            (plan,verifiedMoves)=await Task.Run(()=>{
+                var preview=_repo.PreviewE6ResearchImport(path);
+                var moves=_repo.PreviewE6VerifiedMoves(path);
+                return (preview,moves);
+            });
+        }
         catch(Exception error)
         {
             MessageBox.Show(this,error.Message,"研究目录无法导入",
@@ -138,6 +146,10 @@ public sealed partial class E3WorkspaceWindow
                 .Select(name=>"· "+name))+
             (plan.ExperimentFolders.Count>12?"\n…":"")+
             "\n研究项目级附件："+plan.ResearchFiles.Count+" 份"+
+            (verifiedMoves.Count>0?
+                "\n识别到 "+verifiedMoves.Count+" 个已移动的旧实验（路径与 SHA-256 已核对）：\n"+
+                string.Join("\n",verifiedMoves.Select(x=>"· "+x.ExperimentName+
+                    "（保留原实验 ID）")):"")+
             "\n\n确认导入并建立关联索引？";
         if(MessageBox.Show(this,summary,"导入研究项目",
             MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)
@@ -145,7 +157,8 @@ public sealed partial class E3WorkspaceWindow
         try
         {
             IsEnabled=false;
-            var result=await Task.Run(()=>_repo.ImportE6ResearchProject(path));
+            var result=await Task.Run(()=>_repo.ImportE6ResearchProject(
+                path,preserveVerifiedMovedIds:true));
             _e5ExperimentCache=null;
             RefreshE6Projects();
             LoadExperiments();
