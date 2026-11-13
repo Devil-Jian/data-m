@@ -11,6 +11,7 @@ static void Usage()
         preview <warehouse> <projectId>
         apply <warehouse> <projectId> <previewFingerprint> <backupDirectory>
         undo <warehouse> <migrationSessionId>
+        relink <warehouse> <folderRootId> <newFolderPath>
         report <warehouse> [projectId]
         """);
 }
@@ -87,6 +88,12 @@ try
     {
         Output(new{Undone=ExperimentWorkspace.Open(root)
             .UndoE1LegacyMigration(args[2])});
+        return 0;
+    }
+    if(command=="relink"&&args.Length==4)
+    {
+        ExperimentWorkspace.Open(root).RelinkE1FolderRoot(args[2],args[3]);
+        Output(new {Relinked=true,RootId=args[2]});
         return 0;
     }
     Usage();return 2;
