@@ -10,6 +10,9 @@ public sealed record E2PanelExperimentLink(
     string FigureId,int FigureNumber,string PanelLabel);
 public sealed record E2PanelExperimentChange(
     string? ChangeId,string PanelId,string? BeforeExperimentId,string? AfterExperimentId);
+public sealed record E2PanelExperimentFile(
+    string AssetId,string FileName,string Stage,string? SampleName,
+    string RelativePath,string Sha256);
 public sealed record E2MigrationCandidate(
     string PanelId,string FigureId,int FigureNumber,string PanelLabel,
     string? ExperimentId,string? ExperimentName,string Decision);
@@ -303,6 +306,56 @@ public sealed partial class ExperimentWorkspace
         using var rd=cmd.ExecuteReader();
         while(rd.Read())result.Add(new(rd.GetString(0),rd.GetString(1),
             rd.GetString(2),rd.GetString(3),rd.GetInt32(4),rd.GetString(5)));
+        return result;
+    }
+
+    /// <summary>
+    /// All current index-visible files are discoverable from the Panel's
+    /// one experiment: sample members plus experiment-level other files.
+    /// We preserve distinct Asset IDs and never infer processing order.
+    /// </summary>
+    public IReadOnlyList<E2PanelExperimentFile> ListPanelExperimentFiles(string panelId)
+    {
+        using var db=Connect();
+        using var cmd=db.CreateCommand();
+        cmd.CommandText="""
+            WITH visible_assets(asset_id) AS (
+                SELECT m.asset_id
+                FROM e2_panel_experiment_links link
+                JOIN sample_units s ON s.experiment_id=link.experiment_id
+                JOIN sample_unit_assets m ON m.sample_unit_id=s.id
+                WHERE link.panel_id=$panel
+                UNION
+                SELECT current.asset_id
+                FROM e2_panel_experiment_links link
+                JOIN e1_experiment_roots roots ON roots.experiment_id=link.experiment_id
+                JOIN e1_root_current_assets current ON current.root_id=roots.id
+                WHERE link.panel_id=$panel
+            )
+            SELECT a.id,a.filename,COALESCE(t.stage,a.stage),s.sample_name,
+                   a.relative_path,a.sha256
+            FROM visible_assets v
+            JOIN experiment_assets a ON a.id=v.asset_id AND a.is_deleted=0
+            JOIN experiment_results r ON r.id=a.result_id AND r.is_deleted=0
+            LEFT JOIN asset_system_tags t ON t.asset_id=a.id
+            LEFT JOIN sample_unit_assets m ON m.asset_id=a.id
+            LEFT JOIN sample_units s ON s.id=m.sample_unit_id
+            WHERE r.project_id=(
+                SELECT e.project_id FROM e2_panel_experiment_links link
+                JOIN experiment_units e ON e.id=link.experiment_id
+                WHERE link.panel_id=$panel)
+            ORDER BY COALESCE(s.sample_name,'') COLLATE NOCASE,
+                CASE COALESCE(t.stage,a.stage)
+                  WHEN 'show' THEN 0 WHEN 'raw' THEN 1 WHEN 'process' THEN 2
+                  WHEN 'quant' THEN 3 ELSE 4 END,
+                a.filename COLLATE NOCASE,a.id
+            """;
+        cmd.Parameters.AddWithValue("$panel",panelId);
+        var result=new List<E2PanelExperimentFile>();
+        using var rd=cmd.ExecuteReader();
+        while(rd.Read())result.Add(new(rd.GetString(0),rd.GetString(1),
+            rd.GetString(2),rd.IsDBNull(3)?null:rd.GetString(3),
+            rd.GetString(4),rd.GetString(5)));
         return result;
     }
 
