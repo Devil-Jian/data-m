@@ -131,6 +131,25 @@ public sealed partial class ExperimentWorkspace
         return dict;
     }
 
+    private static string? FindE1HistoricalAsset(SqliteConnection db,
+        SqliteTransaction tx,string rootId,string relative,string sha)
+    {
+        using var cmd=db.CreateCommand();
+        cmd.Transaction=tx;
+        cmd.CommandText="""
+            SELECT a.id FROM e1_root_result_batches b
+            JOIN experiment_assets a ON a.result_id=b.result_id
+            JOIN experiment_results r ON r.id=a.result_id AND r.is_deleted=0
+            WHERE b.root_id=$root AND a.relative_path=$path
+              AND a.sha256=$sha AND a.is_deleted=0
+            ORDER BY a.imported_at DESC,a.id DESC LIMIT 1
+            """;
+        cmd.Parameters.AddWithValue("$root",rootId);
+        cmd.Parameters.AddWithValue("$path",relative);
+        cmd.Parameters.AddWithValue("$sha",sha);
+        return cmd.ExecuteScalar() as string;
+    }
+
     private static void SaveE1Current(SqliteConnection db,SqliteTransaction tx,
         string rootId,string relative,string assetId,string sha)
     {
