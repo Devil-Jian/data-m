@@ -355,8 +355,24 @@ public sealed partial class ExperimentWorkspace
         // file has changed. Reimports only add changed/new source paths.
         var changed=prepared.Where(x=>!previous.TryGetValue(x.Relative,out var prior)
             || !prior.Sha.Equals(x.Sha,StringComparison.OrdinalIgnoreCase)).ToArray();
-        if(changed.Length==0 && prepared.Count==previous.Count)
+        if(changed.Length==0)
         {
+            // Only remove paths actually missing from the new scan. Keep
+            // unchanged source-to-Asset mappings stable across deletions.
+            var activePaths=new HashSet<string>(
+                prepared.Select(x=>x.Relative),StringComparer.OrdinalIgnoreCase);
+            foreach(var missing in previous.Keys.Where(x=>!activePaths.Contains(x)))
+            {
+                using var clean=db.CreateCommand();
+                clean.Transaction=tx;
+                clean.CommandText="""
+                    DELETE FROM e1_root_current_assets
+                    WHERE root_id=$root AND relative_path=$path
+                    """;
+                clean.Parameters.AddWithValue("$root",e1RootId);
+                clean.Parameters.AddWithValue("$path",missing);
+                clean.ExecuteNonQuery();
+            }
             using var previousResult=db.CreateCommand();
             previousResult.Transaction=tx;
             previousResult.CommandText="""
@@ -365,24 +381,11 @@ public sealed partial class ExperimentWorkspace
                 WHERE b.root_id=$root ORDER BY r.imported_at DESC,b.result_id DESC LIMIT 1
                 """;
             previousResult.Parameters.AddWithValue("$root",e1RootId);
-            var currentResult=previousResult.ExecuteScalar() as string;
-            if(currentResult is not null)
+            if(previousResult.ExecuteScalar() is string stableResult)
             {
                 tx.Commit();
-                return new(currentResult,0,0);
+                return new(stableResult,0,0);
             }
-        }
-        if(changed.Length==0)
-        {
-            // A deleted source path is removed only from the active folder
-            // index. Historical immutable assets and snapshots are retained.
-            using var clean=db.CreateCommand();
-            clean.Transaction=tx;
-            clean.CommandText="DELETE FROM e1_root_current_assets WHERE root_id=$root";
-            clean.Parameters.AddWithValue("$root",e1RootId);
-            clean.ExecuteNonQuery();
-            tx.Commit();
-            return new(resultId,0,0);
         }
         using (var insert=db.CreateCommand())
         {
