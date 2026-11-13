@@ -213,7 +213,7 @@ public sealed class E3WorkspaceWindow : Window
     private void SelectFigure()
     {
         _figure=_figures.SelectedItem as FigureTemplate;
-        _panel=null;LoadCards();ShowDetails();
+        _panel=null;_experiment=null;LoadCards();ShowDetails();
     }
 
     private void LoadCards()
