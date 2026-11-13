@@ -1203,6 +1203,21 @@ try
         "changing one folder file creates one new immutable version without mixing experiments");
     Assert(repo.ListAssets(rootBatchB.ResultId).Count==2,
         "different physical experiment retains independent original source assets");
+    var versionAssets=repo.ListE1FolderAssets(firstRoot.Id).Select(x=>x.AssetId)
+        .OrderBy(x=>x,StringComparer.Ordinal).ToArray();
+    foreach(var file in Directory.GetFiles(relocated))File.Delete(file);
+    var emptyRescan=repo.ImportResult(rootsProject,relocated);
+    Assert(emptyRescan.FileCount==0 &&
+        repo.ListE1FolderAssets(firstRoot.Id).Count==0 &&
+        repo.ListAssets(rootBatchA.ResultId).Count==2,
+        "empty source rescan only clears current folder map, preserving archived assets");
+    File.WriteAllBytes(Path.Combine(relocated,"R01_raw.tif"),[81]);
+    File.WriteAllBytes(Path.Combine(relocated,"R01_show.png"),[85]);
+    var recovered=repo.ImportResult(rootsProject,relocated);
+    Assert(recovered.FileCount==0 &&
+        repo.ListE1FolderAssets(firstRoot.Id).Select(x=>x.AssetId)
+            .OrderBy(x=>x,StringComparer.Ordinal).SequenceEqual(versionAssets),
+        "recreating a fully emptied folder restores exact historical Asset identities");
     Console.WriteLine("PASS: V1.6-E1 physical root isolation, relink, removed/restored assets and versions.");
     // E0 is strictly read-only: it audits the legacy Panel/Sample/SHOW
     // graph without applying the future Panel↔Experiment unique constraints.
