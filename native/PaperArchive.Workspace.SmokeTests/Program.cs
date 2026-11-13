@@ -1290,6 +1290,89 @@ try
     repo.ImportResult(e0Project,e0Extra);
     Assert(repo.PreviewE0Migration().BaselineFingerprint!=baselineBeforeNewImport,
         "E0 fingerprint detects changes in live indexed assets");
+    // E2: strictly one experiment per Panel, and one Panel per experiment.
+    // Existing D3 provenance and archived manifests remain untouched.
+    var e2Preview=repo.PreviewE2LegacyMigration();
+    Assert(e2Preview.Fingerprint==repo.PreviewE2LegacyMigration().Fingerprint &&
+        e2Preview.Candidates.Single(x=>x.PanelId==e0Panels3[0].Id).Decision=="ready" &&
+        e2Preview.Candidates.Single(x=>x.PanelId==e0Panels2[1].Id)
+            .Decision=="experiment_reused",
+        "E2 migration preview is stable and never auto-selects ambiguous D3 links");
+    var e2BackupDir=Path.Combine(Path.GetTempPath(),
+        "paperarchive-e2-migration-"+Guid.NewGuid().ToString("N"));
+    var rejectedE2Stale=false;
+    try{repo.ApplyE2LegacyMigration("stale-fingerprint",e2BackupDir);}
+    catch(InvalidOperationException){rejectedE2Stale=true;}
+    Assert(rejectedE2Stale &&
+        repo.GetPanelExperiment(e0Panels3[0].Id) is null,
+        "E2 migration rejects stale previews without writing any 1:1 link");
+    var e2Applied=repo.ApplyE2LegacyMigration(e2Preview.Fingerprint,e2BackupDir);
+    Assert(e2Applied.LinkedCount>0 && File.Exists(e2Applied.BackupPath) &&
+        repo.GetPanelExperiment(e0Panels3[0].Id)?.ExperimentId==e0UnitC.ExperimentId &&
+        repo.GetPanelExperiment(e0Panels2[1].Id) is null &&
+        repo.ListFigurePanelExperiments(e0Figures[2].Id).Count==1,
+        "E2 applies only root-verified 1:1 legacy mappings and retains ambiguous Panel unlinked");
+    Assert(repo.ListPanelExperimentFiles(e0Panels3[0].Id)
+            .Any(x=>x.FileName=="E0C01_show.png" && x.Stage=="show" &&
+                x.SampleName=="E0C01") &&
+        repo.PreviewE2LegacyMigration().Candidates
+            .Single(x=>x.PanelId==e0Panels3[0].Id).Decision=="already_linked",
+        "E2 lets Figure Panel navigate directly to experiment sample/SHOW assets");
+    var e2ArchivedFingerprint=repo.PreviewE0Migration().Archive.Fingerprint;
+    Assert(repo.UndoE2LegacyMigration(e2Applied.SessionId) &&
+        repo.GetPanelExperiment(e0Panels3[0].Id) is null &&
+        !repo.UndoE2LegacyMigration(e2Applied.SessionId),
+        "E2 batch migration undo restores unmapped Panel state without removing old D3 links");
+    Assert(repo.ListPanelSampleUses(e0Panels2[1].Id).Count==2 &&
+        repo.PreviewE0Migration().Archive.Fingerprint==e2ArchivedFingerprint,
+        "E2 migration/undo never edits D3 source relationships or archived Revision manifests");
+
+    var e2Initial=repo.LinkPanelExperiment(e0Panels3[0].Id,e0UnitC.ExperimentId);
+    Assert(e2Initial.ChangeId is not null &&
+        repo.LinkPanelExperiment(e0Panels3[0].Id,e0UnitC.ExperimentId).ChangeId is null,
+        "E2 repeated bind to same Panel and Experiment is idempotent");
+    var duplicateE2Rejected=false;
+    try{repo.LinkPanelExperiment(e0Panels3[1].Id,e0UnitC.ExperimentId);}
+    catch(InvalidOperationException){duplicateE2Rejected=true;}
+    Assert(duplicateE2Rejected && repo.GetPanelExperiment(e0Panels3[1].Id) is null,
+        "E2 refuses a second Panel to reuse the same Experiment");
+    var e0DUnit=repo.ListSampleUnits(projectId:e0Project)
+        .Single(x=>x.SampleName=="E0D01");
+    var e2Another=repo.LinkPanelExperiment(e0Panels3[1].Id,e0DUnit.ExperimentId);
+    var replacementRequired=false;
+    try{repo.LinkPanelExperiment(e0Panels3[1].Id,e0UnitB.ExperimentId);}
+    catch(InvalidOperationException){replacementRequired=true;}
+    Assert(replacementRequired &&
+        repo.GetPanelExperiment(e0Panels3[1].Id)?.ExperimentId==e0DUnit.ExperimentId,
+        "E2 refuses implicit overwrite of Panel's existing experiment");
+    var replaced=repo.LinkPanelExperiment(e0Panels3[1].Id,e0UnitB.ExperimentId,
+        replace:true);
+    Assert(replaced.BeforeExperimentId==e0DUnit.ExperimentId &&
+        repo.GetPanelExperiment(e0Panels3[1].Id)?.ExperimentId==e0UnitB.ExperimentId,
+        "E2 explicit replacement updates only current Panel–Experiment binding");
+    Assert(repo.UndoPanelExperimentChange(replaced.ChangeId!) &&
+        repo.GetPanelExperiment(e0Panels3[1].Id)?.ExperimentId==e0DUnit.ExperimentId,
+        "E2 undo restores prior experiment after explicit replacement");
+    var staleUndoBlocked=false;
+    try{repo.UndoPanelExperimentChange(e2Another.ChangeId!);}
+    catch(InvalidOperationException){staleUndoBlocked=true;}
+    Assert(staleUndoBlocked,
+        "E2 older undo cannot overwrite subsequent link history even when replacement was undone");
+    var removedE2=repo.UnlinkPanelExperiment(e0Panels3[1].Id);
+    Assert(removedE2.AfterExperimentId is null &&
+        repo.GetPanelExperiment(e0Panels3[1].Id) is null &&
+        repo.ListPanelExperimentFiles(e0Panels3[1].Id).Count==0,
+        "E2 unlink removes only current Panel relation and files view");
+    Assert(repo.UndoPanelExperimentChange(removedE2.ChangeId!) &&
+        repo.GetPanelExperiment(e0Panels3[1].Id)?.ExperimentId==e0DUnit.ExperimentId &&
+        repo.UnlinkPanelExperiment(e0Panels1[0].Id).ChangeId is null,
+        "E2 can undo latest unlink and treats empty Panel unbind as no-op");
+    Assert(repo.ListAssets(e0ImportedA.ResultId).Count==2 &&
+        repo.ListAssets(e0ImportedB.ResultId).Count==2 &&
+        repo.PreviewE0Migration().Archive.Fingerprint==e2ArchivedFingerprint,
+        "E2 binding changes preserve original assets and historical revision checksums");
+    Directory.Delete(e2BackupDir,recursive:true);
+    Console.WriteLine("PASS: V1.6-E2 strict 1:1 Panel/Experiment, guarded migration and reversible operations.");
     Console.WriteLine("PASS: V1.6-E0 readonly baseline, legacy mapping and conflict preview.");
     Console.WriteLine("PASS: V1.6 sample display deduplication, stable scope and SHA variants.");
     Console.WriteLine("PASS: V1.6-D3/D4 sample-to-Panel SHOW choice and immutable archive usage.");
