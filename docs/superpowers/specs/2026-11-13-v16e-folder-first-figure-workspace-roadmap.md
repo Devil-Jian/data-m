@@ -274,6 +274,6 @@ Panel 卡片不露出 Asset ID、SHOW 选用、RAW/PROCESS 关系表或“待核
 - **导入与预览：** 按钮选取 Windows 实验文件夹或直接拖入实验资料库；沿用 E1 文件名自动索引。支持导入与预览完整 Figure 图片。样本文件单击预览，双击系统默认应用打开临时副本；原始资产和 Blob 不改写。
 - **原程序兼容：** `MainWindow.xaml` 顶栏新增「论文工作台」，`MainWindow.E3.cs` 打开独立工作台并在关闭后刷新旧工作区树；旧 D3 和 D4 工作流未删除，归档数据库与历史 Revision 未改。
 - **技术验证：** Windows WPF Desktop 工作流在新代码上完成 Core、旧版兼容、Workspace SmokeTests、E0/E1/E2 CLI、WPF 编译、win-x64 便携版打包。通过的运行记录见下方链接；必须区分 WPF 编译成功与手工拖放体验已通过。
-- **Windows CI：** [WPF Desktop run 43386926548](https://github.com/Devil-Jian/data-m/actions/runs/43386926548) **成功**（包含文件夹拖入与预览功能代码）；后续仅修正切换 Figure 时的选中状态，最新完整流水线仍需核对。
+- **Windows CI：** [WPF Desktop run 43387018254](https://github.com/Devil-Jian/data-m/actions/runs/43387018254) **成功**（代码版本 `dd8c2ecd`，覆盖文件夹拖入、文件预览与切换 Figure 选中状态修复），Core、旧版兼容、Workspace SmokeTests、E0/E1/E2 CLI、WPF 编译及 win-x64 便携版打包全部成功。
 - **尚未完成：** E4 的论文归档逻辑重构、PROCESS/RAW 待核对提示移除、新 Manifest v3；E5 三主入口导航整合、全局搜索及 Windows 大数据量性能/人工体验验收。
 - **E4 交接：** 使用 E2 的 `GetPanelExperiment`、`ListFigurePanelExperiments`、`ListPanelExperimentFiles` 生成每次归档冻结文件集合，不能使用当前工作区重新解释旧 Revision。
