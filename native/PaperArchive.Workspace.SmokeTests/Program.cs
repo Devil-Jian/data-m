@@ -787,19 +787,24 @@ try
     // D2 cross-result grouping: same root inside one project shares a stable unit,
     // while an identically named experiment in another project remains distinct.
     var sameExperimentBatch=repo.ImportResult(project,source);
+    Assert(sameExperimentBatch.FileCount==0 && sameExperimentBatch.ResultId==imported.ResultId,
+        "E1 unchanged folder rescan is idempotent and reuses the initial result");
+    File.WriteAllBytes(Path.Combine(source,"process_data","ROS01_extraProcess.tif"),[71,72]);
     var secondExperimentBatch=repo.ImportResult(project,source);
+    Assert(secondExperimentBatch.FileCount==1 && secondExperimentBatch.ResultId!=imported.ResultId,
+        "E1 incremental reimport records only newly added source files");
     var sampleAfterBatch=repo.ListSampleUnits(projectId:project)
         .Single(x=>x.ExperimentName=="ROS检测"&&x.SampleName=="ROS01");
-    Assert(sampleAfterBatch.Id==rosUnit.Id && sampleAfterBatch.RawCount>=2 &&
-        sampleAfterBatch.ShowCount>=2 && sampleAfterBatch.ProcessCount>=4 &&
+    Assert(sampleAfterBatch.Id==rosUnit.Id && sampleAfterBatch.RawCount>=1 &&
+        sampleAfterBatch.ShowCount>=1 && sampleAfterBatch.ProcessCount>=3 &&
         repo.GetEntityAnnotation("sample",rosUnit.Id).Note.Contains("显微镜"),
         "same experiment root across imports preserves sample ID and annotations");
     var memberCount=repo.ListSampleUnitAssets(rosUnit.Id).Count;
-    Assert(memberCount>=8 &&
+    Assert(memberCount>=5 &&
         repo.ListSampleUnitAssets(rosUnit.Id).Any(x=>x.ResultId==sameExperimentBatch.ResultId) &&
         repo.ListSampleUnitAssets(rosUnit.Id).Any(x=>x.ResultId==secondExperimentBatch.ResultId) &&
         repo.ListTaggedSampleIds(project,custom.Id).Contains(rosUnit.Id),
-        "sample members span multiple imported results and tag filter retains original ID");
+        "sample members span imported changes without duplicating unchanged assets");
     var isolatedProject=repo.CreateProject("隔离实验项目");
     repo.ImportResult(isolatedProject,source);
     var isolatedUnit=repo.ListSampleUnits(projectId:isolatedProject)
@@ -808,8 +813,8 @@ try
         repo.GetEntityAnnotation("sample",isolatedUnit.Id).Tags.Count==0 &&
         repo.ListTaggedSampleIds(isolatedProject,custom.Id).Count==0,
         "same experimental folder in another project does not share tags or sample identity");
-    var freshShow=repo.ListAssets(sameExperimentBatch.ResultId)
-        .Single(x=>x.FileName=="ROS01_show.png");
+    var freshShow=repo.ListAssets(secondExperimentBatch.ResultId)
+        .Single(x=>x.FileName=="ROS01_extraProcess.tif");
     repo.SetAssetDeleted([freshShow.Id],true);
     Assert(repo.ListSampleUnitAssets(rosUnit.Id).Count==memberCount-1 &&
         repo.GetEntityAnnotation("sample",rosUnit.Id).Tags.Single().Id==custom.Id,
@@ -1005,7 +1010,16 @@ try
     File.WriteAllBytes(Path.Combine(duplicateSource,"TEST01_crop.tif"),[19,20]);
     File.WriteAllBytes(Path.Combine(duplicateSource,"TEST01_show.png"),[21,22]);
     var duplicateBatch1=repo.ImportResult(duplicateProject,duplicateSource);
-    var duplicateBatch2=repo.ImportResult(duplicateProject,duplicateSource);
+    var unchangedImport=repo.ImportResult(duplicateProject,duplicateSource);
+    Assert(unchangedImport.FileCount==0 &&
+        unchangedImport.ResultId==duplicateBatch1.ResultId &&
+        repo.ListE1FolderIdentities(duplicateProject).Single().ActiveFileCount==3,
+        "E1 repeat scan keeps a single stable root and does not duplicate assets");
+    // A legacy explicit result copy is a distinct Asset reference and must
+    // still be preserved by the same-content presentation grouping.
+    var duplicateResultId=repo.CopyResult(duplicateBatch1.ResultId,duplicateProject,
+        "同实验显式副本");
+    var duplicateBatch2=new WorkspaceImportResult(duplicateResultId,3,1);
     var duplicateA=repo.ListAssets(duplicateBatch1.ResultId)
         .Single(x=>x.FileName=="TEST01_show.png");
     var duplicateB=repo.ListAssets(duplicateBatch2.ResultId)
