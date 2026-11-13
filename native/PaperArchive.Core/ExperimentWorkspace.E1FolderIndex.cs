@@ -252,9 +252,8 @@ public sealed partial class ExperimentWorkspace
             var file=Path.GetFullPath(Path.Combine(path,
                 asset.Relative.Replace('/',Path.DirectorySeparatorChar)));
             // Reject traversal from tampered legacy relative paths.
-            if(!file.StartsWith(path+"/",StringComparison.OrdinalIgnoreCase) &&
-               !file.StartsWith(path+Path.DirectorySeparatorChar,
-                   StringComparison.OrdinalIgnoreCase))
+            if(!NormalizeE1Root(file).StartsWith(path+"/",
+                StringComparison.OrdinalIgnoreCase))
                 continue;
             if(!File.Exists(file))continue;
             using var data=File.OpenRead(file);
