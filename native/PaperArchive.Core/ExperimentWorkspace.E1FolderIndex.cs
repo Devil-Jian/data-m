@@ -2,8 +2,8 @@ using Microsoft.Data.Sqlite;
 
 namespace PaperArchive.Core.Workspace;
 
-public sealed record E1FolderIdentity(string Id,string ProjectId,string ExperimentName,
-    string RootPath,int ActiveFileCount);
+public sealed record E1FolderIdentity(string Id,string ExperimentId,string ProjectId,
+    string ExperimentName,string RootPath,int ActiveFileCount);
 public sealed record E1FolderAsset(string AssetId,string RelativePath,string Sha256);
 
 public sealed partial class ExperimentWorkspace
@@ -37,6 +37,8 @@ public sealed partial class ExperimentWorkspace
                 ON e1_root_current_assets(asset_id);
             """;
         cmd.ExecuteNonQuery();
+        AddColumn(db,"e1_experiment_roots","experiment_id",
+            "TEXT REFERENCES experiment_units(id)");
     }
 
     private static string NormalizeE1Root(string path)=>
@@ -93,6 +95,24 @@ public sealed partial class ExperimentWorkspace
         return(id,name);
     }
 
+    private static string BindE1RootExperiment(SqliteConnection db,
+        SqliteTransaction tx,string rootId,string projectId,string name)
+    {
+        var experimentId=LookupOrCreate(db,tx,
+            "experiment_units","project_id","name",projectId,name);
+        using var update=db.CreateCommand();
+        update.Transaction=tx;
+        update.CommandText="""
+            UPDATE e1_experiment_roots SET experiment_id=$experiment
+            WHERE id=$root AND (experiment_id IS NULL OR experiment_id=$experiment)
+            """;
+        update.Parameters.AddWithValue("$root",rootId);
+        update.Parameters.AddWithValue("$experiment",experimentId);
+        if(update.ExecuteNonQuery()!=1)
+            throw new InvalidOperationException("实验文件夹映射的 Experiment ID 已发生冲突。");
+        return experimentId;
+    }
+
     private static Dictionary<string,(string Asset,string Sha)> ReadE1Current(
         SqliteConnection db,SqliteTransaction tx,string rootId)
     {
@@ -134,7 +154,7 @@ public sealed partial class ExperimentWorkspace
         using var db=Connect();
         using var cmd=db.CreateCommand();
         cmd.CommandText="""
-            SELECT r.id,r.project_id,r.experiment_name,r.normalized_root,
+            SELECT r.id,r.experiment_id,r.project_id,r.experiment_name,r.normalized_root,
                 COUNT(a.asset_id)
             FROM e1_experiment_roots r
             LEFT JOIN e1_root_current_assets a ON a.root_id=r.id
@@ -144,9 +164,55 @@ public sealed partial class ExperimentWorkspace
         cmd.Parameters.AddWithValue("$project",projectId);
         var rows=new List<E1FolderIdentity>();
         using var rd=cmd.ExecuteReader();
-        while(rd.Read())rows.Add(new(rd.GetString(0),rd.GetString(1),
-            rd.GetString(2),rd.GetString(3),rd.GetInt32(4)));
+        while(rd.Read())rows.Add(new(rd.GetString(0),
+            rd.IsDBNull(1)?"":rd.GetString(1),
+            rd.GetString(2),rd.GetString(3),rd.GetString(4),rd.GetInt32(5)));
         return rows;
+    }
+
+    /// <summary>
+    /// Explicitly relink a moved source directory. Every currently tracked
+    /// path must still contain the same bytes; no Asset ID or tag is rewritten.
+    /// This is never performed automatically from a matching folder name.
+    /// </summary>
+    public void RelinkE1FolderRoot(string rootId,string newSourceDirectory)
+    {
+        var path=NormalizeE1Root(newSourceDirectory);
+        if(!Directory.Exists(path))
+            throw new DirectoryNotFoundException(path);
+        if(path.Equals(_root,StringComparison.OrdinalIgnoreCase)||
+            path.StartsWith(_root+Path.DirectorySeparatorChar,
+                StringComparison.OrdinalIgnoreCase))
+            throw new IOException("实验根目录不能放在数据仓库内部。");
+        var expected=ListE1FolderAssets(rootId);
+        if(expected.Count==0)
+            throw new InvalidOperationException("文件夹没有可核对的资产，禁止自动改绑目录。");
+        foreach(var item in expected)
+        {
+            var candidate=Path.Combine(path,
+                item.RelativePath.Replace('/',Path.DirectorySeparatorChar));
+            if(!File.Exists(candidate))
+                throw new InvalidOperationException(
+                    "新文件夹缺少文件："+item.RelativePath);
+            using var stream=File.OpenRead(candidate);
+            var actual=Convert.ToHexString(
+                System.Security.Cryptography.SHA256.HashData(stream));
+            if(!actual.Equals(item.Sha256,StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    "文件内容与原始 SHA-256 不一致："+item.RelativePath);
+        }
+        using var db=Connect();
+        using var tx=db.BeginTransaction();
+        using var update=db.CreateCommand();
+        update.Transaction=tx;
+        update.CommandText="""
+            UPDATE e1_experiment_roots SET normalized_root=$path WHERE id=$id
+            """;
+        update.Parameters.AddWithValue("$id",rootId);
+        update.Parameters.AddWithValue("$path",path);
+        if(update.ExecuteNonQuery()!=1)
+            throw new KeyNotFoundException("实验根文件夹索引不存在。");
+        tx.Commit();
     }
 
     public IReadOnlyList<E1FolderAsset> ListE1FolderAssets(string rootId)
