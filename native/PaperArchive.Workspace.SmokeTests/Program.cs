@@ -1080,8 +1080,13 @@ try
     var audit=ExperimentWorkspace.OpenForE0Audit(repo.Root).PreviewE0Migration();
     var auditAgain=repo.PreviewE0Migration();
     Assert(audit.BaselineFingerprint==auditAgain.BaselineFingerprint &&
-        audit.Counts==auditAgain.Counts,
+        audit.Counts==auditAgain.Counts &&
+        audit.Archive==auditAgain.Archive,
         "E0 repeated previews are deterministic and do not modify source tables");
+    Assert(audit.Archive.DatabaseExists && audit.Archive.Revisions>=2 &&
+        audit.Archive.Fingerprint.Length==64 &&
+        !audit.Issues.Any(x=>x.Code=="archive_manifest_hash_mismatch"),
+        "E0 separately fingerprints immutable archived Revision manifests without migrations");
     Assert(audit.Panels.Single(x=>x.PanelId==e0Panels3[0].Id).Decision=="ready",
         "E0 safely identifies a single-Experiment Panel candidate");
     Assert(audit.Panels.Single(x=>x.PanelId==e0Panels2[0].Id)
