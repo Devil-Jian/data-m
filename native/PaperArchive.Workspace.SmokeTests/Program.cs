@@ -815,9 +815,17 @@ try
         "conflicting asset stays in unresolved queue rather than a confirmed sample");
     // D2 cross-result grouping: same root inside one project shares a stable unit,
     // while an identically named experiment in another project remains distinct.
+    // D2 tests moved the original ROS01 assets to another result above.
+    // A new source scan must restore the folder's own index without changing
+    // the moved Asset IDs or their project-level assignments.
     var sameExperimentBatch=repo.ImportResult(project,source);
-    Assert(sameExperimentBatch.FileCount==0 && sameExperimentBatch.ResultId==imported.ResultId,
-        "E1 unchanged folder rescan is idempotent and reuses the initial result");
+    Assert(sameExperimentBatch.FileCount==4 &&
+        sameExperimentBatch.ResultId!=imported.ResultId,
+        "E1 rescans only the paths whose previous assets were moved away");
+    var stableScan=repo.ImportResult(project,source);
+    Assert(stableScan.FileCount==0 &&
+        stableScan.ResultId==sameExperimentBatch.ResultId,
+        "E1 repeated scan is idempotent after source identity reconciliation");
     File.WriteAllBytes(Path.Combine(source,"process_data","ROS01_extraProcess.tif"),[71,72]);
     var secondExperimentBatch=repo.ImportResult(project,source);
     Assert(secondExperimentBatch.FileCount==1 && secondExperimentBatch.ResultId!=imported.ResultId,
