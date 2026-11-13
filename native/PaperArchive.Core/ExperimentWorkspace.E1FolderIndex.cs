@@ -3,7 +3,12 @@ using Microsoft.Data.Sqlite;
 namespace PaperArchive.Core.Workspace;
 
 public sealed record E1FolderIdentity(string Id,string ExperimentId,string ProjectId,
-    string ExperimentName,string RootPath,int ActiveFileCount);
+    string ExperimentName,string RootPath,int ActiveFileCount)
+{
+    // View-only metadata: no changes to stable E1/E2 IDs or SQLite data.
+    public string ResearchName {get;init;}="未分组实验";
+    public string DisplayName=>ExperimentName;
+}
 public sealed record E1FolderAsset(string AssetId,string RelativePath,string Sha256);
 
 public sealed partial class ExperimentWorkspace
