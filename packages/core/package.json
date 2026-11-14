@@ -12,10 +12,11 @@
     "react-dom": "^19.0.0"
   },
   "dependencies": {
-    "@data-m/interaction": "*"
+    "@data-m/interaction": "*",
+    "@tanstack/react-virtual": "^3.13.0"
   },
   "scripts": {
-    "test": "vitest run src/demo-assets.test.ts"
+    "test": "vitest run src/demo-assets.test.ts src/virtual-layout.test.ts"
   },
   "devDependencies": {
     "vitest": "^3.2.0"
