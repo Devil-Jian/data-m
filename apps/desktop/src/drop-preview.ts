@@ -24,6 +24,7 @@ export type DropAction=
   | {type:'start';requestId:number;count:number}
   | {type:'success';requestId:number;preview:DropPreview}
   | {type:'fail';requestId:number}
+  | {type:'listenerError'}
   | {type:'dismiss'};
 
 export const initialDropState:DropState={kind:'idle'};
@@ -43,6 +44,8 @@ export function dropReducer(previous:DropState,action:DropAction):DropState{
     case 'fail':
       return previous.kind==='inspecting'&&previous.requestId===action.requestId
         ?{kind:'error',message:'无法读取拖入项目的信息；原始文件未修改'}:previous;
+    case 'listenerError':
+      return {kind:'error',message:'Windows 原生拖入监听不可用；请确认使用 Tauri 桌面客户端'};
     case 'dismiss':
       return initialDropState;
   }
