@@ -107,7 +107,7 @@ export function useExplorerInteraction(options:ExplorerOptions){
       const rect=rectFromPoints(p.originContent,point);
       const allowed=new Set(visibleRef.current);
       const virtual=optionsRef.current.getVirtualItems;
-      const items:readonly PositionedItem[]=virtual?virtual(p.host):
+      const items:readonly PositionedItem[]=virtual&&p.host.dataset.explorerVirtual==='true'?virtual(p.host):
         Array.from(p.root.querySelectorAll<HTMLElement>('[data-explorer-id]'))
           .filter(el=>el.getClientRects().length>0)
           .map(el=>{
