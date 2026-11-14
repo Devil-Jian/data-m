@@ -177,3 +177,9 @@ button{cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}
 .dm-drag-preview{position:fixed;z-index:75;pointer-events:none;white-space:nowrap;background:#20324a;color:white;padding:9px 13px;font-size:11px;border-radius:8px;box-shadow:0 7px 22px #22334b40}
 .dm-drag-preview.is-valid{background:#166534}
 .dm-drag-preview.is-invalid{background:#42526c}
+
+/* Explorer selection targets are assets, never biological replicate labels. */
+.dm-selectable-asset{border-radius:5px;cursor:default;outline:1px solid transparent;outline-offset:-1px}
+.dm-selectable-asset.selected{background:#dbeafe!important;outline-color:#60a5fa}
+.dm-selectable-asset:not(.selected):hover{background:#f1f5f9;outline-color:#bfdbfe}
+.dm-inline-asset{padding:8px 6px;overflow:hidden;text-overflow:ellipsis}

@@ -24,5 +24,7 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Test interaction engine
         run: npm run test:interaction
+      - name: Test asset identity invariants
+        run: npm run test:assets
       - name: Build ${{ matrix.variant }} demo
         run: npm run build:${{ matrix.variant }}
