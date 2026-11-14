@@ -5,7 +5,8 @@
   "type": "module",
   "workspaces": [
     "packages/*",
-    "demos/*"
+    "demos/*",
+    "apps/*"
   ],
   "scripts": {
     "dev:shadcn": "npm run dev -w @data-m/demo-shadcn",
@@ -16,7 +17,11 @@
     "build:fluent": "npm run build -w @data-m/demo-fluent",
     "build:all": "npm run build:shadcn && npm run build:mantine && npm run build:fluent",
     "test:interaction": "npm run test -w @data-m/interaction",
-    "check": "npm run test:interaction && npm run build:all"
+    "check": "npm run test:interaction && npm run build:all",
+    "dev:desktop": "npm run dev -w @data-m/desktop",
+    "build:desktop": "npm run build -w @data-m/desktop",
+    "tauri:dev": "npm run tauri -w @data-m/desktop -- dev",
+    "tauri:build": "npm run tauri -w @data-m/desktop -- build"
   },
   "devDependencies": {
     "@types/react": "^19.1.0",

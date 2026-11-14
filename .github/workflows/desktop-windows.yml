@@ -1,0 +1,51 @@
+name: Windows desktop shell
+on:
+  push:
+    branches:
+      - feat/tauri2-desktop-shell
+    paths:
+      - 'apps/desktop/**'
+      - 'packages/**'
+      - 'demos/shadcn/**'
+      - 'package.json'
+      - '.github/workflows/desktop-windows.yml'
+  pull_request:
+    paths:
+      - 'apps/desktop/**'
+      - 'packages/**'
+      - 'demos/shadcn/**'
+      - 'package.json'
+      - '.github/workflows/desktop-windows.yml'
+
+jobs:
+  desktop:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+      - name: Install packages
+        run: npm install --no-audit --no-fund
+      - name: Type-check, Vite build and interaction tests
+        run: |
+          npm run build:desktop
+          npm run test:interaction
+      - name: Rust tests
+        working-directory: apps/desktop/src-tauri
+        run: cargo test --locked --no-default-features
+      - name: Rust fmt
+        working-directory: apps/desktop/src-tauri
+        run: cargo fmt --all -- --check
+      - name: Rust check
+        working-directory: apps/desktop/src-tauri
+        run: cargo check
+      - name: Build Windows executable (no installer yet)
+        run: npm run tauri:build
