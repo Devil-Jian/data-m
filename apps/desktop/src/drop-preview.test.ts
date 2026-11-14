@@ -51,6 +51,11 @@ describe('Windows native drop preview (read-only)',()=>{
       kind:'error',message:'无法读取拖入项目的信息；原始文件未修改'
     });
   });
+  it('reports native listener registration errors instead of hiding them',()=>{
+    expect(dropReducer(initialDropState,{type:'listenerError'})).toEqual({
+      kind:'error',message:'Windows 原生拖入监听不可用；请确认使用 Tauri 桌面客户端'
+    });
+  });
   it('formats file sizes without confusing a directory with a zero-byte file',()=>{
     expect(formatDropSize(null)).toBe('—');
     expect(formatDropSize(0)).toBe('0 B');
