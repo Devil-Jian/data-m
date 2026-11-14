@@ -17,6 +17,11 @@ on:
       - 'package.json'
       - '.github/workflows/desktop-windows.yml'
 
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   desktop:
     runs-on: windows-latest
@@ -39,6 +44,9 @@ jobs:
           npm run build:desktop
           npm run test:interaction
           npm run test:assets
+          npm run test:desktop
+      - name: Verify Windows source-protection fixture checker (non-GUI)
+        run: ./scripts/test-p1-drop-source.ps1 -SelfTest
       - name: Install Chromium for Windows interaction tests
         run: npx playwright install chromium
       - name: Windows Chromium pointer and keyboard E2E
@@ -54,3 +62,10 @@ jobs:
         run: cargo check
       - name: Build Windows executable (no installer yet)
         run: npm run tauri:build
+      - name: Upload unsigned portable P1 EXE for native WebView2 acceptance
+        uses: actions/upload-artifact@v4
+        with:
+          name: data-m-p1-unsigned-portable-windows
+          path: apps/desktop/src-tauri/target/release/data-m-desktop.exe
+          if-no-files-found: error
+          retention-days: 7

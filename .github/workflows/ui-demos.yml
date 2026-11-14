@@ -8,6 +8,11 @@ on:
       - 'packages/**'
       - 'package.json'
       - '.github/workflows/ui-demos.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest

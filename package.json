@@ -23,7 +23,8 @@
     "tauri:dev": "npm run tauri -w @data-m/desktop -- dev",
     "tauri:build": "npm run tauri -w @data-m/desktop -- build",
     "test:assets": "npm run test -w @data-m/core",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:desktop": "npm run test -w @data-m/desktop"
   },
   "devDependencies": {
     "@types/react": "^19.1.0",

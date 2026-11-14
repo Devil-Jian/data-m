@@ -1,9 +1,11 @@
-import React, {useEffect,useState} from 'react';
+import React, {useEffect,useReducer,useRef} from 'react';
 import {createRoot} from 'react-dom/client';
 import {Workbench} from '@data-m/core';
 import type {UIKit} from '@data-m/core';
 import {getCurrentWebview} from '@tauri-apps/api/webview';
-import {isTauri} from '@tauri-apps/api/core';
+import {invoke,isTauri} from '@tauri-apps/api/core';
+import {dropReducer,formatDropSize,initialDropState} from './drop-preview';
+import type {DropPreview} from './drop-preview';
 import {Button} from '../../../demos/shadcn/src/components/ui/button';
 import {SelectField} from '../../../demos/shadcn/src/components/ui/select';
 import {CheckboxField} from '../../../demos/shadcn/src/components/ui/checkbox';
@@ -21,43 +23,93 @@ const ui:UIKit={
   Check:CheckboxField,
   Badge:BadgeField
 };
-type DropState={kind:'over'}|{kind:'received';count:number}|{kind:'error';detail:string}|null;
-
-/** Native Windows shell adapter. The first milestone receives file paths but never writes them. */
+/** Native Windows drop adapter. Inspection is read-only; source paths never reach UI state. */
 function DesktopApp(){
-  const [drop,setDrop]=useState<DropState>(null);
+  const [drop,dispatch]=useReducer(dropReducer,initialDropState);
+  const dismissButtonRef=useRef<HTMLButtonElement>(null);
+  // Make the native drop preview dismissible with Escape, including during inspection.
+  useEffect(()=>{
+    if(drop.kind==='idle')return;
+    const onKeyDown=(event:KeyboardEvent)=>{
+      if(event.key!=='Escape')return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      dispatch({type:'dismiss'});
+    };
+    window.addEventListener('keydown',onKeyDown,true);
+    return ()=>window.removeEventListener('keydown',onKeyDown,true);
+  },[drop.kind]);
+  useEffect(()=>{
+    if(drop.kind==='ready'||drop.kind==='error'){
+      dismissButtonRef.current?.focus({preventScroll:true});
+    }
+  },[drop.kind]);
   useEffect(()=>{
     if(!isTauri())return;
     let disposed=false;
+    let lastRequest=0;
     let unlisten:(()=>void)|undefined;
     void getCurrentWebview().onDragDropEvent(event=>{
       if(disposed)return;
       switch(event.payload.type){
         case 'enter':
         case 'over':
-          setDrop({kind:'over'});
+          dispatch({type:'hover'});
           break;
-        case 'drop':
-          // No import until the P2 Rust asset service is implemented and reviewed.
-          setDrop({kind:'received',count:event.payload.paths.length});
+        case 'drop':{
+          const requestId=++lastRequest;
+          dispatch({type:'start',requestId,count:event.payload.paths.length});
+          // Only the Rust command sees OS paths. The renderer receives basename metadata.
+          void invoke<DropPreview>('inspect_drop_paths',{paths:event.payload.paths})
+            .then(preview=>{
+              if(!disposed)dispatch({type:'success',requestId,preview});
+            })
+            .catch(()=>{
+              if(!disposed)dispatch({type:'fail',requestId});
+            });
           break;
+        }
         case 'leave':
-          setDrop(null);
+          dispatch({type:'leave'});
           break;
       }
-    }).then(fn=>{if(disposed)fn();else unlisten=fn}).catch(err=>{
-      if(!disposed)setDrop({kind:'error',detail:String(err)});
+    }).then(fn=>{if(disposed)fn();else unlisten=fn}).catch(()=>{
+      if(!disposed)dispatch({type:'listenerError'});
     });
     return ()=>{disposed=true;unlisten?.()};
   },[]);
+
+  const dismiss=()=>dispatch({type:'dismiss'});
+  const summary=drop.kind==='ready'?drop.preview:null;
   return <>
     <Workbench ui={ui} variant="shadcn"/>
-    {drop&&<div className={'dm-native-drop '+(drop.kind==='over'?'is-over':'')} role="status">
-      {drop.kind==='over'?'释放鼠标以检测文件（本版本尚不导入）':
-       drop.kind==='received'?`已检测到 ${drop.count} 个文件/目录；安全导入将在 P2 启用，原文件未修改`:
-       `Windows 拖放事件不可用：${drop.detail}`}
-      <button type="button" onClick={()=>setDrop(null)} aria-label="关闭拖放提示">×</button>
-    </div>}
+    {drop.kind!=='idle'&&<section
+      className={'dm-native-drop '+(drop.kind==='over'?'is-over':'')}
+      role={drop.kind==='ready'?'dialog':'status'}
+      aria-label="Windows 文件拖入预览">
+      <div className="dm-drop-title">
+        <strong>Windows 文件拖入检查</strong>
+        <button ref={dismissButtonRef} type="button" onClick={dismiss} aria-label="关闭文件拖入预览">×</button>
+      </div>
+      {drop.kind==='over'&&<p>松开鼠标以查看文件信息；不会执行导入。</p>}
+      {drop.kind==='inspecting'&&<p>正在只读检查 {drop.count} 个文件或文件夹…</p>}
+      {drop.kind==='error'&&<p role="alert">{drop.message}</p>}
+      {summary&&<>
+        <p>收到 {summary.totalReceived} 项，初步可识别 {summary.eligibleCount} 项。
+          {summary.omittedCount>0&&` 超出预览上限 ${summary.omittedCount} 项未检查。`}</p>
+        <ul className="dm-drop-entries" aria-label="待检查文件清单">
+          {summary.entries.slice(0,16).map((entry,index)=><li key={index}>
+            <span title={entry.name} className="dm-drop-filename">{entry.name}</span>
+            <span>{entry.kind==='file'?'文件':entry.kind==='directory'?'文件夹':'不可用'}</span>
+            <span>{formatDropSize(entry.sizeBytes)}</span>
+            {entry.warning&&<small>{entry.warning}</small>}
+          </li>)}
+        </ul>
+        {summary.entries.length>16&&<p>预览仅展示前 16 项，其余 {summary.entries.length-16} 项已完成初步检查。</p>}
+        <p className="dm-drop-warning">仅只读检查文件元数据。尚未导入、复制或修改任何文件。
+          真正导入需要 P2 安全存储服务，当前不可用。</p>
+      </>}
+    </section>}
   </>;
 }
 createRoot(document.getElementById('root')!).render(<React.StrictMode><DesktopApp/></React.StrictMode>);
