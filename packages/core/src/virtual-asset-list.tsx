@@ -6,7 +6,7 @@ import type {DemoAsset} from './demo-assets';
  * Fixed-height rows keep geometry identical between TanStack's rendered slice
  * and the Explorer marquee adapter's unmounted row hit testing.
  */
-export const VIRTUAL_ASSET_ROW_HEIGHT=56;
+import {VIRTUAL_ASSET_ROW_HEIGHT} from './virtual-layout';
 export interface VirtualAssetListProps{
   assets:readonly DemoAsset[];
   selected:ReadonlySet<string>;
