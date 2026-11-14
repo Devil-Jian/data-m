@@ -1,4 +1,4 @@
-import React, {useEffect,useReducer} from 'react';
+import React, {useEffect,useReducer,useRef} from 'react';
 import {createRoot} from 'react-dom/client';
 import {Workbench} from '@data-m/core';
 import type {UIKit} from '@data-m/core';
@@ -26,6 +26,24 @@ const ui:UIKit={
 /** Native Windows drop adapter. Inspection is read-only; source paths never reach UI state. */
 function DesktopApp(){
   const [drop,dispatch]=useReducer(dropReducer,initialDropState);
+  const dismissButtonRef=useRef<HTMLButtonElement>(null);
+  // Make the native drop preview dismissible with Escape, including during inspection.
+  useEffect(()=>{
+    if(drop.kind==='idle')return;
+    const onKeyDown=(event:KeyboardEvent)=>{
+      if(event.key!=='Escape')return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      dispatch({type:'dismiss'});
+    };
+    window.addEventListener('keydown',onKeyDown,true);
+    return ()=>window.removeEventListener('keydown',onKeyDown,true);
+  },[drop.kind]);
+  useEffect(()=>{
+    if(drop.kind==='ready'||drop.kind==='error'){
+      dismissButtonRef.current?.focus({preventScroll:true});
+    }
+  },[drop.kind]);
   useEffect(()=>{
     if(!isTauri())return;
     let disposed=false;
@@ -71,7 +89,7 @@ function DesktopApp(){
       aria-label="Windows 文件拖入预览">
       <div className="dm-drop-title">
         <strong>Windows 文件拖入检查</strong>
-        <button type="button" onClick={dismiss} aria-label="关闭文件拖入预览">×</button>
+        <button ref={dismissButtonRef} type="button" onClick={dismiss} aria-label="关闭文件拖入预览">×</button>
       </div>
       {drop.kind==='over'&&<p>松开鼠标以查看文件信息；不会执行导入。</p>}
       {drop.kind==='inspecting'&&<p>正在只读检查 {drop.count} 个文件或文件夹…</p>}
