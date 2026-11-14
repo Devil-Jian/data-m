@@ -6,6 +6,7 @@ import {
   Search, ShieldCheck, Table2, Upload, X
 } from 'lucide-react';
 import { allPanels, findAssay, INITIAL_PROJECTS, STAGES, summary } from './data';
+import { demoAssetId, selectableDemoAssets } from './demo-assets';
 import { useExplorerInteraction } from '@data-m/interaction';
 import type { Assay, DataFile, ModuleName, Panel, Project, Replica, Stage, ViewMode } from './data';
 
@@ -95,11 +96,17 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
     (role==='all'||(role==='rep'?r.isRep:r.inStats)) &&
     (!search||[r.name,r.procName,r.id].some(v=>v.toLowerCase().includes(search.toLowerCase())))
   ),[group,role,search]);
-  const visibleIds=useMemo(()=>filtered.map(r=>r.id),[filtered]);
+  // The Explorer interacts with file assets; one biological replicate may own multiple assets.
+  const selectableAssets=useMemo(()=>selectableDemoAssets(assay,group,filtered,mode,stage,stageFilter),
+    [assay,group,filtered,mode,stage,stageFilter]);
+  const visibleIds=useMemo(()=>selectableAssets.map(a=>a.id),[selectableAssets]);
   const explorer=useExplorerInteraction({
     visibleIds,enabled:module==='experiment'&&!activePanelId&&!newProjectOpen,
     onDrop:({itemIds,targetId,operation})=>{
-      notify('交互请求：'+(operation==='copy'?'复制':'移动')+' '+itemIds.length+' 个样本项到 '+(assay.groups.find(g=>g.id===targetId)?.name||targetId)+'；真实文件操作待后端实现');
+      const assets=itemIds.map(id=>selectableAssets.find(a=>a.id===id));
+      if(assets.some(a=>!a)){notify('文件选择已变化，请重新选择');return;}
+      // Demo only: never turn file copy into another biological replicate.
+      notify('文件资产操作请求：'+(operation==='copy'?'复制':'移动')+' '+assets.length+' 个文件到 '+(assay.groups.find(g=>g.id===targetId)?.name||targetId)+'；真实操作待后端实现');
     },
     onCopy:(ids)=>notify('已选择复制 '+ids.length+' 个演示项'),
     onCut:(ids)=>notify('已选择剪切 '+ids.length+' 个演示项'),
@@ -138,6 +145,16 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
   }
   function setSelected(id:string,checked:boolean) {
     explorer.toggle(id,checked);
+  }
+  function repAssetIds(rep:Replica) {
+    const stages=mode==='overview'?stageFilter:[stage];
+    return stages.filter((s):s is 'raw'|'processed'=>s==='raw'||s==='processed')
+      .map(s=>demoAssetId(s,rep.id));
+  }
+  function selectRepAssets(rep:Replica,checked:boolean) {
+    const ids=new Set(selection);
+    for(const id of repAssetIds(rep)){if(checked)ids.add(id);else ids.delete(id);}
+    setSelection([...ids]);
   }
   function exportManifest() {
     const header=['project','theme','assay','group','sample','raw','processed','included_in_stats','representative'];
@@ -191,12 +208,15 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
   function row(rep:Replica,s:Stage) {
     if(s==='raw'||s==='processed') {
       const name=s==='raw'?rep.name:rep.procName;
-      return <div className="dm-asset-cell">
+      const id=demoAssetId(s,rep.id);
+      return <div data-explorer-id={id} title={'演示文件资产：'+name}
+        className={'dm-asset-cell dm-selectable-asset'+(selection.includes(id)?' selected':'')}>
         <div className="dm-small-thumb"><Preview type={rep.visual}/></div>
-        <div className="dm-asset-meta"><strong title={name}>{name}</strong><span>{s==='raw'?'原始文件（演示）':'处理文件（演示）'}</span></div>
+        <div className="dm-asset-meta"><strong title={name}>{name}</strong>
+          <span>{s==='raw'?'原始文件（演示）':'处理文件（演示）'}</span></div>
       </div>;
     }
-    if(s==='stats') return <div className="dm-asset-cell dm-compact">
+    if(s==='stats')return <div className="dm-asset-cell dm-compact">
       <FileSpreadsheet size={16}/><div className="dm-asset-meta">
         <strong>{rep.inStats?'计入统计':'未纳入统计'}</strong>
         <span>{rep.inStats?assay.statFiles[0]?.name||'统计文件待上传':'该样本未参加本次汇总'}</span>
@@ -218,11 +238,12 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
     </span>;
   }
   function sampleCard(rep:Replica) {
-    return <div key={rep.id} data-explorer-id={rep.id} className={'dm-sample-card'+(selection.includes(rep.id)?' selected':'')+
+    const assetId=demoAssetId(stage,rep.id);
+    return <div key={assetId} data-explorer-id={assetId} className={'dm-sample-card'+(selection.includes(assetId)?' selected':'')+
       (trace&&allPapers.some(p=>p.id===trace.panelId&&p.highlightRepIds.includes(rep.id))?' highlighted':'')}>
       <div className="dm-card-head">
-        <UI.Check checked={selection.includes(rep.id)} onChange={v=>setSelected(rep.id,v)}/>
-        <strong title={rep.name}>{rep.name}</strong>
+        <UI.Check checked={selection.includes(assetId)} onChange={v=>setSelected(assetId,v)}/>
+        <strong title={stage==='raw'?rep.name:rep.procName}>{stage==='raw'?rep.name:rep.procName}</strong>
         <span className="dm-card-muted">{rep.value.toFixed(2)} {assay.metricUnit}</span>
       </div>
       <Preview type={rep.visual}/>
@@ -236,47 +257,63 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
   function overviewMatrix() {
     const visibleStages=STAGES.filter(s=>stageFilter.includes(s.id));
     if(!visibleStages.length)return <div className="dm-empty">请选择至少一个数据阶段</div>;
+    const selectedInRow=(rep:Replica)=>repAssetIds(rep).length>0&&repAssetIds(rep).every(id=>selection.includes(id));
     if(view==='grid')return <div className="dm-matrix-scroll"><table className="dm-matrix">
-      <thead><tr><th>生物学重复 / 样本</th>{visibleStages.map(s=><th key={s.id}>{s.label}<small>{s.short}</small></th>)}</tr></thead>
-      <tbody>{filtered.map(rep=><tr key={rep.id} data-explorer-id={rep.id} className={selection.includes(rep.id)?'dm-selected-row':''}>
+      <thead><tr><th>生物学重复（勾选本行文件）</th>
+        {visibleStages.map(s=><th key={s.id}>{s.label}<small>{s.short}</small></th>)}</tr></thead>
+      <tbody>{filtered.map(rep=><tr key={rep.id}>
         <td className="dm-sample-label"><div className="dm-sample-title">
-          <UI.Check checked={selection.includes(rep.id)} onChange={v=>setSelected(rep.id,v)}/>
+          <UI.Check checked={selectedInRow(rep)} onChange={v=>selectRepAssets(rep,v)}/>
           <strong>{rep.name.replace(/\.[^.]+$/,'')}</strong>
-        </div><small>{rep.value.toFixed(2)} {assay.metricUnit}</small><div>{sampleBadges(rep)}</div></td>
+        </div><small>{rep.value.toFixed(2)} {assay.metricUnit}</small>
+        <div>{sampleBadges(rep)}</div></td>
         {visibleStages.map(s=><td key={s.id}>{row(rep,s.id)}</td>)}
       </tr>)}</tbody>
     </table></div>;
     return <div className={view==='list'?'dm-list':'dm-table-outer'}>
       <table className="dm-data-table"><thead><tr>
-        <th><UI.Check checked={filtered.length>0&&filtered.every(r=>selection.includes(r.id))}
-          onChange={v=>setSelection(v?filtered.map(r=>r.id):[])}/></th>
-        <th>样本文件</th><th>测量值</th><th>角色</th>
+        <th><UI.Check checked={visibleIds.length>0&&visibleIds.every(id=>selection.includes(id))}
+          onChange={v=>setSelection(v?visibleIds:[])}/></th>
+        <th>生物学重复</th><th>测量值</th><th>角色</th>
         {visibleStages.map(s=><th key={s.id}>{s.label}</th>)}
-      </tr></thead><tbody>{filtered.map(rep=><tr key={rep.id} data-explorer-id={rep.id} className={selection.includes(rep.id)?'dm-selected-row':''}>
-        <td><UI.Check checked={selection.includes(rep.id)} onChange={v=>setSelected(rep.id,v)}/></td>
-        <td className="dm-nowrap"><strong>{rep.name}</strong></td><td>{rep.value.toFixed(2)}</td>
-        <td>{sampleBadges(rep)}</td>{visibleStages.map(s=><td key={s.id}>{s.id==='raw'?rep.name:s.id==='processed'?rep.procName:s.id==='stats'?(rep.inStats?'已纳入':'—'):(rep.isRep?'展示源':'—')}</td>)}
+      </tr></thead><tbody>{filtered.map(rep=><tr key={rep.id}>
+        <td><UI.Check checked={selectedInRow(rep)} onChange={v=>selectRepAssets(rep,v)}/></td>
+        <td className="dm-nowrap"><strong>{rep.name}</strong></td>
+        <td>{rep.value.toFixed(2)}</td><td>{sampleBadges(rep)}</td>
+        {visibleStages.map(s=><td key={s.id}>
+          {s.id==='raw'||s.id==='processed'
+            ?<div data-explorer-id={demoAssetId(s.id,rep.id)}
+              className={'dm-selectable-asset dm-inline-asset'+(selection.includes(demoAssetId(s.id,rep.id))?' selected':'')}>
+                {s.id==='raw'?rep.name:rep.procName}</div>
+            :s.id==='stats'?(rep.inStats?'已纳入统计':'—'):(rep.isRep?'展示源':'—')}
+        </td>)}
       </tr>)}</tbody></table>
     </div>;
   }
   function stageContent() {
     if(stage==='stats')return <div className="dm-stat-grid">
       <section className="dm-content-card"><h3><FileSpreadsheet size={17}/> 统计分析文件</h3>
-        {assay.statFiles.map(f=><div className="dm-file-line" key={f.id}><FileSpreadsheet size={18}/>
-          <div><strong>{f.name}</strong><small>{f.note}</small></div><UI.Badge tone="green">汇总文件</UI.Badge>
-        </div>)}
+        {assay.statFiles.map(f=><div
+          className={'dm-file-line dm-selectable-asset'+(selection.includes(demoAssetId('stats',f.id))?' selected':'')}
+          data-explorer-id={demoAssetId('stats',f.id)} key={f.id}>
+          <FileSpreadsheet size={18}/><div><strong>{f.name}</strong><small>{f.note}</small></div>
+          <UI.Badge tone="green">汇总文件</UI.Badge></div>)}
         {!assay.statFiles.length&&<p className="dm-muted">尚无统计文件</p>}
       </section>
       <section className="dm-content-card"><h3>分组统计概览</h3>
         <table className="dm-data-table"><thead><tr><th>分组</th><th>n</th><th>Mean ± SD</th></tr></thead>
-        <tbody>{assay.groups.map((g,i)=><tr key={g.id}><td>{g.name}</td><td>{g.replicates.filter(r=>r.inStats).length}</td><td>{meanText(assay,i)}</td></tr>)}</tbody></table>
-        <p className="dm-muted dm-note">仅为界面演示的实时描述统计；正式统计文件独立管理与锁定。</p>
+          <tbody>{assay.groups.map((g,i)=><tr key={g.id}><td>{g.name}</td>
+            <td>{g.replicates.filter(r=>r.inStats).length}</td>
+            <td>{meanText(assay,i)}</td></tr>)}</tbody></table>
+        <p className="dm-muted dm-note">演示数据描述统计；正式统计文件需要后端独立管理。</p>
       </section>
     </div>;
     if(stage==='display')return <div className="dm-display-grid">{assay.displayFiles.map(f=>
-      <div className="dm-content-card" key={f.id}><Preview type={f.visual} large/><h3>{f.name}</h3>
-        <p className="dm-muted">{f.note}</p>
-        {allPapers.filter(p=>p.displayIds.includes(f.id)).map(p=><button key={p.id} className="dm-ref-chip" onClick={()=>jumpToPaper(p)}>{p.label} ↗</button>)}
+      <div className={'dm-content-card dm-selectable-asset'+(selection.includes(demoAssetId('display',f.id))?' selected':'')}
+        data-explorer-id={demoAssetId('display',f.id)} key={f.id}>
+        <Preview type={f.visual} large/><h3>{f.name}</h3><p className="dm-muted">{f.note}</p>
+        {allPapers.filter(p=>p.displayIds.includes(f.id)).map(p=><button
+          key={p.id} className="dm-ref-chip" onClick={()=>jumpToPaper(p)}>{p.label} ↗</button>)}
       </div>)}
       {!assay.displayFiles.length&&<div className="dm-empty">暂无展示文件</div>}</div>;
     return <div className="dm-cards">{filtered.map(sampleCard)}</div>;
@@ -369,7 +406,7 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
               <small>{mode==='overview'?'样本 × 数据阶段':'单阶段详细浏览'}</small></h2>
               <p>{group.name} · {filtered.length} 个样本 · {assay.groups.length} 个实验分组</p></div>
               <div className="dm-selection-actions">
-                {selectedCount>0&&<UI.Badge tone="blue">已选 {selectedCount}</UI.Badge>}
+                {selectedCount>0&&<UI.Badge tone="blue">已选 {selectedCount} 个文件资产</UI.Badge>}
                 <UI.Button small variant="secondary" onClick={exportManifest}><Download size={14}/> 导出清单</UI.Button>
                 <UI.Button small variant="ghost" onClick={()=>notify('演示模式：复制和移动真实文件需接入本地后端')}><Copy size={14}/> 复制/移动</UI.Button>
               </div>
