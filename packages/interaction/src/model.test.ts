@@ -1,6 +1,7 @@
 import {describe,expect,it} from 'vitest';
 import {
-  canDrop,createSelection,dragItemIds,dragOperation,intersects,marqueeHits,
+  canDrop,contentMarqueeHits,contentPoint,createSelection,dragItemIds,dragOperation,
+  edgeScrollVelocity,intersects,marqueeHits,
   rectFromPoints,selectAll,selectItem,selectMarquee
 } from './model';
 const ids=['a','b','c','d','e'];
@@ -75,5 +76,48 @@ describe('Explorer pointer gesture rules',()=>{
     const box={left:10,right:60,top:20,bottom:70};
     expect(intersects(box,{left:60,right:90,top:30,bottom:45})).toBe(true);
     expect(intersects(box,{left:61,right:90,top:30,bottom:45})).toBe(false);
+  });
+});
+
+describe('scroll-content selection including virtualized rows',()=>{
+  it('maps viewport pointer to scroll-content coordinates',()=>{
+    expect(contentPoint({x:130,y:105},{left:100,top:50,right:500,bottom:450},20,1000))
+      .toEqual({x:50,y:1055});
+  });
+  it('selects offscreen logical item rectangles even when DOM items are not mounted',()=>{
+    const items=Array.from({length:10_000},(_,i)=>({
+      id:'asset-'+i,
+      rect:{left:0,right:250,top:i*28,bottom:(i+1)*28}
+    }));
+    const all=new Set(items.map(a=>a.id));
+    const hit=contentMarqueeHits(
+      {left:4,right:200,top:28*200,bottom:28*250},items,all
+    );
+    expect(hit[0]).toBe('asset-199');
+    expect(hit.at(-1)).toBe('asset-250');
+    expect(hit.length).toBe(52);
+  });
+  it('filters virtual hits by currently valid visible IDs',()=>{
+    const items=[
+      {id:'raw-a',rect:{left:0,right:30,top:0,bottom:30}},
+      {id:'processed-a',rect:{left:0,right:30,top:35,bottom:65}}
+    ];
+    expect(contentMarqueeHits(
+      {left:0,right:40,top:0,bottom:70},items,new Set(['processed-a'])
+    )).toEqual(['processed-a']);
+  });
+  it('returns zero inside a safe viewport and proportional speed at edges',()=>{
+    const viewport={left:0,right:300,top:100,bottom:500};
+    expect(edgeScrollVelocity({x:150,y:300},viewport)).toEqual({x:0,y:0});
+    const near=edgeScrollVelocity({x:290,y:490},viewport);
+    expect(near.x).toBeGreaterThan(0);
+    expect(near.y).toBeGreaterThan(0);
+    expect(near.x).toBeLessThan(22);
+    expect(edgeScrollVelocity({x:1,y:101},viewport).x).toBeLessThan(0);
+    expect(edgeScrollVelocity({x:1,y:101},viewport).y).toBeLessThan(0);
+  });
+  it('clamps velocity when pointer leaves the viewport',()=>{
+    const v=edgeScrollVelocity({x:900,y:-900},{left:0,right:300,top:0,bottom:300});
+    expect(v).toEqual({x:22,y:-22});
   });
 });
