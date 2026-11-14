@@ -14,7 +14,7 @@ Data-M 的 Tauri 2 Windows WebView2 接收系统文件拖放事件。当前版�
 
 ## 安全边界
 
-- 无路径上传、无网络请求。操作系统完整路径不写入 React 状态，也不回传至前端预览数据。
+- 无路径上传、无网络请求。**Tauri 原生拖入事件会将完整路径临时交给前端事件回调**，前端只把它传入只读 Rust 命令；路径不写入 React 状态，Rust 响应仅包含文件名及元数据。此方案并非“前端完全不可接触路径”，后续 P2 需再审视其安全边界。
 - 不跟随符号链接；不递归遍历文件夹；不猜测数据内容或文件哈希。
 - 显示“可进一步检查”并不承诺该文件最终可导入；后端必须重新验证来源、权限、文件哈希与安全存储后才可入库。
 - 对空值、相对路径、超长路径、不可读文件、符号链接和非常规文件类型给出保守判断。
@@ -48,6 +48,18 @@ CI：`.github/workflows/desktop-windows.yml` 运行 TypeScript 构建、桌面�
 通过 [GitHub Actions · Windows desktop shell](https://github.com/Devil-Jian/data-m/actions/workflows/desktop-windows.yml) 查看最新成功的工作流，在该运行的 Artifacts 中找到 `data-m-p1-unsigned-portable-windows`。这是**未签名、未安装、仅用于 P1 测试的 Windows EXE**（保留 7 天），不属于正式 Release。未出现 Artifact 表示该运行尚未成功构建或上传。
 
 测试环境需已安装 WebView2 Runtime；未签名程序可能出现 Windows SmartScreen 提示。只使用可信的仓库构建并在专门的测试目录验证，不应用于真实科研数据导入或管理。
+
+## 可重复的源文件完整性测试
+
+在 Windows PowerShell 中运行：
+
+```powershell
+./scripts/test-p1-drop-source.ps1
+```
+
+脚本仅在临时目录创建一个中文文件名的测试文件和一个空文件夹。按照提示将这两个测试项目通过 Windows Explorer 拖入 Data-M，查看预览，然后回到终端按 Enter。脚本会比较文件 SHA-256、长度、最后修改时间与文件夹内容，最后清理自己创建的测试目录。**不得使用实际科研原始数据作为测试目标。**
+
+CI 使用 `./scripts/test-p1-drop-source.ps1 -SelfTest` 仅验证校验脚本自身可以工作，**并不自动执行 GUI 拖入**。原生 WebView2 拖放的视觉与行为验收仍需要真实 Windows 环境。
 
 ## Windows WebView2 原生手工验收（待执行）
 
