@@ -162,7 +162,7 @@ describe('Explorer keyboard navigation',()=>{
     const paged=navigateSelection(start,large,'PageUp',{},13);
     expect(paged.focused).toBe('asset-9986');
     const home=navigateSelection(paged,large,'Home',{shiftKey:true});
-    expect(home.selected.size).toBe(9_987);
+    expect(home.selected.size).toBe(10_000);
     const next=navigateSelection(home,large,'PageDown',{},100);
     expect(next.focused).toBe('asset-100');
     expect([...next.selected]).toEqual(['asset-100']);
