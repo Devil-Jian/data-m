@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --port 5176 --strictPort",
     "build": "tsc --noEmit && vite build",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test": "vitest run src/drop-preview.test.ts"
   },
   "dependencies": {
     "@data-m/core": "*",
@@ -24,6 +25,7 @@
     "@tailwindcss/vite": "^4.1.0"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.0.0"
+    "@tauri-apps/cli": "^2.0.0",
+    "vitest": "^3.2.0"
   }
 }
