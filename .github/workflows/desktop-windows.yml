@@ -39,6 +39,7 @@ jobs:
           npm run build:desktop
           npm run test:interaction
           npm run test:assets
+          npm run test:desktop
       - name: Install Chromium for Windows interaction tests
         run: npx playwright install chromium
       - name: Windows Chromium pointer and keyboard E2E
