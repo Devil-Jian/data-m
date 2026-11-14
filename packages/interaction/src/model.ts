@@ -50,3 +50,23 @@ export function isEditableTarget(target:EventTarget|null):boolean {
   if(!(target instanceof Element))return false;
   return !!target.closest('input, textarea, select, [contenteditable="true"], [role="textbox"], [role="combobox"]');
 }
+
+/** Snapshot the dragged item set at pointer-down: dragging a selected item keeps the whole selection. */
+export function dragItemIds(id:ItemId, current:ReadonlySet<ItemId>):ItemId[]{
+  return current.has(id) ? [...current] : [id];
+}
+/** Hit test only items in the current Explorer scope. Item positions are viewport-relative. */
+export function marqueeHits(
+  area:Rect,
+  items:ReadonlyArray<{id:ItemId;rect:Rect}>,
+  viewport:Rect
+):ItemId[]{
+  const clipped:Rect={
+    left:Math.max(area.left,viewport.left),
+    right:Math.min(area.right,viewport.right),
+    top:Math.max(area.top,viewport.top),
+    bottom:Math.min(area.bottom,viewport.bottom)
+  };
+  if(clipped.left>clipped.right||clipped.top>clipped.bottom)return [];
+  return items.filter(item=>intersects(clipped,item.rect)&&intersects(item.rect,viewport)).map(item=>item.id);
+}
