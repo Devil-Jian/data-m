@@ -28,6 +28,16 @@ pub struct DropPreview {
     pub eligible_count: usize,
 }
 
+fn rejected(name: &str, kind: &'static str, warning: &'static str) -> DropEntry {
+    DropEntry {
+        name: name.to_owned(),
+        kind,
+        size_bytes: None,
+        eligible: false,
+        warning: Some(warning),
+    }
+}
+
 fn inspect_one(raw_path: &str) -> DropEntry {
     // Never echo absolute paths or operating-system error strings to the UI.
     let path = Path::new(raw_path);
@@ -38,15 +48,8 @@ fn inspect_one(raw_path: &str) -> DropEntry {
         .unwrap_or("未命名项目")
         .to_string();
 
-    let rejected = |kind, warning| DropEntry {
-        name: name.clone(),
-        kind,
-        size_bytes: None,
-        eligible: false,
-        warning: Some(warning),
-    };
     if raw_path.is_empty() || raw_path.len() > MAX_PATH_LENGTH || !path.is_absolute() {
-        return rejected("invalid", "路径无效");
+        return rejected(&name, "invalid", "路径无效");
     }
     match fs::symlink_metadata(path) {
         Ok(meta) if meta.file_type().is_symlink() => {
@@ -66,8 +69,8 @@ fn inspect_one(raw_path: &str) -> DropEntry {
             eligible: true,
             warning: None,
         },
-        Ok(_) => rejected("unsupported", "不支持的文件类型"),
-        Err(_) => rejected("unavailable", "无法读取文件信息"),
+        Ok(_) => rejected(&name, "unsupported", "不支持的文件类型"),
+        Err(_) => rejected(&name, "unavailable", "无法读取文件信息"),
     }
 }
 
