@@ -105,6 +105,10 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
     onDrop:({itemIds,targetId,operation})=>{
       const assets=itemIds.map(id=>selectableAssets.find(a=>a.id===id));
       if(assets.some(a=>!a)){notify('文件选择已变化，请重新选择');return;}
+      if(assets.some(a=>a!.containerId!==group.id)){
+        notify('统计/展示资产属于整个实验，不能直接拖入生物学分组');
+        return;
+      }
       // Demo only: never turn file copy into another biological replicate.
       notify('文件资产操作请求：'+(operation==='copy'?'复制':'移动')+' '+assets.length+' 个文件到 '+(assay.groups.find(g=>g.id===targetId)?.name||targetId)+'；真实操作待后端实现');
     },
