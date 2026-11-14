@@ -70,3 +70,43 @@ export function marqueeHits(
   if(clipped.left>clipped.right||clipped.top>clipped.bottom)return [];
   return items.filter(item=>intersects(clipped,item.rect)&&intersects(item.rect,viewport)).map(item=>item.id);
 }
+
+/** A rectangle measured in scroll-content coordinates, including off-screen items. */
+export type PositionedItem={id:ItemId;rect:Rect};
+
+/** Convert viewport pointer coordinates into an overflowing element's content space. */
+export function contentPoint(
+  point:Point,
+  viewport:Rect,
+  scrollLeft:number,
+  scrollTop:number
+):Point{
+  return {x:point.x-viewport.left+scrollLeft,y:point.y-viewport.top+scrollTop};
+}
+
+/** Unlike DOM-only hit-testing, this supports virtual rows that are not mounted. */
+export function contentMarqueeHits(
+  area:Rect,
+  items:readonly PositionedItem[],
+  allowedIds:ReadonlySet<ItemId>
+):ItemId[]{
+  return items.filter(item=>allowedIds.has(item.id)&&intersects(area,item.rect))
+    .map(item=>item.id);
+}
+
+/** Speed in CSS px per animation frame; zero in the viewport's safe interior. */
+export function edgeScrollVelocity(
+  point:Point,
+  viewport:Rect,
+  threshold=48,
+  maxSpeed=22
+):Point{
+  if(threshold<=0||maxSpeed<=0)return {x:0,y:0};
+  function axis(value:number,min:number,max:number){
+    if(value<min+threshold)return -Math.min(maxSpeed,(min+threshold-value)/threshold*maxSpeed);
+    if(value>max-threshold)return Math.min(maxSpeed,(value-(max-threshold))/threshold*maxSpeed);
+    return 0;
+  }
+  return {x:axis(point.x,viewport.left,viewport.right),
+          y:axis(point.y,viewport.top,viewport.bottom)};
+}
