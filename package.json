@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/*", "demos/*"],
+  "workspaces": [
+    "packages/*",
+    "demos/*"
+  ],
   "scripts": {
     "dev:shadcn": "npm run dev -w @data-m/demo-shadcn",
     "dev:mantine": "npm run dev -w @data-m/demo-mantine",
@@ -11,7 +14,9 @@
     "build:shadcn": "npm run build -w @data-m/demo-shadcn",
     "build:mantine": "npm run build -w @data-m/demo-mantine",
     "build:fluent": "npm run build -w @data-m/demo-fluent",
-    "build:all": "npm run build:shadcn && npm run build:mantine && npm run build:fluent"
+    "build:all": "npm run build:shadcn && npm run build:mantine && npm run build:fluent",
+    "test:interaction": "npm run test -w @data-m/interaction",
+    "check": "npm run test:interaction && npm run build:all"
   },
   "devDependencies": {
     "@types/react": "^19.1.0",

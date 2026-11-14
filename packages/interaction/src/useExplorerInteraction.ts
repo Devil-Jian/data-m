@@ -90,10 +90,8 @@ export function useExplorerInteraction(options:ExplorerOptions) {
     function up(event:PointerEvent) {
       const p=pending.current;if(!p)return;
       pending.current=null;
-      const g=gestureRef.current;
       if(p.moved){
         preventNextClick.current=true;
-        if(p.kind==='drag'&&false){/* reserved for native OLE integration */}
         if(p.kind==='item') {
           const current=selectionRef.current;
           const ids=p.itemId&&current.selected.has(p.itemId)?Array.from(current.selected):p.itemId?[p.itemId]:[];
@@ -123,7 +121,6 @@ export function useExplorerInteraction(options:ExplorerOptions) {
       window.removeEventListener('blur',cancel);
     };
   },[clear]);
-  const gestureRef=useRef(gesture);gestureRef.current=gesture;
   useEffect(()=>{
     if(options.enabled===false)return;
     function key(event:KeyboardEvent) {

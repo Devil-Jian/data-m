@@ -71,3 +71,23 @@ demos/
 本分支旨在选出最终 UI 架构；选择后可将胜出的 React 前端接入正式后端，或评估与主分支规划的 Tauri 2 壳集成。
 
 详见 [UI 对比说明](docs/UI_COMPARISON.md)。
+
+## 文件交互引擎（开发分支）
+
+交互实现所在分支：`feat/file-interaction-engine`，以 `feat/ui-framework-comparison` 为基础，不修改 `main`。
+
+- 选择逻辑：`packages/interaction/src/model.ts`，纯 TypeScript，独立于组件框架。
+- React 事件适配：`packages/interaction/src/useExplorerInteraction.ts`。
+- 现有 Gemini/shadcn 工作区：支持 Ctrl 单选/切换、Shift 连续选择、空白处矩形框选、内部拖动到顶部实验分组、Ctrl 拖拽复制提示、Esc 取消、Ctrl+A/C/X/V、Delete、F2。
+- 拖动到其他分组时目前 **只显示真实操作请求，不改变任何样本或文件**。真实文件复制/移动、数据库事务、论文引用检查须在后端阶段实施。
+- 当前识别对象是演示用 Replicate 行/卡片；正式的 `DataAsset` 文件实体要独立于生物学重复，不能将复制文件解释成复制样本。
+
+运行与测试：
+```powershell
+git switch feat/file-interaction-engine
+npm install
+npm run test:interaction
+npm run build:all
+npm run dev:shadcn
+```
+设计与验收规范见 [交互引擎设计文档](docs/INTERACTION_ENGINE.md)。

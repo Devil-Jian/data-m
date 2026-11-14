@@ -332,8 +332,11 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
             <div className="dm-crumb">{project.code}<ChevronRight size={13}/>{theme.name}<ChevronRight size={13}/>{assay.name}</div>
             <h1>{assay.name}</h1><p>{assay.code} · {assay.modality} · {assay.metricName}（{assay.metricUnit}）</p>
             <div className="dm-group-tabs" role="group" aria-label="实验分组">
-              {assay.groups.map(g=><UI.Button key={g.id} small variant={group.id===g.id?'primary':'secondary'} onClick={()=>{
-                setGroupId(g.id);setSelection([]);setSearch('')}}>{g.name} <span className="dm-group-count">{g.replicates.length}</span></UI.Button>)}
+              {assay.groups.map(g=><span key={g.id} data-drop-container-id={g.id}
+                className={'dm-drop-target'+(explorer.gesture.kind==='drag'&&explorer.gesture.targetId===g.id&&explorer.gesture.allowed?' dm-drop-allowed':'')}>
+                <UI.Button small variant={group.id===g.id?'primary':'secondary'} onClick={()=>{
+                  setGroupId(g.id);setSelection([]);setSearch('')}}>{g.name} <span className="dm-group-count">{g.replicates.length}</span></UI.Button>
+              </span>)}
             </div>
           </div>
           <div className="dm-workspace-toolbar">
@@ -360,7 +363,8 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
             {STAGES.map(s=><UI.Button key={s.id} small variant={stage===s.id?'primary':'ghost'} onClick={()=>setStage(s.id)}>
               {s.label}</UI.Button>)}
           </div>}
-          <div className="dm-workspace-scroll">
+          <div className="dm-workspace-scroll dm-explorer-canvas" data-source-container-id={group.id}
+            onPointerDown={explorer.onPointerDown} onDragStart={e=>e.preventDefault()}>
             <div className="dm-section-heading"><div><h2>{mode==='overview'?'全阶段归档总览':stageName(stage)}
               <small>{mode==='overview'?'样本 × 数据阶段':'单阶段详细浏览'}</small></h2>
               <p>{group.name} · {filtered.length} 个样本 · {assay.groups.length} 个实验分组</p></div>
@@ -405,9 +409,18 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
         </div>}
       </main>
     </div>
+    {module==='experiment'&&explorer.gesture.kind==='marquee'&&<div className="dm-marquee" aria-hidden
+      style={{left:explorer.gesture.rect.left,top:explorer.gesture.rect.top,
+        width:explorer.gesture.rect.right-explorer.gesture.rect.left,
+        height:explorer.gesture.rect.bottom-explorer.gesture.rect.top}}/>}
+    {module==='experiment'&&explorer.gesture.kind==='drag'&&<div className={'dm-drag-preview'+(explorer.gesture.allowed?' is-valid':' is-invalid')}
+      aria-hidden style={{left:explorer.gesture.x+14,top:explorer.gesture.y+14}}>
+      {explorer.gesture.operation==='copy'?'＋ 复制':'↗ 移动'} {explorer.gesture.count} 项
+      {explorer.gesture.targetId?(explorer.gesture.allowed?' · 松开以提交':' · 不可放置'):' · 拖至上方分组'}
+    </div>}
     <footer className="dm-statusbar"><span><span className="dm-online-dot"/> UI Comparison · {variant}</span>
       <span>{module==='experiment'?(assay.groups.reduce((n,g)=>n+g.replicates.length,0)+' 个实验样本'):(paperPanels.length+' 个论文子图')}</span>
-      <span>演示模式 · 无后端连接</span></footer>
+      <span>{module==='experiment'?'左键框选 · Ctrl 多选 · Shift 连选 · Ctrl 拖拽复制':'演示模式 · 无后端连接'}</span></footer>
     {panel&&panelAssay&&<div className="dm-drawer-backdrop" onMouseDown={()=>setActivePanelId(null)}>
       <aside className="dm-drawer" onMouseDown={e=>e.stopPropagation()} role="dialog" aria-modal="true" aria-label="论文子图详情">
         <div className="dm-drawer-top"><div><UI.Badge tone="blue">{paper.code} · {panel.label}</UI.Badge><h2>{panel.title}</h2></div>
