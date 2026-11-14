@@ -55,3 +55,10 @@ jobs:
         run: cargo check
       - name: Build Windows executable (no installer yet)
         run: npm run tauri:build
+      - name: Upload unsigned portable P1 EXE for native WebView2 acceptance
+        uses: actions/upload-artifact@v4
+        with:
+          name: data-m-p1-unsigned-portable-windows
+          path: apps/desktop/src-tauri/target/release/data-m-desktop.exe
+          if-no-files-found: error
+          retention-days: 7
