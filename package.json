@@ -22,13 +22,15 @@
     "build:desktop": "npm run build -w @data-m/desktop",
     "tauri:dev": "npm run tauri -w @data-m/desktop -- dev",
     "tauri:build": "npm run tauri -w @data-m/desktop -- build",
-    "test:assets": "npm run test -w @data-m/core"
+    "test:assets": "npm run test -w @data-m/core",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "^5.9.0",
-    "vite": "^7.1.0"
+    "vite": "^7.1.0",
+    "@playwright/test": "^1.56.0"
   }
 }
