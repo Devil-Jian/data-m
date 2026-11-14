@@ -110,3 +110,38 @@ export function edgeScrollVelocity(
   return {x:axis(point.x,viewport.left,viewport.right),
           y:axis(point.y,viewport.top,viewport.bottom)};
 }
+
+/** Explorer keyboard navigation works on logical IDs, not mounted DOM rows. */
+export type NavigationKey='ArrowUp'|'ArrowDown'|'Home'|'End'|'PageUp'|'PageDown';
+export function navigateSelection(
+  previous:Selection,
+  visibleOrder:readonly ItemId[],
+  key:NavigationKey,
+  mods:ModifierKeys={},
+  pageSize=10
+):Selection{
+  if(visibleOrder.length===0)return previous;
+  const focusIndex=previous.focused?visibleOrder.indexOf(previous.focused):-1;
+  const anchorIndex=previous.anchor?visibleOrder.indexOf(previous.anchor):-1;
+  const current=focusIndex>=0?focusIndex:anchorIndex;
+  let next:number;
+  if(key==='Home')next=0;
+  else if(key==='End')next=visibleOrder.length-1;
+  else if(current<0)next=key==='ArrowUp'||key==='PageUp'?visibleOrder.length-1:0;
+  else if(key==='ArrowUp')next=current-1;
+  else if(key==='ArrowDown')next=current+1;
+  else if(key==='PageUp')next=current-Math.max(1,Math.trunc(pageSize));
+  else next=current+Math.max(1,Math.trunc(pageSize));
+  next=Math.max(0,Math.min(visibleOrder.length-1,next));
+  const focused=visibleOrder[next];
+  const ctrl=!!(mods.ctrlKey||mods.metaKey);
+  if(mods.shiftKey){
+    const anchor=anchorIndex>=0?previous.anchor!:current>=0?visibleOrder[current]:focused;
+    const start=visibleOrder.indexOf(anchor);
+    const selected=ctrl?new Set(previous.selected):new Set<ItemId>();
+    for(let i=Math.min(start,next);i<=Math.max(start,next);i++)selected.add(visibleOrder[i]);
+    return {selected,anchor,focused};
+  }
+  if(ctrl)return {...previous,focused};
+  return {selected:new Set([focused]),anchor:focused,focused};
+}
