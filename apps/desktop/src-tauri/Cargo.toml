@@ -1,0 +1,19 @@
+[package]
+name = "data-m-desktop"
+version = "0.1.0"
+description = "Data-M scientific asset management desktop"
+edition = "2021"
+rust-version = "1.77.2"
+build = "build.rs"
+
+[lib]
+name = "data_m_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

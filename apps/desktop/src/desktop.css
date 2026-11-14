@@ -1,0 +1,7 @@
+.dm-native-drop{
+  position:fixed;z-index:200;bottom:40px;right:24px;max-width:520px;
+  padding:12px 40px 12px 16px;border-radius:10px;background:#233b59;color:#fff;
+  font-family:Inter,"Segoe UI",sans-serif;font-size:13px;box-shadow:0 8px 25px #0003;
+}
+.dm-native-drop.is-over{background:#1a5e83;outline:2px dashed #80c4ff}
+.dm-native-drop button{position:absolute;right:10px;top:6px;color:inherit;font-size:20px;background:transparent;border:0;cursor:pointer}
