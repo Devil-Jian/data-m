@@ -187,7 +187,7 @@ button{cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}
 /* The virtual list is a real, independently scrolling viewport of fixed-height assets. */
 .dm-virtual-scroll{height:min(55vh,520px);min-height:210px;overflow:auto;position:relative;border:1px solid var(--dm-border);border-radius:var(--dm-radius);background:white;overscroll-behavior:contain}
 .dm-virtual-inner{width:100%;position:relative}
-.dm-virtual-row{position:absolute;top:0;left:0;width:100%;display:flex;align-items:center;gap:13px;padding:0 14px;border-bottom:1px solid var(--dm-border);box-sizing:border-box}
+.dm-virtual-row{position:absolute;top:0;left:20px;width:calc(100% - 20px);display:flex;align-items:center;gap:13px;padding:0 14px;border-bottom:1px solid var(--dm-border);box-sizing:border-box}
 .dm-virtual-row.selected{background:#dbeafe}
 .dm-virtual-checkbox{display:flex;align-items:center;justify-content:center;width:22px;height:36px;flex:none}
 .dm-virtual-name{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
