@@ -111,3 +111,18 @@ test('Shift selection traverses virtual rows without mounting the intervening fi
   await last.click({modifiers:['Shift']});
   await expect(page.locator('.dm-selection-actions')).toContainText('10000 个文件资产');
 });
+
+test('marquee autoscroll works inside real virtualized list gutter',async ({page})=>{
+  await page.goto('/?virtualDemo=10000');
+  await page.getByRole('button',{name:'分阶段'}).click();
+  await page.getByTitle('虚拟文件列表').click();
+  const viewport=page.getByRole('region',{name:'虚拟文件资产列表'});
+  const box=await viewport.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.move(box!.x+8,box!.y+110);
+  await page.mouse.down();
+  await page.mouse.move(box!.x+160,box!.y+box!.height-3,{steps:12});
+  await expect.poll(()=>viewport.evaluate(el=>el.scrollTop)).toBeGreaterThan(0);
+  await page.mouse.up();
+  await expect(page.locator('.dm-selection-actions')).toContainText('个文件资产');
+});
