@@ -17,6 +17,11 @@ on:
       - 'package.json'
       - '.github/workflows/desktop-windows.yml'
 
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   desktop:
     runs-on: windows-latest
