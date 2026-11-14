@@ -1,7 +1,7 @@
 name: Build UI demo variants
 on:
   push:
-    branches: [feat/ui-framework-comparison]
+    branches: [feat/ui-framework-comparison, feat/file-interaction-engine]
   pull_request:
     paths:
       - 'demos/**'
@@ -22,5 +22,7 @@ jobs:
           node-version: '22'
       - name: Install workspaces
         run: npm install --no-audit --no-fund
+      - name: Test interaction engine
+        run: npm run test:interaction
       - name: Build ${{ matrix.variant }} demo
         run: npm run build:${{ matrix.variant }}
