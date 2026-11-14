@@ -12,7 +12,7 @@ export function virtualAssetRects(
   return assets.map((asset,index)=>({
     id:asset.id,
     rect:{
-      left:0,right:Math.max(width,0),
+      left:20,right:Math.max(width,20),
       top:index*VIRTUAL_ASSET_ROW_HEIGHT,
       bottom:(index+1)*VIRTUAL_ASSET_ROW_HEIGHT
     }
