@@ -77,7 +77,9 @@ export function useExplorerInteraction(options:ExplorerOptions){
     // A nested scrolling view may have its own content coordinate system.
     // Otherwise use the stable Explorer root as the scroll container.
     const child=target.closest<HTMLElement>('[data-explorer-scroll-host]');
-    const host=child&&root.contains(child)?child:root;
+    // Prefer the outer vertical scroller when an inner table only overflows horizontally.
+    const host=child&&root.contains(child)&&child.scrollHeight>child.clientHeight+1
+      ?child:root;
     const origin={x:event.clientX,y:event.clientY};
     const bounds=host.getBoundingClientRect();
     pending.current={
