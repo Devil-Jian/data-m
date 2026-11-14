@@ -112,10 +112,8 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("monotonic test time")
             .as_nanos();
-        let root = std::env::temp_dir().join(format!(
-            "data-m-drop-{}-{unique}",
-            std::process::id()
-        ));
+        let root =
+            std::env::temp_dir().join(format!("data-m-drop-{}-{unique}", std::process::id()));
         fs::create_dir(&root).expect("create isolated test directory");
         let file = root.join("source.tif");
         fs::write(&file, b"original scientific data").expect("create isolated fixture");
