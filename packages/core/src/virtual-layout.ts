@@ -1,6 +1,6 @@
 import type {DemoAsset} from './demo-assets';
 import type {PositionedItem} from '@data-m/interaction';
-import {VIRTUAL_ASSET_ROW_HEIGHT} from './virtual-asset-list';
+export const VIRTUAL_ASSET_ROW_HEIGHT=56;
 
 /**
  * All logical rows have exact fixed-height bounds, including unmounted rows.
