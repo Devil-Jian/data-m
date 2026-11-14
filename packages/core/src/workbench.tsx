@@ -6,6 +6,7 @@ import {
   Search, ShieldCheck, Table2, Upload, X
 } from 'lucide-react';
 import { allPanels, findAssay, INITIAL_PROJECTS, STAGES, summary } from './data';
+import { useExplorerInteraction } from '@data-m/interaction';
 import type { Assay, DataFile, ModuleName, Panel, Project, Replica, Stage, ViewMode } from './data';
 
 export interface ButtonProps {
@@ -74,7 +75,6 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
   const [view,setView]=useState<ViewMode>('grid');
   const [paperView,setPaperView]=useState<ViewMode>('grid');
   const [search,setSearch]=useState('');
-  const [selection,setSelection]=useState<string[]>([]);
   const [activePaperId,setActivePaperId]=useState('p1');
   const [activePanelId,setActivePanelId]=useState<string|null>(null);
   const [trace,setTrace]=useState<{projectId:string;paperId:string;panelId:string;label:string}|null>(null);
@@ -95,6 +95,20 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
     (role==='all'||(role==='rep'?r.isRep:r.inStats)) &&
     (!search||[r.name,r.procName,r.id].some(v=>v.toLowerCase().includes(search.toLowerCase())))
   ),[group,role,search]);
+  const visibleIds=useMemo(()=>filtered.map(r=>r.id),[filtered]);
+  const explorer=useExplorerInteraction({
+    visibleIds,enabled:module==='experiment'&&!activePanelId&&!newProjectOpen,
+    onDrop:({itemIds,targetId,operation})=>{
+      notify('交互请求：'+(operation==='copy'?'复制':'移动')+' '+itemIds.length+' 个样本项到 '+(assay.groups.find(g=>g.id===targetId)?.name||targetId)+'；真实文件操作待后端实现');
+    },
+    onCopy:(ids)=>notify('已选择复制 '+ids.length+' 个演示项'),
+    onCut:(ids)=>notify('已选择剪切 '+ids.length+' 个演示项'),
+    onPaste:(ids,operation)=>notify('请求'+(operation==='copy'?'复制':'移动')+' '+ids.length+' 项；需选择目标容器并连接后端'),
+    onDelete:(ids)=>notify('请求删除 '+ids.length+' 个演示项；需后端引用保护'),
+    onRename:(id)=>notify('重命名 '+id+' 需后端支持')
+  });
+  const selection=explorer.selectedIds;
+  const setSelection=explorer.setSelectedIds;
   const selectedCount=selection.length;
   const stageName=(s:Stage)=>STAGES.find(a=>a.id===s)?.label||s;
   const notify=(s:string)=>{setNotice(s); window.setTimeout(()=>setNotice(old=>old===s?'':old),4300)};
@@ -123,7 +137,7 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
     }));
   }
   function setSelected(id:string,checked:boolean) {
-    setSelection(prev=>checked?Array.from(new Set([...prev,id])):prev.filter(x=>x!==id));
+    explorer.toggle(id,checked);
   }
   function exportManifest() {
     const header=['project','theme','assay','group','sample','raw','processed','included_in_stats','representative'];
@@ -204,7 +218,7 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
     </span>;
   }
   function sampleCard(rep:Replica) {
-    return <div key={rep.id} className={'dm-sample-card'+(selection.includes(rep.id)?' selected':'')+
+    return <div key={rep.id} data-explorer-id={rep.id} className={'dm-sample-card'+(selection.includes(rep.id)?' selected':'')+
       (trace&&allPapers.some(p=>p.id===trace.panelId&&p.highlightRepIds.includes(rep.id))?' highlighted':'')}>
       <div className="dm-card-head">
         <UI.Check checked={selection.includes(rep.id)} onChange={v=>setSelected(rep.id,v)}/>
@@ -224,7 +238,7 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
     if(!visibleStages.length)return <div className="dm-empty">请选择至少一个数据阶段</div>;
     if(view==='grid')return <div className="dm-matrix-scroll"><table className="dm-matrix">
       <thead><tr><th>生物学重复 / 样本</th>{visibleStages.map(s=><th key={s.id}>{s.label}<small>{s.short}</small></th>)}</tr></thead>
-      <tbody>{filtered.map(rep=><tr key={rep.id} className={selection.includes(rep.id)?'dm-selected-row':''}>
+      <tbody>{filtered.map(rep=><tr key={rep.id} data-explorer-id={rep.id} className={selection.includes(rep.id)?'dm-selected-row':''}>
         <td className="dm-sample-label"><div className="dm-sample-title">
           <UI.Check checked={selection.includes(rep.id)} onChange={v=>setSelected(rep.id,v)}/>
           <strong>{rep.name.replace(/\.[^.]+$/,'')}</strong>
@@ -238,7 +252,7 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
           onChange={v=>setSelection(v?filtered.map(r=>r.id):[])}/></th>
         <th>样本文件</th><th>测量值</th><th>角色</th>
         {visibleStages.map(s=><th key={s.id}>{s.label}</th>)}
-      </tr></thead><tbody>{filtered.map(rep=><tr key={rep.id}>
+      </tr></thead><tbody>{filtered.map(rep=><tr key={rep.id} data-explorer-id={rep.id} className={selection.includes(rep.id)?'dm-selected-row':''}>
         <td><UI.Check checked={selection.includes(rep.id)} onChange={v=>setSelected(rep.id,v)}/></td>
         <td className="dm-nowrap"><strong>{rep.name}</strong></td><td>{rep.value.toFixed(2)}</td>
         <td>{sampleBadges(rep)}</td>{visibleStages.map(s=><td key={s.id}>{s.id==='raw'?rep.name:s.id==='processed'?rep.procName:s.id==='stats'?(rep.inStats?'已纳入':'—'):(rep.isRep?'展示源':'—')}</td>)}
