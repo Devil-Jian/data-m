@@ -80,3 +80,49 @@ test('Escape cancels pending drag without submitting operation',async ({page})=>
   await page.mouse.up();
   await expect(page.locator('.dm-toast')).toHaveCount(0);
 });
+
+test('TanStack Virtual renders a bounded DOM while selecting 10,000 file assets',async ({page})=>{
+  await page.goto('/?virtualDemo=10000');
+  await page.getByRole('button',{name:'分阶段'}).click();
+  await page.getByTitle('虚拟文件列表').click();
+  const viewport=page.getByRole('region',{name:'虚拟文件资产列表'});
+  await expect(viewport).toHaveAttribute('data-asset-count','10000');
+  await expect(page.locator('[data-explorer-id="asset:raw:virtual-perf-0"]')).toBeVisible();
+  const initiallyRendered=await viewport.locator('[data-explorer-id]').count();
+  expect(initiallyRendered).toBeLessThan(50);
+  await page.keyboard.press('Control+a');
+  await expect(page.locator('.dm-selection-actions')).toContainText('10000 个文件资产');
+  // No synthetic biological sample is introduced by the stress fixture.
+  await expect(page.locator('.dm-section-heading')).toContainText('6 个样本');
+  await viewport.evaluate(el=>{el.scrollTop=el.scrollHeight});
+  await expect(page.locator('[data-explorer-id="asset:raw:virtual-perf-9999"]')).toBeVisible();
+  expect(await viewport.locator('[data-explorer-id]').count()).toBeLessThan(50);
+});
+
+test('Shift selection traverses virtual rows without mounting the intervening files',async ({page})=>{
+  await page.goto('/?virtualDemo=10000');
+  await page.getByRole('button',{name:'分阶段'}).click();
+  await page.getByTitle('虚拟文件列表').click();
+  const viewport=page.getByRole('region',{name:'虚拟文件资产列表'});
+  await page.locator('[data-explorer-id="asset:raw:virtual-perf-0"]').click();
+  await viewport.evaluate(el=>{el.scrollTop=el.scrollHeight});
+  const last=page.locator('[data-explorer-id="asset:raw:virtual-perf-9999"]');
+  await expect(last).toBeVisible();
+  await last.click({modifiers:['Shift']});
+  await expect(page.locator('.dm-selection-actions')).toContainText('10000 个文件资产');
+});
+
+test('marquee autoscroll works inside real virtualized list gutter',async ({page})=>{
+  await page.goto('/?virtualDemo=10000');
+  await page.getByRole('button',{name:'分阶段'}).click();
+  await page.getByTitle('虚拟文件列表').click();
+  const viewport=page.getByRole('region',{name:'虚拟文件资产列表'});
+  const box=await viewport.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.move(box!.x+8,box!.y+110);
+  await page.mouse.down();
+  await page.mouse.move(box!.x+160,box!.y+box!.height-3,{steps:12});
+  await expect.poll(()=>viewport.evaluate(el=>el.scrollTop)).toBeGreaterThan(0);
+  await page.mouse.up();
+  await expect(page.locator('.dm-selection-actions')).toContainText('个文件资产');
+});

@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { allPanels, findAssay, INITIAL_PROJECTS, STAGES, summary } from './data';
 import { demoAssetId, selectableDemoAssets } from './demo-assets';
+import { VirtualAssetList } from './virtual-asset-list';
+import {makeVirtualStressAssets,virtualAssetRects} from './virtual-layout';
 import { useExplorerInteraction } from '@data-m/interaction';
 import type { Assay, DataFile, ModuleName, Panel, Project, Replica, Stage, ViewMode } from './data';
 
@@ -97,11 +99,20 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
     (!search||[r.name,r.procName,r.id].some(v=>v.toLowerCase().includes(search.toLowerCase())))
   ),[group,role,search]);
   // The Explorer interacts with file assets; one biological replicate may own multiple assets.
-  const selectableAssets=useMemo(()=>selectableDemoAssets(assay,group,filtered,mode,stage,stageFilter),
-    [assay,group,filtered,mode,stage,stageFilter]);
+  const stressDemo=typeof window!=='undefined' &&
+    (window.location.hostname==='localhost'||window.location.hostname==='127.0.0.1') &&
+    new URLSearchParams(window.location.search).get('virtualDemo')==='10000';
+  const selectableAssets=useMemo(()=>
+    stressDemo&&mode==='stage'&&stage==='raw'&&view==='list'
+      ?makeVirtualStressAssets(10_000,group.id)
+      :selectableDemoAssets(assay,group,filtered,mode,stage,stageFilter),
+    [assay,group,filtered,mode,stage,stageFilter,stressDemo,view]);
+  // The virtual row layout is available even when a row is not mounted in the DOM.
+  const virtualRects=useMemo(()=>virtualAssetRects(selectableAssets,100_000),[selectableAssets]);
   const visibleIds=useMemo(()=>selectableAssets.map(a=>a.id),[selectableAssets]);
   const explorer=useExplorerInteraction({
     visibleIds,enabled:module==='experiment'&&!activePanelId&&!newProjectOpen,
+    getVirtualItems:()=>virtualRects,
     onDrop:({itemIds,targetId,operation})=>{
       const assets=itemIds.map(id=>selectableAssets.find(a=>a.id===id));
       if(assets.some(a=>!a)){notify('文件选择已变化，请重新选择');return;}
@@ -320,6 +331,8 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
           key={p.id} className="dm-ref-chip" onClick={()=>jumpToPaper(p)}>{p.label} ↗</button>)}
       </div>)}
       {!assay.displayFiles.length&&<div className="dm-empty">暂无展示文件</div>}</div>;
+    if(view==='list')return <VirtualAssetList
+      assets={selectableAssets} selected={explorer.selectedSet} onToggle={setSelected}/>;
     return <div className="dm-cards">{filtered.map(sampleCard)}</div>;
   }
   const paperPanels=(paper?.figures||[]).flatMap(f=>f.panels);
@@ -403,6 +416,11 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
           </div>:<div className="dm-filter-toolbar">
             {STAGES.map(s=><UI.Button key={s.id} small variant={stage===s.id?'primary':'ghost'} onClick={()=>setStage(s.id)}>
               {s.label}</UI.Button>)}
+            <div className="dm-toolbar-spacer"/>
+            {(stage==='raw'||stage==='processed')&&<div className="dm-view-switch">
+              <UI.Button small variant={view==='grid'?'primary':'ghost'} onClick={()=>setView('grid')} title="卡片视图"><LayoutGrid size={15}/></UI.Button>
+              <UI.Button small variant={view==='list'?'primary':'ghost'} onClick={()=>setView('list')} title="虚拟文件列表"><List size={15}/></UI.Button>
+            </div>}
           </div>}
           <div className="dm-workspace-scroll dm-explorer-canvas" data-source-container-id={group.id}
             onPointerDown={explorer.onPointerDown} onDragStart={e=>e.preventDefault()}>
