@@ -12,7 +12,7 @@ describe('TanStack Virtual logical asset layout',()=>{
   it('maps a deep offscreen range to the matching file IDs',()=>{
     const assets=makeVirtualStressAssets(10_000,'group-demo');
     const layout=virtualAssetRects(assets,900);
-    expect(layout[0].rect).toEqual({left:0,right:900,top:0,bottom:VIRTUAL_ASSET_ROW_HEIGHT});
+    expect(layout[0].rect).toEqual({left:20,right:900,top:0,bottom:VIRTUAL_ASSET_ROW_HEIGHT});
     expect(layout[9_999].rect.top).toBe(9_999*VIRTUAL_ASSET_ROW_HEIGHT);
     const hit=contentMarqueeHits({
       left:1,right:600,
