@@ -30,6 +30,13 @@ describe('Explorer selection',()=>{
   it('Ctrl+A only targets visible IDs',()=>{
     expect([...selectAll(['c','d'],createSelection()).selected]).toEqual(['c','d']);
   });
+  it('Ctrl+A preserves the current keyboard focus instead of jumping to the last file',()=>{
+    const current=selectItem(createSelection(),'b',ids);
+    const all=selectAll(ids,current);
+    expect(all.selected.size).toBe(5);
+    expect(all.focused).toBe('b');
+    expect(all.anchor).toBe('b');
+  });
   it('additive marquee uses snapshot, not previous transient hits',()=>{
     const base=selectItem(createSelection(),'a',ids);
     const first=selectMarquee(base,['c'],base.selected,true);
