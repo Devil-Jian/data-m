@@ -26,7 +26,12 @@ export function selectItem(previous:Selection, id:ItemId, visibleOrder:readonly 
   return {selected:new Set([id]),anchor:id,focused:id};
 }
 export function selectAll(visibleOrder:readonly ItemId[],previous:Selection):Selection {
-  return {selected:new Set(visibleOrder),anchor:previous.anchor&&visibleOrder.includes(previous.anchor)?previous.anchor:visibleOrder[0]||null,focused:visibleOrder.at(-1)||null};
+  const focused=previous.focused&&visibleOrder.includes(previous.focused)
+    ?previous.focused:visibleOrder[0]||null;
+  const anchor=previous.anchor&&visibleOrder.includes(previous.anchor)
+    ?previous.anchor:focused;
+  // Ctrl+A must not jump a virtual list from the current viewport to its last row.
+  return {selected:new Set(visibleOrder),anchor,focused};
 }
 export function selectMarquee(previous:Selection,hitIds:readonly ItemId[],base:ReadonlySet<ItemId>,additive:boolean):Selection {
   return {selected:new Set(additive?[...base,...hitIds]:hitIds),anchor:previous.anchor,focused:previous.focused};
