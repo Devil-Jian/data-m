@@ -56,7 +56,7 @@ function DesktopApp(){
           break;
       }
     }).then(fn=>{if(disposed)fn();else unlisten=fn}).catch(()=>{
-      if(!disposed)dispatch({type:'fail',requestId:lastRequest});
+      if(!disposed)dispatch({type:'listenerError'});
     });
     return ()=>{disposed=true;unlisten?.()};
   },[]);
