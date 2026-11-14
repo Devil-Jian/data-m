@@ -43,6 +43,12 @@ cargo check
 
 CI：`.github/workflows/desktop-windows.yml` 运行 TypeScript 构建、桌面预览状态测试、原有浏览器 E2E、Rust 单元测试及 Windows 二进制构建。
 
+## 获取 Windows 本地验收用构建
+
+通过 [GitHub Actions · Windows desktop shell](https://github.com/Devil-Jian/data-m/actions/workflows/desktop-windows.yml) 查看最新成功的工作流，在该运行的 Artifacts 中找到 `data-m-p1-unsigned-portable-windows`。这是**未签名、未安装、仅用于 P1 测试的 Windows EXE**（保留 7 天），不属于正式 Release。未出现 Artifact 表示该运行尚未成功构建或上传。
+
+测试环境需已安装 WebView2 Runtime；未签名程序可能出现 Windows SmartScreen 提示。只使用可信的仓库构建并在专门的测试目录验证，不应用于真实科研数据导入或管理。
+
 ## Windows WebView2 原生手工验收（待执行）
 
 - [ ] 把 `.tif` / `.xlsx` 拖入原生 Tauri 窗口，展示**名称**和文件大小，文件本身不改变。
