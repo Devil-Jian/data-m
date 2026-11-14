@@ -53,7 +53,7 @@ fn inspect_one(raw_path: &str) -> DropEntry {
     }
     match fs::symlink_metadata(path) {
         Ok(meta) if meta.file_type().is_symlink() => {
-            rejected("link", "符号链接暂不支持导入")
+            rejected(&name, "link", "符号链接暂不支持导入")
         }
         Ok(meta) if meta.is_file() => DropEntry {
             name,
@@ -112,7 +112,10 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("monotonic test time")
             .as_nanos();
-        let root = std::env::temp_dir().join(format!("data-m-drop-{}-{unique}", std::process::id()));
+        let root = std::env::temp_dir().join(format!(
+            "data-m-drop-{}-{unique}",
+            std::process::id()
+        ));
         fs::create_dir(&root).expect("create isolated test directory");
         let file = root.join("source.tif");
         fs::write(&file, b"original scientific data").expect("create isolated fixture");
