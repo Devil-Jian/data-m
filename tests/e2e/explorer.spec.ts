@@ -143,7 +143,8 @@ test('Explorer arrows and Ctrl+arrows separate keyboard focus from selection',as
   await expect(second).toHaveClass(/selected/);
   await expect(page.locator('.dm-selection-actions')).toContainText('1 个文件资产');
   await page.keyboard.press('Shift+ArrowDown');
-  await expect(page.locator('.dm-selection-actions')).toContainText('2 个文件资产');
+  // Anchor stays on row 1 while Ctrl+Arrow moved focus to row 2.
+  await expect(page.locator('.dm-selection-actions')).toContainText('3 个文件资产');
 });
 
 test('Home, End and PageUp navigate offscreen virtual assets',async ({page})=>{
