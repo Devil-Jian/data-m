@@ -1,7 +1,7 @@
 import {describe,expect,it} from 'vitest';
 import {
   canDrop,contentMarqueeHits,contentPoint,createSelection,dragItemIds,dragOperation,
-  edgeScrollVelocity,intersects,marqueeHits,
+  edgeScrollVelocity,intersects,marqueeHits,navigateSelection,
   rectFromPoints,selectAll,selectItem,selectMarquee
 } from './model';
 const ids=['a','b','c','d','e'];
@@ -29,6 +29,13 @@ describe('Explorer selection',()=>{
   });
   it('Ctrl+A only targets visible IDs',()=>{
     expect([...selectAll(['c','d'],createSelection()).selected]).toEqual(['c','d']);
+  });
+  it('Ctrl+A preserves the current keyboard focus instead of jumping to the last file',()=>{
+    const current=selectItem(createSelection(),'b',ids);
+    const all=selectAll(ids,current);
+    expect(all.selected.size).toBe(5);
+    expect(all.focused).toBe('b');
+    expect(all.anchor).toBe('b');
   });
   it('additive marquee uses snapshot, not previous transient hits',()=>{
     const base=selectItem(createSelection(),'a',ids);
@@ -119,5 +126,57 @@ describe('scroll-content selection including virtualized rows',()=>{
   it('clamps velocity when pointer leaves the viewport',()=>{
     const v=edgeScrollVelocity({x:900,y:-900},{left:0,right:300,top:0,bottom:300});
     expect(v).toEqual({x:22,y:-22});
+  });
+});
+
+describe('Explorer keyboard navigation',()=>{
+  it('ArrowDown selects first visible item when nothing is focused',()=>{
+    const s=navigateSelection(createSelection(),ids,'ArrowDown');
+    expect([...s.selected]).toEqual(['a']);
+    expect(s.focused).toBe('a');
+    expect(s.anchor).toBe('a');
+  });
+  it('ArrowUp from no focus selects last and clamps at boundaries',()=>{
+    const s=navigateSelection(createSelection(),ids,'ArrowUp');
+    expect(s.focused).toBe('e');
+    expect(navigateSelection(s,ids,'ArrowDown').focused).toBe('e');
+  });
+  it('Shift+arrow extends and reverses the selection from a stable anchor',()=>{
+    const start=selectItem(createSelection(),'b',ids);
+    const forward=navigateSelection(start,ids,'ArrowDown',{shiftKey:true});
+    const reverse=navigateSelection(forward,ids,'ArrowUp',{shiftKey:true});
+    expect([...forward.selected]).toEqual(['b','c']);
+    expect([...reverse.selected]).toEqual(['b']);
+    expect(reverse.anchor).toBe('b');
+  });
+  it('Ctrl+Arrow changes focus but does not modify selected IDs or anchor',()=>{
+    const previous=selectItem(createSelection(),'b',ids);
+    const moved=navigateSelection(previous,ids,'ArrowDown',{ctrlKey:true});
+    expect(moved.selected).toEqual(previous.selected);
+    expect(moved.anchor).toBe('b');
+    expect(moved.focused).toBe('c');
+  });
+  it('Ctrl+Shift extends the range without erasing disconnected selections',()=>{
+    const previous=selectItem(selectItem(createSelection(),'a',ids),'d',ids,{ctrlKey:true});
+    const moved=navigateSelection(previous,ids,'Home',{ctrlKey:true,shiftKey:true});
+    expect(moved.selected).toEqual(new Set(['a','b','c','d']));
+    expect(moved.anchor).toBe('d');
+  });
+  it('Home/End/PageUp/PageDown navigate ten-thousand logical IDs',()=>{
+    const large=Array.from({length:10_000},(_,i)=>'asset-'+i);
+    const start=navigateSelection(createSelection(),large,'End');
+    expect(start.focused).toBe('asset-9999');
+    const paged=navigateSelection(start,large,'PageUp',{},13);
+    expect(paged.focused).toBe('asset-9986');
+    const home=navigateSelection(paged,large,'Home',{shiftKey:true});
+    // PageUp without Shift reset the anchor to 9986, so Shift+Home covers 0..9986.
+    expect(home.selected.size).toBe(9_987);
+    const next=navigateSelection(home,large,'PageDown',{},100);
+    expect(next.focused).toBe('asset-100');
+    expect([...next.selected]).toEqual(['asset-100']);
+  });
+  it('does nothing to an empty scope',()=>{
+    const before=createSelection();
+    expect(navigateSelection(before,[],'End')).toBe(before);
   });
 });

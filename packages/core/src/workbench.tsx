@@ -332,7 +332,8 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
       </div>)}
       {!assay.displayFiles.length&&<div className="dm-empty">暂无展示文件</div>}</div>;
     if(view==='list')return <VirtualAssetList
-      assets={selectableAssets} selected={explorer.selectedSet} onToggle={setSelected}/>;
+      assets={selectableAssets} selected={explorer.selectedSet}
+      focusedId={explorer.focusedId} onToggle={setSelected}/>;
     return <div className="dm-cards">{filtered.map(sampleCard)}</div>;
   }
   const paperPanels=(paper?.figures||[]).flatMap(f=>f.panels);
@@ -423,6 +424,7 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
             </div>}
           </div>}
           <div className="dm-workspace-scroll dm-explorer-canvas" data-source-container-id={group.id}
+            role="group" aria-label="文件资源管理器工作区" tabIndex={0}
             onPointerDown={explorer.onPointerDown} onDragStart={e=>e.preventDefault()}>
             <div className="dm-section-heading"><div><h2>{mode==='overview'?'全阶段归档总览':stageName(stage)}
               <small>{mode==='overview'?'样本 × 数据阶段':'单阶段详细浏览'}</small></h2>

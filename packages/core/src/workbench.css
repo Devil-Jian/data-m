@@ -194,3 +194,7 @@ button{cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}
 .dm-virtual-name strong{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dm-virtual-name small{font-size:10px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dm-virtual-type{font-size:10px;color:#64748b}
+
+/* Explorer keyboard focus is separate from selection and supports unmounted virtual rows. */
+.dm-explorer-canvas:focus{outline:none}
+.dm-virtual-row.is-focused{box-shadow:inset 0 0 0 2px #2563eb}

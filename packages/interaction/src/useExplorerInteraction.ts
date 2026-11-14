@@ -1,11 +1,11 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {
   canDrop,contentMarqueeHits,contentPoint,createSelection,distance,dragItemIds,
-  dragOperation,edgeScrollVelocity,isEditableTarget,rectFromPoints,
+  dragOperation,edgeScrollVelocity,isEditableTarget,navigateSelection,rectFromPoints,
   selectAll,selectItem,selectMarquee
 } from './model';
 import type {
-  DragIntent,ItemId,ModifierKeys,Operation,Point,PositionedItem,Rect,Selection
+  DragIntent,ItemId,ModifierKeys,NavigationKey,Operation,Point,PositionedItem,Rect,Selection
 } from './model';
 
 type Pending={
@@ -50,6 +50,7 @@ export function useExplorerInteraction(options:ExplorerOptions){
   const pending=useRef<Pending|null>(null);
   const clipboard=useRef<{ids:string[];operation:Operation}|null>(null);
   const frame=useRef<number|null>(null);
+  const rootRef=useRef<HTMLElement|null>(null);
 
   const setSelectedIds=useCallback((ids:string[])=>{
     setSelection({selected:new Set(ids),anchor:ids[0]||null,focused:ids.at(-1)||null});
@@ -69,11 +70,14 @@ export function useExplorerInteraction(options:ExplorerOptions){
   const onPointerDown=useCallback((event:React.PointerEvent<HTMLElement>)=>{
     if(optionsRef.current.enabled===false||event.button!==0||!event.isPrimary)return;
     const root=event.currentTarget,target=event.target;
+    rootRef.current=root;
     if(!(target instanceof Element)||!root.contains(target)||isEditableTarget(target))return;
     if(target.closest('button, a, input, label, [role="checkbox"], [data-explorer-no-gesture]'))return;
     const item=target.closest<HTMLElement>('[data-explorer-id]');
     if(item&&!root.contains(item))return;
     const itemId=item?.dataset.explorerId||null;
+    // Focus the Explorer scope so keyboard navigation cannot hijack other controls.
+    root.focus({preventScroll:true});
     // A nested scrolling view may have its own content coordinate system.
     // Otherwise use the stable Explorer root as the scroll container.
     const child=target.closest<HTMLElement>('[data-explorer-scroll-host]');
@@ -233,6 +237,17 @@ export function useExplorerInteraction(options:ExplorerOptions){
     function onKeyDown(event:KeyboardEvent){
       if(isEditableTarget(event.target)||event.defaultPrevented)return;
       const mod=event.ctrlKey||event.metaKey;
+      const navigation=['ArrowUp','ArrowDown','Home','End','PageUp','PageDown'];
+      if(navigation.includes(event.key)&&document.activeElement===rootRef.current){
+        event.preventDefault();
+        const viewport=rootRef.current?.querySelector<HTMLElement>('[data-explorer-virtual="true"]');
+        const rowHeight=Number(viewport?.dataset.virtualRowHeight)||56;
+        const pageSize=viewport?Math.max(1,Math.floor(viewport.clientHeight/rowHeight)):10;
+        setSelection(prev=>navigateSelection(
+          prev,visibleRef.current,event.key as NavigationKey,event,pageSize
+        ));
+        return;
+      }
       if(event.key==='Escape'){
         if(pending.current){
           pending.current=null;
@@ -285,7 +300,10 @@ export function useExplorerInteraction(options:ExplorerOptions){
 
   return {
     selectedIds:[...selection.selected],
-    selectedSet:selection.selected,gesture,onPointerDown,
+    selectedSet:selection.selected,
+    focusedId:selection.focused,
+    anchorId:selection.anchor,
+    gesture,onPointerDown,
     setSelectedIds,clear,select,toggle
   };
 }

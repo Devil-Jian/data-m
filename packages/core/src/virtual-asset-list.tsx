@@ -1,4 +1,4 @@
-import React, {useRef} from 'react';
+import React, {useEffect,useRef} from 'react';
 import {useVirtualizer} from '@tanstack/react-virtual';
 import type {DemoAsset} from './demo-assets';
 
@@ -10,9 +10,10 @@ import {VIRTUAL_ASSET_ROW_HEIGHT} from './virtual-layout';
 export interface VirtualAssetListProps{
   assets:readonly DemoAsset[];
   selected:ReadonlySet<string>;
+  focusedId:string|null;
   onToggle:(id:string,checked:boolean)=>void;
 }
-export function VirtualAssetList({assets,selected,onToggle}:VirtualAssetListProps){
+export function VirtualAssetList({assets,selected,focusedId,onToggle}:VirtualAssetListProps){
   const scrollRef=useRef<HTMLDivElement>(null);
   const virtualizer=useVirtualizer({
     count:assets.length,
@@ -21,15 +22,21 @@ export function VirtualAssetList({assets,selected,onToggle}:VirtualAssetListProp
     estimateSize:()=>VIRTUAL_ASSET_ROW_HEIGHT,
     overscan:6
   });
+  const focusedIndex=focusedId?assets.findIndex(item=>item.id===focusedId):-1;
+  useEffect(()=>{
+    if(focusedIndex>=0)virtualizer.scrollToIndex(focusedIndex,{align:'auto'});
+  },[focusedIndex,virtualizer]);
   return <div ref={scrollRef} data-explorer-scroll-host data-explorer-virtual="true"
     className="dm-virtual-scroll" role="region" aria-label="虚拟文件资产列表"
-    data-asset-count={assets.length}>
+    data-asset-count={assets.length} data-virtual-row-height={VIRTUAL_ASSET_ROW_HEIGHT}>
     <div className="dm-virtual-inner" style={{height:virtualizer.getTotalSize()}}>
       {virtualizer.getVirtualItems().map(item=>{
         const asset=assets[item.index];
         const checked=selected.has(asset.id);
         return <div key={item.key} data-index={item.index} data-explorer-id={asset.id}
-          className={'dm-virtual-row dm-selectable-asset'+(checked?' selected':'')}
+          className={'dm-virtual-row dm-selectable-asset'+(checked?' selected':'')+
+            (focusedId===asset.id?' is-focused':'')}
+          aria-current={focusedId===asset.id?'true':undefined}
           style={{height:VIRTUAL_ASSET_ROW_HEIGHT,transform:`translateY(${item.start}px)`}}
           title={asset.filename}>
           <label className="dm-virtual-checkbox" data-explorer-no-gesture>

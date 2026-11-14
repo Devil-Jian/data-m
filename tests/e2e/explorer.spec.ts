@@ -126,3 +126,52 @@ test('marquee autoscroll works inside real virtualized list gutter',async ({page
   await page.mouse.up();
   await expect(page.locator('.dm-selection-actions')).toContainText('个文件资产');
 });
+
+test('Explorer arrows and Ctrl+arrows separate keyboard focus from selection',async ({page})=>{
+  await page.goto('/?virtualDemo=10000');
+  await page.getByRole('button',{name:'分阶段'}).click();
+  await page.getByTitle('虚拟文件列表').click();
+  const first=page.locator('[data-explorer-id="asset:raw:virtual-perf-0"]');
+  const second=page.locator('[data-explorer-id="asset:raw:virtual-perf-1"]');
+  const third=page.locator('[data-explorer-id="asset:raw:virtual-perf-2"]');
+  await first.click();
+  await page.keyboard.press('ArrowDown');
+  await expect(second).toHaveClass(/selected/);
+  await expect(second).toHaveClass(/is-focused/);
+  await page.keyboard.press('Control+ArrowDown');
+  await expect(third).toHaveClass(/is-focused/);
+  await expect(second).toHaveClass(/selected/);
+  await expect(page.locator('.dm-selection-actions')).toContainText('1 个文件资产');
+  await page.keyboard.press('Shift+ArrowDown');
+  // Anchor stays on row 1 while Ctrl+Arrow moved focus to row 2.
+  await expect(page.locator('.dm-selection-actions')).toContainText('3 个文件资产');
+});
+
+test('Home, End and PageUp navigate offscreen virtual assets',async ({page})=>{
+  await page.goto('/?virtualDemo=10000');
+  await page.getByRole('button',{name:'分阶段'}).click();
+  await page.getByTitle('虚拟文件列表').click();
+  const viewport=page.getByRole('region',{name:'虚拟文件资产列表'});
+  await page.locator('[data-explorer-id="asset:raw:virtual-perf-0"]').click();
+  await page.keyboard.press('End');
+  const last=page.locator('[data-explorer-id="asset:raw:virtual-perf-9999"]');
+  await expect(last).toBeVisible();
+  await expect(last).toHaveClass(/is-focused/);
+  await expect(last).toHaveClass(/selected/);
+  await page.keyboard.press('PageUp');
+  await expect(last).not.toHaveClass(/selected/);
+  await page.keyboard.press('Home');
+  await expect(page.locator('[data-explorer-id="asset:raw:virtual-perf-0"]')).toBeVisible();
+  await expect.poll(()=>viewport.evaluate(el=>el.scrollTop)).toBe(0);
+});
+
+test('typing shortcuts in search do not change file selection',async ({page})=>{
+  await page.goto('/?virtualDemo=10000');
+  await page.getByRole('button',{name:'分阶段'}).click();
+  await page.getByTitle('虚拟文件列表').click();
+  await page.locator('[data-explorer-id="asset:raw:virtual-perf-0"]').click();
+  await page.getByPlaceholder('搜索样本文件…').click();
+  await page.keyboard.press('Control+a');
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('.dm-selection-actions')).toContainText('1 个文件资产');
+});
