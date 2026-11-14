@@ -1,3 +1,4 @@
+mod drop_preview;
 //! Data-M Tauri shell.
 //!
 //! This first milestone intentionally exposes no destructive file operations.
@@ -10,7 +11,7 @@ fn shell_status() -> &'static str {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![shell_status])
+        .invoke_handler(tauri::generate_handler![shell_status, drop_preview::inspect_drop_paths])
         .run(tauri::generate_context!())
         .expect("failed to run Data-M desktop");
 }
