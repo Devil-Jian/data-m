@@ -262,7 +262,7 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
     const visibleStages=STAGES.filter(s=>stageFilter.includes(s.id));
     if(!visibleStages.length)return <div className="dm-empty">请选择至少一个数据阶段</div>;
     const selectedInRow=(rep:Replica)=>repAssetIds(rep).length>0&&repAssetIds(rep).every(id=>selection.includes(id));
-    if(view==='grid')return <div className="dm-matrix-scroll"><table className="dm-matrix">
+    if(view==='grid')return <div className="dm-matrix-scroll" data-explorer-scroll-host><table className="dm-matrix">
       <thead><tr><th>生物学重复（勾选本行文件）</th>
         {visibleStages.map(s=><th key={s.id}>{s.label}<small>{s.short}</small></th>)}</tr></thead>
       <tbody>{filtered.map(rep=><tr key={rep.id}>
@@ -274,7 +274,7 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
         {visibleStages.map(s=><td key={s.id}>{row(rep,s.id)}</td>)}
       </tr>)}</tbody>
     </table></div>;
-    return <div className={view==='list'?'dm-list':'dm-table-outer'}>
+    return <div data-explorer-scroll-host className={view==='list'?'dm-list':'dm-table-outer'}>
       <table className="dm-data-table"><thead><tr>
         <th><UI.Check checked={visibleIds.length>0&&visibleIds.every(id=>selection.includes(id))}
           onChange={v=>setSelection(v?visibleIds:[])}/></th>
