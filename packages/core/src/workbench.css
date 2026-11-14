@@ -183,3 +183,14 @@ button{cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}
 .dm-selectable-asset.selected{background:#dbeafe!important;outline-color:#60a5fa}
 .dm-selectable-asset:not(.selected):hover{background:#f1f5f9;outline-color:#bfdbfe}
 .dm-inline-asset{padding:8px 6px;overflow:hidden;text-overflow:ellipsis}
+
+/* The virtual list is a real, independently scrolling viewport of fixed-height assets. */
+.dm-virtual-scroll{height:min(55vh,520px);min-height:210px;overflow:auto;position:relative;border:1px solid var(--dm-border);border-radius:var(--dm-radius);background:white;overscroll-behavior:contain}
+.dm-virtual-inner{width:100%;position:relative}
+.dm-virtual-row{position:absolute;top:0;left:0;width:100%;display:flex;align-items:center;gap:13px;padding:0 14px;border-bottom:1px solid var(--dm-border);box-sizing:border-box}
+.dm-virtual-row.selected{background:#dbeafe}
+.dm-virtual-checkbox{display:flex;align-items:center;justify-content:center;width:22px;height:36px;flex:none}
+.dm-virtual-name{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
+.dm-virtual-name strong{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dm-virtual-name small{font-size:10px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dm-virtual-type{font-size:10px;color:#64748b}
