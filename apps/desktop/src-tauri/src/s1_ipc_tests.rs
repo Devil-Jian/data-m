@@ -38,20 +38,46 @@ fn s1_ipc_serializes_crud_and_reopens_the_same_temporary_database() {
     let fixture = tempfile::tempdir().unwrap();
     let path = fixture.path().join("project-tree.sqlite");
     let (app, view) = window(&path);
-    assert_eq!(call(&view, json!({"action":"list"})).unwrap(), json!({"nodes":[]}));
-    let create = json!({"action":"create","kind":"project","name":"Project A","requestId":"ipc-project"});
+    assert_eq!(
+        call(&view, json!({"action":"list"})).unwrap(),
+        json!({"nodes":[]})
+    );
+    let create =
+        json!({"action":"create","kind":"project","name":"Project A","requestId":"ipc-project"});
     let created = call(&view, create.clone()).unwrap();
     assert_eq!(created["nodes"].as_array().unwrap().len(), 1);
     assert_eq!(call(&view, create).unwrap(), created);
     let project_id = created["nodes"][0]["id"].as_str().unwrap();
     let with_theme = call(&view, json!({"action":"create","kind":"theme","parentId":project_id,"name":"Theme A","requestId":"ipc-theme"})).unwrap();
     assert_eq!(with_theme["nodes"].as_array().unwrap().len(), 2);
-    let theme_id = with_theme["nodes"].as_array().unwrap().iter().find(|node| node["kind"] == "theme").unwrap()["id"].as_str().unwrap();
+    let theme_id = with_theme["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["kind"] == "theme")
+        .unwrap()["id"]
+        .as_str()
+        .unwrap();
     let with_assay = call(&view, json!({"action":"create","kind":"assay","parentId":theme_id,"name":"Assay A","requestId":"ipc-assay"})).unwrap();
-    let assay_id = with_assay["nodes"].as_array().unwrap().iter().find(|node| node["kind"] == "assay").unwrap()["id"].as_str().unwrap();
+    let assay_id = with_assay["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["kind"] == "assay")
+        .unwrap()["id"]
+        .as_str()
+        .unwrap();
     let renamed = call(&view, json!({"action":"rename","kind":"assay","id":assay_id,"name":"Renamed assay","requestId":"ipc-rename"})).unwrap();
-    assert!(renamed["nodes"].as_array().unwrap().iter().any(|node| node["name"] == "Renamed assay"));
-    assert!(call(&view, json!({"action":"delete","kind":"project","id":project_id,"requestId":"ipc-nonempty"})).is_err());
+    assert!(renamed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|node| node["name"] == "Renamed assay"));
+    assert!(call(
+        &view,
+        json!({"action":"delete","kind":"project","id":project_id,"requestId":"ipc-nonempty"})
+    )
+    .is_err());
     assert!(call(&view, json!({"action":"create","kind":"project","name":"Changed payload","requestId":"ipc-project"})).is_err());
     let snapshot = call(&view, json!({"action":"list"})).unwrap();
     assert_eq!(snapshot, renamed);
@@ -59,10 +85,21 @@ fn s1_ipc_serializes_crud_and_reopens_the_same_temporary_database() {
     drop(app);
     let (_reopened, view) = window(&path);
     assert_eq!(call(&view, json!({"action":"list"})).unwrap(), snapshot);
-    for (kind, id, request_id) in [("assay", assay_id, "delete-assay"), ("theme", theme_id, "delete-theme"), ("project", project_id, "delete-project")] {
-        call(&view, json!({"action":"delete","kind":kind,"id":id,"requestId":request_id})).unwrap();
+    for (kind, id, request_id) in [
+        ("assay", assay_id, "delete-assay"),
+        ("theme", theme_id, "delete-theme"),
+        ("project", project_id, "delete-project"),
+    ] {
+        call(
+            &view,
+            json!({"action":"delete","kind":kind,"id":id,"requestId":request_id}),
+        )
+        .unwrap();
     }
-    assert_eq!(call(&view, json!({"action":"list"})).unwrap(), json!({"nodes":[]}));
+    assert_eq!(
+        call(&view, json!({"action":"list"})).unwrap(),
+        json!({"nodes":[]})
+    );
 }
 
 #[test]
@@ -77,5 +114,8 @@ fn s1_ipc_rejects_invalid_requests_without_creating_nodes() {
     ] {
         assert!(call(&view, request).is_err());
     }
-    assert_eq!(call(&view, json!({"action":"list"})).unwrap(), json!({"nodes":[]}));
+    assert_eq!(
+        call(&view, json!({"action":"list"})).unwrap(),
+        json!({"nodes":[]})
+    );
 }
