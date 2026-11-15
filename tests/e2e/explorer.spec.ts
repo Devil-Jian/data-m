@@ -214,6 +214,7 @@ test('right-click empty canvas supports mock clipboard paste without filesystem 
   const first=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
   await first.click({button:'right'});
   await page.getByRole('menuitem',{name:/复制/}).click();
+  await expect(page.locator('.dm-toast')).toContainText('已选择复制 1 个演示项');
   await page.locator('.dm-experiment-footnote').click({button:'right'});
   const menu=page.getByRole('menu',{name:'文件操作菜单'});
   await expect(menu.getByRole('menuitem',{name:/粘贴操作意图/})).toBeVisible();
