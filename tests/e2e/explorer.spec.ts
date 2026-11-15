@@ -439,3 +439,18 @@ test('10k virtual file list supports inline rename without remounting all rows',
   await editor.press('Escape');
   await expect(first).toContainText('Virtual_Asset_00000.tif');
 });
+
+test('rename collision checks hidden siblings even when search filters them out',async ({page})=>{
+  await page.getByPlaceholder('搜索样本文件…').fill('Control_Rep1');
+  const file=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  await expect(file).toBeVisible();
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g1-r2"]')).toHaveCount(0);
+  await file.click();
+  await page.keyboard.press('F2');
+  const editor=page.getByRole('textbox',{name:'重命名文件'});
+  await editor.fill('Control_Rep2.tif');
+  await editor.press('Enter');
+  await expect(page.getByRole('alert')).toContainText('同名文件');
+  await editor.press('Escape');
+  await expect(file).toContainText('Control_Rep1.tif');
+});
