@@ -12,8 +12,9 @@ export interface VirtualAssetListProps{
   selected:ReadonlySet<string>;
   focusedId:string|null;
   onToggle:(id:string,checked:boolean)=>void;
+  renderName:(asset:DemoAsset)=>React.ReactNode;
 }
-export function VirtualAssetList({assets,selected,focusedId,onToggle}:VirtualAssetListProps){
+export function VirtualAssetList({assets,selected,focusedId,onToggle,renderName}:VirtualAssetListProps){
   const scrollRef=useRef<HTMLDivElement>(null);
   const virtualizer=useVirtualizer({
     count:assets.length,
@@ -44,7 +45,7 @@ export function VirtualAssetList({assets,selected,focusedId,onToggle}:VirtualAss
               checked={checked} onChange={e=>onToggle(asset.id,e.target.checked)}/>
           </label>
           <div className="dm-virtual-name">
-            <strong>{asset.filename}</strong>
+            <strong>{renderName(asset)}</strong>
             <small>{asset.id} · {asset.stage.toUpperCase()} · 演示资产</small>
           </div>
           <span className="dm-virtual-type">{asset.stage==='raw'?'原始文件':'处理文件'}</span>
