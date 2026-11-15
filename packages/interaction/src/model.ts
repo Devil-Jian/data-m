@@ -150,3 +150,18 @@ export function navigateSelection(
   if(ctrl)return {...previous,focused};
   return {selected:new Set([focused]),anchor:focused,focused};
 }
+
+/**
+ * Windows Explorer context selection: right-clicking one of the already-selected
+ * assets keeps the complete set; right-clicking any other visible asset selects
+ * that asset alone. Biological replicates are never the selection unit.
+ */
+export function selectContextItem(
+  previous:Selection,
+  id:ItemId,
+  visibleOrder:readonly ItemId[]
+):Selection{
+  if(!visibleOrder.includes(id))return previous;
+  if(previous.selected.has(id))return {...previous,focused:id};
+  return {selected:new Set([id]),anchor:id,focused:id};
+}
