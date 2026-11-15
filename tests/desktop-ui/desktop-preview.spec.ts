@@ -14,7 +14,7 @@ test('desktop renderer has generated shadcn utility CSS (not unstyled HTML)',asy
   });
   // Tailwind bg-blue-600, rounded-md and h-7; without cross-workspace
   // CSS scanning these become transparent/native WebView controls.
-  expect(actual.color).toBe('rgb(37, 99, 235)');
+  // Tailwind v4 exposes its palette as OKLCH in Chromium. Accept either computed representation.\n  expect(actual.color).toMatch(/^(oklch\\(0\\.546\\s+0\\.245\\s+262\\.881\\)|rgb\\(37, 99, 235\\))$/);
   expect(parseFloat(actual.radius)).toBeGreaterThanOrEqual(5);
   expect(actual.height).toBeGreaterThanOrEqual(26);
   const search=page.getByPlaceholder('搜索样本文件…');
