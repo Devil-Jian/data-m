@@ -51,6 +51,8 @@ export function useExplorerInteraction(options:ExplorerOptions){
   const visibleRef=useRef(options.visibleIds);visibleRef.current=options.visibleIds;
   const pending=useRef<Pending|null>(null);
   const clipboard=useRef<{ids:string[];operation:Operation}|null>(null);
+  // Clipboard availability is visible UI state; a ref alone may not trigger a render.
+  const [clipboardSnapshot,setClipboardSnapshot]=useState<{ids:string[];operation:Operation}|null>(null);
   const [contextMenu,setContextMenu]=useState<ExplorerContextMenu|null>(null);
   const contextMenuRef=useRef(contextMenu);
   contextMenuRef.current=contextMenu;
@@ -70,6 +72,10 @@ export function useExplorerInteraction(options:ExplorerOptions){
       if(checked)selected.add(id);else selected.delete(id);
       return {selected,anchor:id,focused:id};
     });
+  },[]);
+
+  const onFocusCapture=useCallback((event:React.FocusEvent<HTMLElement>)=>{
+    rootRef.current=event.currentTarget;
   },[]);
 
   const onContextMenu=useCallback((event:React.MouseEvent<HTMLElement>)=>{
@@ -107,9 +113,11 @@ export function useExplorerInteraction(options:ExplorerOptions){
     if(!menu.itemId||menu.ids.length===0)return;
     if(action==='copy'){
       clipboard.current={ids:[...menu.ids],operation:'copy'};
+      setClipboardSnapshot(clipboard.current);
       optionsRef.current.onCopy?.(menu.ids);
     }else if(action==='cut'){
       clipboard.current={ids:[...menu.ids],operation:'move'};
+      setClipboardSnapshot(clipboard.current);
       optionsRef.current.onCut?.(menu.ids);
     }else if(action==='delete'){
       optionsRef.current.onDelete?.(menu.ids);
@@ -342,10 +350,12 @@ export function useExplorerInteraction(options:ExplorerOptions){
       const ids=[...selectionRef.current.selected];
       if(mod&&event.key.toLowerCase()==='c'&&ids.length){
         event.preventDefault();clipboard.current={ids,operation:'copy'};
+        setClipboardSnapshot(clipboard.current);
         optionsRef.current.onCopy?.(ids);return;
       }
       if(mod&&event.key.toLowerCase()==='x'&&ids.length){
         event.preventDefault();clipboard.current={ids,operation:'move'};
+        setClipboardSnapshot(clipboard.current);
         optionsRef.current.onCut?.(ids);return;
       }
       if(mod&&event.key.toLowerCase()==='v'&&clipboard.current){
@@ -382,7 +392,7 @@ export function useExplorerInteraction(options:ExplorerOptions){
     anchorId:selection.anchor,
     gesture,onPointerDown,
     setSelectedIds,clear,select,toggle,
-    contextMenu,onContextMenu,contextAction,
-    hasClipboard:clipboard.current!==null
+    contextMenu,onContextMenu,onFocusCapture,contextAction,
+    hasClipboard:clipboardSnapshot!==null
   };
 }
