@@ -1,0 +1,60 @@
+name: Build UI demo variants
+on:
+  push:
+    branches: [feat/ui-framework-comparison, feat/file-interaction-engine]
+  pull_request:
+    paths:
+      - 'demos/**'
+      - 'packages/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'playwright*.config.ts'
+      - '.github/workflows/ui-demos.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [shadcn, mantine, fluent]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install workspaces
+        run: npm ci --no-audit --no-fund
+      - name: Test interaction engine
+        run: npm run test:interaction
+      - name: Test asset identity invariants
+        run: npm run test:assets
+      - name: Build ${{ matrix.variant }} demo
+        run: npm run build:${{ matrix.variant }}
+
+  interaction-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install workspaces
+        run: npm ci --no-audit --no-fund
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Browser interaction E2E
+        run: npm run test:e2e
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: explorer-playwright-traces
+          path: test-results/
+          retention-days: 7

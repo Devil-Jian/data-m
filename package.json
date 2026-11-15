@@ -1,0 +1,41 @@
+{
+  "name": "data-m-ui-comparison",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "demos/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:shadcn": "npm run dev -w @data-m/demo-shadcn",
+    "dev:mantine": "npm run dev -w @data-m/demo-mantine",
+    "dev:fluent": "npm run dev -w @data-m/demo-fluent",
+    "build:shadcn": "npm run build -w @data-m/demo-shadcn",
+    "build:mantine": "npm run build -w @data-m/demo-mantine",
+    "build:fluent": "npm run build -w @data-m/demo-fluent",
+    "build:all": "npm run build:shadcn && npm run build:mantine && npm run build:fluent",
+    "test:interaction": "npm run test -w @data-m/interaction",
+    "check": "npm run test:interaction && npm run test:assets && npm run build:all && npm run build:desktop",
+    "dev:desktop": "npm run dev -w @data-m/desktop",
+    "preview:desktop": "npm run dev:desktop",
+    "preview:desktop:windows": "npm run tauri:dev",
+    "build:desktop": "npm run build -w @data-m/desktop",
+    "tauri:dev": "npm run tauri -w @data-m/desktop -- dev",
+    "tauri:build": "npm run tauri -w @data-m/desktop -- build -- --locked",
+    "test:assets": "npm run test -w @data-m/core",
+    "test:e2e": "playwright test",
+    "test:e2e:desktop": "playwright test -c playwright.desktop.config.ts",
+    "test:desktop": "npm run test -w @data-m/desktop",
+    "test:s0": "node --test scripts/s0-baseline.test.mjs"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.1.0",
+    "@playwright/test": "^1.56.0"
+  }
+}

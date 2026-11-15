@@ -1,0 +1,20 @@
+{
+  "name": "@data-m/demo-mantine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5174",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@data-m/core": "*",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "lucide-react": "^0.468.0",
+    "@mantine/core": "^8.2.0",
+    "@mantine/hooks": "^8.2.0",
+    "@emotion/react": "^11.14.0"
+  }
+}

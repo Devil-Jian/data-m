@@ -1,0 +1,25 @@
+{
+  "name": "@data-m/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5176 --strictPort",
+    "build": "tsc --noEmit && vite build",
+    "tauri": "tauri",
+    "test": "vitest run src/drop-preview.test.ts"
+  },
+  "dependencies": {
+    "@data-m/core": "*",
+    "@tauri-apps/api": "^2.0.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tailwindcss": "^4.1.0",
+    "@tailwindcss/vite": "^4.1.0",
+    "@data-m/ui": "*"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",
+    "vitest": "^3.2.0"
+  }
+}

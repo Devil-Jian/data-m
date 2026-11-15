@@ -1,0 +1,29 @@
+name: "缺陷 / Bug"
+description: "记录可复现的缺陷"
+title: "[Bug] "
+body:
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为与复现步骤
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境 / 版本
+      placeholder: "Windows 11、Data-M 版本、界面模块"
+  - type: textarea
+    id: impact
+    attributes:
+      label: 风险与数据安全影响
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志或截图（脱敏）

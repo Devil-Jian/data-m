@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.vite/
+*.local
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
+
+# Native build and test artifacts
+target/
+test-results/
+playwright-report/

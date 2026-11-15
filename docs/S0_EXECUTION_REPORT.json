@@ -1,0 +1,134 @@
+{
+  "task_id": "S0",
+  "base_sha": "9a60c46751104b3ef87ac9b082b82dc0c08a955a",
+  "head_sha": "1c4765a1506f7d9f813bb45ff2fb8c1800bb39e1",
+  "status": "manual_pending",
+  "pr_url": "https://github.com/Devil-Jian/data-m/pull/42",
+  "machine_checks": [
+    {
+      "command": "npm run test:s0",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 3,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43728489141"
+    },
+    {
+      "command": "npm run test:interaction",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 28,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43728489141"
+    },
+    {
+      "command": "npm run test:assets",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 20,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43728489141"
+    },
+    {
+      "command": "npm run test:desktop",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 7,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43728489141"
+    },
+    {
+      "command": "npm run test:e2e:desktop -- --grep \"@S0\"",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 2,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43728489141"
+    },
+    {
+      "command": "npm run test:e2e:desktop",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 3,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43728489141"
+    },
+    {
+      "command": "npm run test:e2e",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 29,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43728489141"
+    },
+    {
+      "command": "cargo test --locked --no-default-features s0_",
+      "cwd": "apps/desktop/src-tauri",
+      "exit_code": 0,
+      "tests_executed": 4,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43728489141"
+    },
+    {
+      "command": "cargo test --locked --no-default-features",
+      "cwd": "apps/desktop/src-tauri",
+      "exit_code": 0,
+      "tests_executed": 21,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43728489141"
+    },
+    {
+      "command": "npm ci --no-audit --no-fund",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": null,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43728489141"
+    },
+    {
+      "command": "npm run build:desktop",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": null,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43728489141"
+    },
+    {
+      "command": "cargo fmt --all -- --check",
+      "cwd": "apps/desktop/src-tauri",
+      "exit_code": 0,
+      "tests_executed": null,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43728489141"
+    },
+    {
+      "command": "cargo check --locked",
+      "cwd": "apps/desktop/src-tauri",
+      "exit_code": 0,
+      "tests_executed": null,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43728489141"
+    },
+    {
+      "command": "npm run tauri:build",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": null,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43728489141"
+    }
+  ],
+  "manual_checks": [
+    {
+      "step": "H1 Windows 11 DPI/layout/focus",
+      "status": "not_run",
+      "evidence": null,
+      "signoff_by": null
+    },
+    {
+      "step": "H2 selection/context menu/F2/read-only drop and source hashes",
+      "status": "not_run",
+      "evidence": null,
+      "signoff_by": null
+    },
+    {
+      "step": "H3 same-SHA browser/WebView2 comparison",
+      "status": "not_run",
+      "evidence": null,
+      "signoff_by": null
+    }
+  ],
+  "residual_risks": [
+    "Integration/main acceptance and merge not approved",
+    "Native GUI manual acceptance not executed",
+    "SQLite/CAS writes remain disabled"
+  ],
+  "next_task_recommendation": "Complete S0 manual acceptance and integration review before S1",
+  "report_followup": "Subsequent commit only updates documentation and evidence; head_sha identifies the tested executable source."
+}

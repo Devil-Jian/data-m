@@ -1,0 +1,3 @@
+/* Legacy UI comparison stylesheet.
+   The canonical component/theme CSS lives in @data-m/ui/style.css.
+   Keep this file empty to avoid loading Tailwind twice. */

@@ -1,0 +1,33 @@
+name: "功能任务 / Feature"
+description: "带明确验收标准的功能需求"
+title: "[Feature] "
+labels: []
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: 用户目标 / Goal
+      description: 描述需要解决什么问题，而不是只描述代码。
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 范围与非目标 / Scope
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 可验证的验收标准 / Acceptance
+      placeholder: "- [ ] ..."
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: 依赖、数据安全与风险 / Risks
+  - type: textarea
+    id: testing
+    attributes:
+      label: 测试方案 / Test plan

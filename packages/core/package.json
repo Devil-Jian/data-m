@@ -1,0 +1,24 @@
+{
+  "name": "@data-m/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./style.css": "./src/workbench.css"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "dependencies": {
+    "@data-m/interaction": "*",
+    "@tanstack/react-virtual": "^3.13.0"
+  },
+  "scripts": {
+    "test": "vitest run src/demo-assets.test.ts src/virtual-layout.test.ts src/navigation-history.test.ts src/rename-validation.test.ts"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.0"
+  }
+}

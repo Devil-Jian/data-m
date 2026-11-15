@@ -1,0 +1,456 @@
+import {expect,test} from '@playwright/test';
+
+test.beforeEach(async ({page})=>{
+  await page.goto('/');
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]')).toBeVisible();
+});
+
+test('Ctrl toggles individual Asset IDs; Shift selects an ordered range',async ({page})=>{
+  const raw=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  const processed=page.locator('[data-explorer-id="asset:processed:ros-g1-r1"]');
+  const second=page.locator('[data-explorer-id="asset:processed:ros-g1-r2"]');
+  await raw.click();
+  await processed.click({modifiers:['Control']});
+  await expect(raw).toHaveClass(/selected/);
+  await expect(processed).toHaveClass(/selected/);
+  await processed.click({modifiers:['Control']});
+  await expect(processed).not.toHaveClass(/selected/);
+  await second.click({modifiers:['Shift']});
+  // The most recent Ctrl-click moved the selection anchor to the processed file.
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g1-r2"]')).toHaveClass(/selected/);
+  await expect(second).toHaveClass(/selected/);
+});
+
+test('selected files drag together and do not create biological replicates',async ({page})=>{
+  const raw=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  const processed=page.locator('[data-explorer-id="asset:processed:ros-g1-r1"]');
+  const destination=page.locator('[data-drop-container-id="ros-g2"]');
+  await raw.click();
+  await processed.click({modifiers:['Control']});
+  const from=await raw.boundingBox(),to=await destination.boundingBox();
+  expect(from).not.toBeNull();expect(to).not.toBeNull();
+  await page.mouse.move(from!.x+from!.width/2,from!.y+from!.height/2);
+  await page.mouse.down();
+  await page.mouse.move(to!.x+to!.width/2,to!.y+to!.height/2,{steps:15});
+  await page.mouse.up();
+  await expect(page.locator('.dm-toast')).toContainText('2 个文件');
+  await expect(page.locator('.dm-group-count').first()).toHaveText('6');
+  await expect(raw).toHaveClass(/selected/);
+  await expect(processed).toHaveClass(/selected/);
+});
+
+test('marquee starts from workspace whitespace and selects file assets',async ({page})=>{
+  const root=page.locator('.dm-explorer-canvas');
+  const raw=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  const canvas=await root.boundingBox(),asset=await raw.boundingBox();
+  expect(canvas).not.toBeNull();expect(asset).not.toBeNull();
+  const startX=canvas!.x+7,startY=asset!.y+asset!.height/2;
+  await page.mouse.move(startX,startY);
+  await page.mouse.down();
+  await page.mouse.move(asset!.x+asset!.width/2,startY,{steps:12});
+  await page.mouse.up();
+  await expect(raw).toHaveClass(/selected/);
+});
+
+test('edge marquee autoscroll advances the workbench scroll position',async ({page})=>{
+  await page.setViewportSize({width:1200,height:580});
+  const root=page.locator('.dm-explorer-canvas');
+  const box=await root.boundingBox();
+  expect(box).not.toBeNull();
+  const height=await root.evaluate(el=>el.scrollHeight-el.clientHeight);
+  expect(height).toBeGreaterThan(0);
+  const left=box!.x+6;
+  await page.mouse.move(left,box!.y+68);
+  await page.mouse.down();
+  await page.mouse.move(left+40,box!.y+box!.height-3,{steps:10});
+  await expect.poll(async ()=>root.evaluate(el=>el.scrollTop),{timeout:5_000})
+    .toBeGreaterThan(0);
+  await page.mouse.up();
+});
+
+test('Escape cancels pending drag without submitting operation',async ({page})=>{
+  const raw=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  const target=page.locator('[data-drop-container-id="ros-g2"]');
+  const a=await raw.boundingBox(),b=await target.boundingBox();
+  expect(a).not.toBeNull();expect(b).not.toBeNull();
+  await page.mouse.move(a!.x+a!.width/2,a!.y+a!.height/2);
+  await page.mouse.down();
+  await page.mouse.move(b!.x+b!.width/2,b!.y+b!.height/2,{steps:10});
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  await expect(page.locator('.dm-toast')).toHaveCount(0);
+});
+
+test('TanStack Virtual renders a bounded DOM while selecting 10,000 file assets',async ({page})=>{
+  await page.goto('/?virtualDemo=10000');
+  await page.getByRole('button',{name:'分阶段'}).click();
+  await page.getByTitle('虚拟文件列表').click();
+  const viewport=page.getByRole('region',{name:'虚拟文件资产列表'});
+  await expect(viewport).toHaveAttribute('data-asset-count','10000');
+  await expect(page.locator('[data-explorer-id="asset:raw:virtual-perf-0"]')).toBeVisible();
+  const initiallyRendered=await viewport.locator('[data-explorer-id]').count();
+  expect(initiallyRendered).toBeLessThan(50);
+  // Keyboard commands require the Explorer canvas to own focus.
+  await page.locator('.dm-explorer-canvas').focus();
+  await page.keyboard.press('Control+a');
+  await expect(page.locator('.dm-selection-actions')).toContainText('10000 个文件资产');
+  // No synthetic biological sample is introduced by the stress fixture.
+  await expect(page.locator('.dm-section-heading')).toContainText('6 个样本');
+  await viewport.evaluate(el=>{el.scrollTop=el.scrollHeight});
+  await expect(page.locator('[data-explorer-id="asset:raw:virtual-perf-9999"]')).toBeVisible();
+  expect(await viewport.locator('[data-explorer-id]').count()).toBeLessThan(50);
+});
+
+test('Shift selection traverses virtual rows without mounting the intervening files',async ({page})=>{
+  await page.goto('/?virtualDemo=10000');
+  await page.getByRole('button',{name:'分阶段'}).click();
+  await page.getByTitle('虚拟文件列表').click();
+  const viewport=page.getByRole('region',{name:'虚拟文件资产列表'});
+  await page.locator('[data-explorer-id="asset:raw:virtual-perf-0"]').click();
+  await viewport.evaluate(el=>{el.scrollTop=el.scrollHeight});
+  const last=page.locator('[data-explorer-id="asset:raw:virtual-perf-9999"]');
+  await expect(last).toBeVisible();
+  await last.click({modifiers:['Shift']});
+  await expect(page.locator('.dm-selection-actions')).toContainText('10000 个文件资产');
+});
+
+test('marquee autoscroll works inside real virtualized list gutter',async ({page})=>{
+  await page.goto('/?virtualDemo=10000');
+  await page.getByRole('button',{name:'分阶段'}).click();
+  await page.getByTitle('虚拟文件列表').click();
+  const viewport=page.getByRole('region',{name:'虚拟文件资产列表'});
+  const box=await viewport.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.move(box!.x+8,box!.y+110);
+  await page.mouse.down();
+  await page.mouse.move(box!.x+160,box!.y+box!.height-3,{steps:12});
+  await expect.poll(()=>viewport.evaluate(el=>el.scrollTop)).toBeGreaterThan(0);
+  await page.mouse.up();
+  await expect(page.locator('.dm-selection-actions')).toContainText('个文件资产');
+});
+
+test('Explorer arrows and Ctrl+arrows separate keyboard focus from selection',async ({page})=>{
+  await page.goto('/?virtualDemo=10000');
+  await page.getByRole('button',{name:'分阶段'}).click();
+  await page.getByTitle('虚拟文件列表').click();
+  const first=page.locator('[data-explorer-id="asset:raw:virtual-perf-0"]');
+  const second=page.locator('[data-explorer-id="asset:raw:virtual-perf-1"]');
+  const third=page.locator('[data-explorer-id="asset:raw:virtual-perf-2"]');
+  await first.click();
+  await page.keyboard.press('ArrowDown');
+  await expect(second).toHaveClass(/selected/);
+  await expect(second).toHaveClass(/is-focused/);
+  await page.keyboard.press('Control+ArrowDown');
+  await expect(third).toHaveClass(/is-focused/);
+  await expect(second).toHaveClass(/selected/);
+  await expect(page.locator('.dm-selection-actions')).toContainText('1 个文件资产');
+  await page.keyboard.press('Shift+ArrowDown');
+  // Anchor stays on row 1 while Ctrl+Arrow moved focus to row 2.
+  await expect(page.locator('.dm-selection-actions')).toContainText('3 个文件资产');
+});
+
+test('Home, End and PageUp navigate offscreen virtual assets',async ({page})=>{
+  await page.goto('/?virtualDemo=10000');
+  await page.getByRole('button',{name:'分阶段'}).click();
+  await page.getByTitle('虚拟文件列表').click();
+  const viewport=page.getByRole('region',{name:'虚拟文件资产列表'});
+  await page.locator('[data-explorer-id="asset:raw:virtual-perf-0"]').click();
+  await page.keyboard.press('End');
+  const last=page.locator('[data-explorer-id="asset:raw:virtual-perf-9999"]');
+  await expect(last).toBeVisible();
+  await expect(last).toHaveClass(/is-focused/);
+  await expect(last).toHaveClass(/selected/);
+  await page.keyboard.press('PageUp');
+  await expect(last).not.toHaveClass(/selected/);
+  await page.keyboard.press('Home');
+  await expect(page.locator('[data-explorer-id="asset:raw:virtual-perf-0"]')).toBeVisible();
+  await expect.poll(()=>viewport.evaluate(el=>el.scrollTop)).toBe(0);
+});
+
+test('typing shortcuts in search do not change file selection',async ({page})=>{
+  await page.goto('/?virtualDemo=10000');
+  await page.getByRole('button',{name:'分阶段'}).click();
+  await page.getByTitle('虚拟文件列表').click();
+  await page.locator('[data-explorer-id="asset:raw:virtual-perf-0"]').click();
+  await page.getByPlaceholder('搜索样本文件…').click();
+  await page.keyboard.press('Control+a');
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('.dm-selection-actions')).toContainText('1 个文件资产');
+});
+
+test('right-click on selected asset preserves the entire multi-selection',async ({page})=>{
+  const raw=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  const processed=page.locator('[data-explorer-id="asset:processed:ros-g1-r1"]');
+  await raw.click();
+  await processed.click({modifiers:['Control']});
+  await raw.click({button:'right'});
+  const menu=page.getByRole('menu',{name:'文件操作菜单'});
+  await expect(menu).toBeVisible();
+  await expect(menu).toContainText('已选择 2 个文件资产');
+  await expect(raw).toHaveClass(/selected/);
+  await expect(processed).toHaveClass(/selected/);
+  await menu.getByRole('menuitem',{name:/复制/}).click();
+  await expect(page.locator('.dm-toast')).toContainText('已选择复制 2 个演示项');
+  await expect(menu).toHaveCount(0);
+  await expect(raw).toHaveClass(/selected/);
+  await expect(processed).toHaveClass(/selected/);
+});
+
+test('right-clicking an unselected file narrows selection to that file',async ({page})=>{
+  const first=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  const second=page.locator('[data-explorer-id="asset:raw:ros-g1-r2"]');
+  await first.click();
+  await second.click({button:'right'});
+  const menu=page.getByRole('menu',{name:'文件操作菜单'});
+  await expect(menu).toContainText('已选择 1 个文件资产');
+  await expect(first).not.toHaveClass(/selected/);
+  await expect(second).toHaveClass(/selected/);
+  await menu.getByRole('menuitem',{name:/删除/}).click();
+  await expect(page.locator('.dm-toast')).toContainText('请求删除 1 个演示项');
+  await expect(second).toBeVisible();
+});
+
+test('right-click empty canvas supports mock clipboard paste without filesystem changes',async ({page})=>{
+  const first=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  await first.click({button:'right'});
+  await page.getByRole('menuitem',{name:/复制/}).click();
+  await expect(page.locator('.dm-toast')).toContainText('已选择复制 1 个演示项');
+  await page.locator('.dm-explorer-canvas').click({button:'right',position:{x:4,y:4}});
+  const menu=page.getByRole('menu',{name:'文件操作菜单'});
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole('menuitem',{name:/粘贴操作意图/})).toBeEnabled();
+  await menu.getByRole('menuitem',{name:/粘贴操作意图/}).click();
+  await expect(page.locator('.dm-toast')).toContainText('请求复制 1 项');
+  await expect(first).toBeVisible();
+});
+
+test('Escape closes file menu before clearing selected assets',async ({page})=>{
+  const file=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  await file.click({button:'right'});
+  await expect(page.getByRole('menu',{name:'文件操作菜单'})).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu',{name:'文件操作菜单'})).toHaveCount(0);
+  await expect(file).toHaveClass(/selected/);
+});
+
+test('global file shortcuts do not select files outside active Explorer canvas',async ({page})=>{
+  await page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]').click();
+  await page.getByPlaceholder('搜索样本文件…').fill('Control');
+  await page.keyboard.press('Control+a');
+  await page.keyboard.press('Delete');
+  await expect(page.locator('.dm-selection-actions')).toContainText('1 个文件资产');
+  await expect(page.locator('.dm-toast')).toHaveCount(0);
+});
+
+test('Shift+F10 opens the Explorer asset menu with arrow, Home and End focus navigation',async ({page})=>{
+  const file=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  await file.click();
+  await page.keyboard.press('Shift+F10');
+  const menu=page.getByRole('menu',{name:'文件操作菜单'});
+  await expect(menu).toBeVisible();
+  await expect(menu).toContainText('已选择 1 个文件资产');
+  const copy=menu.getByRole('menuitem',{name:/复制/});
+  const cut=menu.getByRole('menuitem',{name:/剪切/});
+  const del=menu.getByRole('menuitem',{name:/删除/});
+  await expect(copy).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(cut).toBeFocused();
+  await page.keyboard.press('End');
+  await expect(del).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(copy).toBeFocused();
+  await page.keyboard.press('ArrowUp');
+  await expect(del).toBeFocused();
+  await page.keyboard.press('Home');
+  await expect(copy).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(menu).toHaveCount(0);
+  await expect(page.locator('.dm-toast')).toContainText('已选择复制 1 个演示项');
+  await expect(page.locator('.dm-explorer-canvas')).toBeFocused();
+  await expect(file).toHaveClass(/selected/);
+});
+
+test('ContextMenu key retains multi-file selection and skips disabled rename',async ({page})=>{
+  const first=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  const second=page.locator('[data-explorer-id="asset:processed:ros-g1-r1"]');
+  await first.click();
+  await second.click({modifiers:['Control']});
+  await page.keyboard.press('ContextMenu');
+  const menu=page.getByRole('menu',{name:'文件操作菜单'});
+  await expect(menu).toContainText('已选择 2 个文件资产');
+  await expect(menu.getByRole('menuitem',{name:/重命名/})).toBeDisabled();
+  await page.keyboard.press('ArrowDown');
+  await expect(menu.getByRole('menuitem',{name:/剪切/})).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(menu.getByRole('menuitem',{name:/删除/})).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+  await expect(first).toHaveClass(/selected/);
+  await expect(second).toHaveClass(/selected/);
+  await expect(page.locator('.dm-explorer-canvas')).toBeFocused();
+});
+
+test('keyboard menu shortcut does not hijack the sample search field',async ({page})=>{
+  await page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]').click();
+  const input=page.getByPlaceholder('搜索样本文件…');
+  await input.click();
+  await page.keyboard.press('Shift+F10');
+  await expect(page.getByRole('menu',{name:'文件操作菜单'})).toHaveCount(0);
+  await expect(input).toBeFocused();
+});
+
+test('keyboard context menu can open on an offscreen virtualized file after End',async ({page})=>{
+  await page.goto('/?virtualDemo=10000');
+  await page.getByRole('button',{name:'分阶段'}).click();
+  await page.getByTitle('虚拟文件列表').click();
+  await page.locator('[data-explorer-id="asset:raw:virtual-perf-0"]').click();
+  await page.keyboard.press('End');
+  const last=page.locator('[data-explorer-id="asset:raw:virtual-perf-9999"]');
+  await expect(last).toBeVisible();
+  await page.keyboard.press('Shift+F10');
+  const menu=page.getByRole('menu',{name:'文件操作菜单'});
+  await expect(menu).toContainText('已选择 1 个文件资产');
+  await expect(menu.getByRole('menuitem',{name:/复制/})).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+  await expect(last).toHaveClass(/selected/);
+});
+
+test('Alt+Left / Alt+Right navigate real experiment group history without affecting files',async ({page})=>{
+  const back=page.getByRole('button',{name:'后退到上一目录'});
+  const forward=page.getByRole('button',{name:'前进到下一目录'});
+  await expect(back).toBeDisabled();
+  await expect(forward).toBeDisabled();
+  await page.locator('.dm-group-tabs button').nth(1).click();
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g2-r1"]')).toBeVisible();
+  await expect(back).toBeEnabled();
+  await page.keyboard.press('Alt+ArrowLeft');
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]')).toBeVisible();
+  await expect(forward).toBeEnabled();
+  await page.keyboard.press('Alt+ArrowRight');
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g2-r1"]')).toBeVisible();
+  await expect(forward).toBeDisabled();
+});
+
+test('navigation buttons restore current group and truncate forward on new navigation',async ({page})=>{
+  const back=page.getByRole('button',{name:'后退到上一目录'});
+  const forward=page.getByRole('button',{name:'前进到下一目录'});
+  await page.locator('.dm-group-tabs button').nth(1).click();
+  await page.locator('.dm-group-tabs button').nth(2).click();
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g3-r1"]')).toBeVisible();
+  await back.click();
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g2-r1"]')).toBeVisible();
+  await page.locator('.dm-group-tabs button').nth(3).click();
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g4-r1"]')).toBeVisible();
+  await expect(forward).toBeDisabled();
+  await back.click();
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g2-r1"]')).toBeVisible();
+  await forward.click();
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g4-r1"]')).toBeVisible();
+});
+
+test('Back and Forward restore project module and experimental folder context',async ({page})=>{
+  const back=page.getByRole('button',{name:'后退到上一目录'});
+  const forward=page.getByRole('button',{name:'前进到下一目录'});
+  await page.locator('.dm-group-tabs button').nth(1).click();
+  await page.locator('nav[aria-label="核心模块"] button').nth(1).click();
+  await expect(page.getByRole('heading',{name:/论文管理/})).toBeVisible();
+  await back.click();
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g2-r1"]')).toBeVisible();
+  await forward.click();
+  await expect(page.getByRole('heading',{name:/论文管理/})).toBeVisible();
+});
+
+test('file selection and search filtering do not add navigation history entries',async ({page})=>{
+  const back=page.getByRole('button',{name:'后退到上一目录'});
+  const raw=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  await raw.click();
+  await expect(back).toBeDisabled();
+  await page.getByPlaceholder('搜索样本文件…').fill('Control');
+  await expect(back).toBeDisabled();
+  await page.getByPlaceholder('搜索样本文件…').fill('');
+  await page.locator('.dm-group-tabs button').nth(1).click();
+  await expect(back).toBeEnabled();
+  await raw.count().then(count=>expect(count).toBe(0));
+  await back.click();
+  await expect(raw).toBeVisible();
+  await expect(page.locator('.dm-selection-actions')).not.toContainText('已选');
+});
+
+test('F2 opens inline editor, preserves suffix, and submits a no-write rename intent',async ({page})=>{
+  const asset=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  await asset.click();
+  await page.keyboard.press('F2');
+  const editor=page.getByRole('textbox',{name:'重命名文件'});
+  await expect(editor).toBeVisible();
+  await expect(editor).toHaveValue('Control_Rep1.tif');
+  expect(await editor.evaluate(el=>(el as HTMLInputElement).selectionEnd))
+    .toBe('Control_Rep1'.length);
+  await editor.fill('肝脏实验_01.tif');
+  await editor.press('Enter');
+  await expect(editor).toHaveCount(0);
+  await expect(page.locator('.dm-toast')).toContainText('演示重命名请求：Control_Rep1.tif → 肝脏实验_01.tif；未修改真实文件');
+  await expect(asset).toContainText('Control_Rep1.tif');
+  await expect(page.locator('.dm-explorer-canvas')).toBeFocused();
+});
+
+test('F2 refuses invalid Windows names, extensions and duplicate siblings',async ({page})=>{
+  await page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]').click();
+  await page.keyboard.press('F2');
+  const editor=page.getByRole('textbox',{name:'重命名文件'});
+  await editor.fill('NUL.tif');
+  await editor.press('Enter');
+  await expect(page.getByRole('alert')).toContainText('Windows 保留设备名称');
+  await editor.fill('Control_Rep2.tif');
+  await editor.press('Enter');
+  await expect(page.getByRole('alert')).toContainText('同名文件');
+  await editor.fill('Control_Rep1.xlsx');
+  await editor.press('Enter');
+  await expect(page.getByRole('alert')).toContainText('扩展名');
+  await editor.press('Escape');
+  await expect(editor).toHaveCount(0);
+  await expect(page.locator('.dm-toast')).toHaveCount(0);
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]')).toContainText('Control_Rep1.tif');
+});
+
+test('context-menu Rename creates the same inline preview as F2',async ({page})=>{
+  const asset=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  await asset.click({button:'right'});
+  await page.getByRole('menuitem',{name:/重命名/}).click();
+  const editor=page.getByRole('textbox',{name:'重命名文件'});
+  await expect(editor).toBeFocused();
+  await editor.fill('Renamed_01.tif');
+  await editor.press('Enter');
+  await expect(page.locator('.dm-toast')).toContainText('演示重命名请求');
+  await expect(asset).toContainText('Control_Rep1.tif');
+});
+
+test('10k virtual file list supports inline rename without remounting all rows',async ({page})=>{
+  await page.goto('/?virtualDemo=10000');
+  await page.getByRole('button',{name:'分阶段'}).click();
+  await page.getByTitle('虚拟文件列表').click();
+  const viewport=page.getByRole('region',{name:'虚拟文件资产列表'});
+  const first=page.locator('[data-explorer-id="asset:raw:virtual-perf-0"]');
+  await first.click();
+  await page.keyboard.press('F2');
+  const editor=page.getByRole('textbox',{name:'重命名文件'});
+  await expect(editor).toHaveValue('Virtual_Asset_00000.tif');
+  expect(await viewport.locator('[data-explorer-id]').count()).toBeLessThan(50);
+  await editor.press('Escape');
+  await expect(first).toContainText('Virtual_Asset_00000.tif');
+});
+
+test('rename collision checks hidden siblings even when search filters them out',async ({page})=>{
+  await page.getByPlaceholder('搜索样本文件…').fill('Control_Rep1');
+  const file=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  await expect(file).toBeVisible();
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g1-r2"]')).toHaveCount(0);
+  await file.click();
+  await page.keyboard.press('F2');
+  const editor=page.getByRole('textbox',{name:'重命名文件'});
+  await editor.fill('Control_Rep2.tif');
+  await editor.press('Enter');
+  await expect(page.getByRole('alert')).toContainText('同名文件');
+  await editor.press('Escape');
+  await expect(file).toContainText('Control_Rep1.tif');
+});
