@@ -151,7 +151,10 @@ pub fn audit_registered_blobs(
             inspect_blob(root, &digest, size_bytes as u64)
         };
         match issue {
-            Some(kind) => report.blob_issues.push(BlobIssue { sha256: digest, kind }),
+            Some(kind) => report.blob_issues.push(BlobIssue {
+                sha256: digest,
+                kind,
+            }),
             None => report.verified_blobs += 1,
         }
     }
@@ -191,8 +194,13 @@ mod tests {
         assert_eq!(report.checked_blobs, 1);
         assert_eq!(report.verified_blobs, 1);
         assert_eq!(fs::read(&source).unwrap(), b"scientific source bytes");
-        assert_eq!(fs::metadata(&source).unwrap().modified().ok(), before.modified().ok());
-        let rows: i64 = db.query_row("SELECT count(*) FROM blobs", [], |row| row.get(0)).unwrap();
+        assert_eq!(
+            fs::metadata(&source).unwrap().modified().ok(),
+            before.modified().ok()
+        );
+        let rows: i64 = db
+            .query_row("SELECT count(*) FROM blobs", [], |row| row.get(0))
+            .unwrap();
         assert_eq!(rows, 1);
     }
 
@@ -233,10 +241,14 @@ mod tests {
         .unwrap();
         db.pragma_update(None, "foreign_keys", "ON").unwrap();
         let result = audit_registered_blobs(&db, &workspace.path().join("repository")).unwrap();
-        assert!(result.database_issues.contains(&"sqlite_foreign_key_violation"));
+        assert!(result
+            .database_issues
+            .contains(&"sqlite_foreign_key_violation"));
         assert!(!result.is_clean());
         let exists: i64 = db
-            .query_row("SELECT count(*) FROM themes WHERE id='broken'", [], |row| row.get(0))
+            .query_row("SELECT count(*) FROM themes WHERE id='broken'", [], |row| {
+                row.get(0)
+            })
             .unwrap();
         assert_eq!(exists, 1);
     }
