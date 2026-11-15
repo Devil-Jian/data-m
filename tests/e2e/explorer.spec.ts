@@ -215,9 +215,10 @@ test('right-click empty canvas supports mock clipboard paste without filesystem 
   await first.click({button:'right'});
   await page.getByRole('menuitem',{name:/复制/}).click();
   await expect(page.locator('.dm-toast')).toContainText('已选择复制 1 个演示项');
-  await page.locator('.dm-experiment-footnote').click({button:'right'});
+  await page.locator('.dm-explorer-canvas').click({button:'right',position:{x:4,y:4}});
   const menu=page.getByRole('menu',{name:'文件操作菜单'});
-  await expect(menu.getByRole('menuitem',{name:/粘贴操作意图/})).toBeVisible();
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole('menuitem',{name:/粘贴操作意图/})).toBeEnabled();
   await menu.getByRole('menuitem',{name:/粘贴操作意图/}).click();
   await expect(page.locator('.dm-toast')).toContainText('请求复制 1 项');
   await expect(first).toBeVisible();
