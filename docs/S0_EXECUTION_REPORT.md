@@ -1,6 +1,6 @@
 # S0 执行与验收报告
 
-状态：`manual_pending`。本报告不是 accepted 签收；未合并 main，未关闭关联 Issue。
+状态：`accepted`。用户于 2026-11-15 明确确认人工验收通过；PR #42 已合并 main，合并提交 `937762fe068decfc5bdc9765ba945267832d9282`。以下机器证据与历史风险记录保留，最终签收以本段和文末记录为准，关联 Issue 未自动关闭。
 
 ## 范围与基线
 
@@ -51,7 +51,7 @@ Windows 首轮 CI：[run 43727800015](https://github.com/Devil-Jian/data-m/actio
 | M3 | 对上述实现 SHA 的 PR 流水线检查并输出 EXE；原生 GUI 仍需人工 |
 | M4 | 根 README、CONTRIBUTING、ADR 与 S0_TOOLCHAIN 给出安装、双模式预览与测试命令；历史路线保持隔离 |
 
-## Windows 人工验收（全部 manual_pending）
+## Windows 人工验收（用户已确认通过；保留复验步骤）
 
 1. 从本 PR 成功的 Windows CI 下载未签名便携 EXE；记录 CI URL、head SHA、EXE SHA-256（`Get-FileHash`）、Windows 11 版本及执行者/日期。不要用旧构建代替。
 2. 使用可抛弃测试数据。100% 与 150% DPI 各启动一次，检查布局、文字、缩放、Tab 焦点；记录截图。
