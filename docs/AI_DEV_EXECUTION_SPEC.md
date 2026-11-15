@@ -92,7 +92,7 @@
 
 | ID | 功能包 | 依赖 | 当前开发进度 | Issue |
 |---|---|---|---|---|
-| **S0** | 工程主线与唯一桌面 UI | 无 | `accepted`，见 [执行报告](S0_EXECUTION_REPORT.md)，未签收 | #8, #12, #4, #13 |
+| **S0** | 工程主线与唯一桌面 UI | 无 | `accepted`，用户签收并已合并 main，见 [执行报告](S0_EXECUTION_REPORT.md) | #8, #12, #4, #13 |
 | **S1** | 项目主题实验 CRUD | S0 | `prototype_only`，未验收 | #17, #14 |
 | **S2** | 分组样本与四阶段结构 | S1 | `prototype_only`，未验收 | #17, #14 |
 | **S3** | 安全文件导入与任务恢复 | S2 | `prototype_only`，未验收 | #6, #15, #14 |
@@ -113,7 +113,7 @@
 
 **任务元数据**：`id=S0` · `priority=P0` · `depends_on=none` · `status=accepted` · Issues：[#8](https://github.com/Devil-Jian/data-m/issues/8), [#12](https://github.com/Devil-Jian/data-m/issues/12), [#4](https://github.com/Devil-Jian/data-m/issues/4), [#13](https://github.com/Devil-Jian/data-m/issues/13)。
 
-**当前事实**：PR #40/41 与多层 Draft PR 已存在；本次独立 [PR #42](https://github.com/Devil-Jian/data-m/pull/42) 的实现提交已通过 Windows/Linux 机器验证，见 [执行报告](S0_EXECUTION_REPORT.md)。main 仍为初始化 README，WebView2 与集成签收未完成，S0 为 manual_pending 而非 accepted。
+**当前事实**：[PR #42](https://github.com/Devil-Jian/data-m/pull/42) 已通过机器验证，用户确认人工验收通过并授权合并。S0 已进入 main，状态 accepted；证据见 [执行报告](S0_EXECUTION_REPORT.md)。PR #40/41 等历史链未逐个合并，不据此宣称后续功能已验收。
 
 **用户结果**：统一可复现的正式工作树：一套 UI、一条主线、两种调试模式。
 
