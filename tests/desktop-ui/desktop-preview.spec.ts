@@ -5,7 +5,7 @@ test.beforeEach(async ({page})=>{
   await expect(page.getByRole('heading',{name:'ROS 活性氧荧光染色'})).toBeVisible();
 });
 
-test('desktop renderer has generated shadcn utility CSS (not unstyled HTML)',async ({page})=>{
+test('@S0 desktop renderer has generated shadcn utility CSS (not unstyled HTML)',async ({page})=>{
   const selectedGroup=page.locator('.dm-group-tabs button[data-variant="primary"]').first();
   await expect(selectedGroup).toBeVisible();
   const actual=await selectedGroup.evaluate(element=>{
@@ -14,7 +14,8 @@ test('desktop renderer has generated shadcn utility CSS (not unstyled HTML)',asy
   });
   // Tailwind bg-blue-600, rounded-md and h-7; without cross-workspace
   // CSS scanning these become transparent/native WebView controls.
-  // Tailwind v4 exposes its palette as OKLCH in Chromium. Accept either computed representation.\n  expect(actual.color).toMatch(/^(oklch\\(0\\.546\\s+0\\.245\\s+262\\.881\\)|rgb\\(37, 99, 235\\))$/);
+  // Tailwind v4 can expose its palette as OKLCH in Chromium.
+  expect(actual.color).toMatch(/^(oklch\(0\.546\s+0\.245\s+262\.881\)|rgb\(37, 99, 235\))$/);
   expect(parseFloat(actual.radius)).toBeGreaterThanOrEqual(5);
   expect(actual.height).toBeGreaterThanOrEqual(26);
   const search=page.getByPlaceholder('搜索样本文件…');
@@ -26,7 +27,7 @@ test('desktop renderer has generated shadcn utility CSS (not unstyled HTML)',asy
   expect(parseFloat(searchStyle.padding)).toBeGreaterThanOrEqual(10);
 });
 
-test('desktop browser preview can right-click a file and use keyboard shortcuts',async ({page})=>{
+test('@S0 desktop browser preview can right-click a file and use keyboard shortcuts',async ({page})=>{
   const file=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
   await expect(file).toBeVisible();
   await file.click({button:'right'});

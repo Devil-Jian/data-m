@@ -7,6 +7,10 @@ on:
       - 'demos/**'
       - 'packages/**'
       - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'playwright*.config.ts'
       - '.github/workflows/ui-demos.yml'
 
 concurrency:
@@ -26,7 +30,7 @@ jobs:
         with:
           node-version: '22'
       - name: Install workspaces
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Test interaction engine
         run: npm run test:interaction
       - name: Test asset identity invariants
@@ -42,7 +46,7 @@ jobs:
         with:
           node-version: '22'
       - name: Install workspaces
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Browser interaction E2E

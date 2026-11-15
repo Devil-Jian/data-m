@@ -3,11 +3,16 @@ on:
   push:
     branches:
       - feat/tauri2-desktop-shell
+      - chore/s0-development-baseline
     paths:
       - 'apps/desktop/**'
       - 'packages/**'
       - 'demos/shadcn/**'
       - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'playwright*.config.ts'
       - '.github/workflows/desktop-windows.yml'
   pull_request:
     paths:
@@ -15,6 +20,10 @@ on:
       - 'packages/**'
       - 'demos/shadcn/**'
       - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'playwright*.config.ts'
       - '.github/workflows/desktop-windows.yml'
 
 
@@ -38,7 +47,9 @@ jobs:
         with:
           workspaces: apps/desktop/src-tauri -> target
       - name: Install packages
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
+      - name: S0 baseline contracts
+        run: npm run test:s0
       - name: Type-check, Vite build and interaction tests
         run: |
           npm run build:desktop
@@ -51,8 +62,13 @@ jobs:
         run: npx playwright install chromium
       - name: Windows Chromium pointer and keyboard E2E
         run: npm run test:e2e
+      - name: S0 renderer consistency
+        run: npm run test:e2e:desktop -- --grep "@S0"
       - name: Desktop renderer CSS and keyboard E2E (port 5176)
         run: npm run test:e2e:desktop
+      - name: S0 read-only Rust tests
+        working-directory: apps/desktop/src-tauri
+        run: cargo test --no-default-features s0_
       - name: Rust tests
         working-directory: apps/desktop/src-tauri
         run: cargo test --no-default-features
@@ -71,3 +87,10 @@ jobs:
           path: apps/desktop/src-tauri/target/release/data-m-desktop.exe
           if-no-files-found: error
           retention-days: 7
+      - name: Upload Rust dependency lock
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s0-cargo-lock
+          path: apps/desktop/src-tauri/Cargo.lock
+          if-no-files-found: warn

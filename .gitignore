@@ -7,3 +7,8 @@ dist/
 .env
 .env.*
 !.env.example
+
+# Native build and test artifacts
+target/
+test-results/
+playwright-report/

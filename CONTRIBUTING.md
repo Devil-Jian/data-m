@@ -32,13 +32,15 @@
 - PR 描述、文档和任务验收项完整；
 - 不将构建成功等同于实际交互和数据安全验收。
 
-## 常用命令（当前 UI 演示）
+## 常用命令（正式桌面入口）
 
 ```powershell
-npm.cmd install
+npm.cmd ci
+npm.cmd run test:s0
 npm.cmd run test:interaction
-npm.cmd run build:shadcn
-npm.cmd run dev:shadcn
+npm.cmd run build:desktop
+npm.cmd run dev:desktop
+npm.cmd run tauri:dev
 ```
 
-Tauri/Rust 命令在桌面项目创建后正式加入。
+Windows 工具链与全部验证命令见 [S0 工具链](docs/S0_TOOLCHAIN.md)。正式入口为 apps/desktop；历史 demos 仅作参考。未经用户批准不得合并 main；不得把 CI 通过标为 accepted。

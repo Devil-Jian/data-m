@@ -27,7 +27,7 @@ mod tests {
     use super::shell_status;
 
     #[test]
-    fn shell_status_identifies_non_destructive_shell() {
+    fn s0_shell_status_identifies_non_destructive_shell() {
         assert_eq!(shell_status(), "data-m-desktop-shell");
     }
 }

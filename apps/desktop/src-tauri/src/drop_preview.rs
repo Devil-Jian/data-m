@@ -38,6 +38,23 @@ fn rejected(name: &str, kind: &'static str, warning: &'static str) -> DropEntry 
     }
 }
 
+// Display only: metadata lookup always uses the original, unmodified path.
+fn safe_display_name(name: &str) -> String {
+    let cleaned: String = name
+        .chars()
+        .filter(|ch| {
+            !ch.is_control()
+                && !matches!(*ch, '\u{061c}' | '\u{200e}' | '\u{200f}'
+                    | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
+        })
+        .collect();
+    if cleaned.is_empty() {
+        "未命名项目".to_string()
+    } else {
+        cleaned
+    }
+}
+
 fn inspect_one(raw_path: &str) -> DropEntry {
     // Never echo absolute paths or operating-system error strings to the UI.
     let path = Path::new(raw_path);
@@ -45,8 +62,8 @@ fn inspect_one(raw_path: &str) -> DropEntry {
         .file_name()
         .and_then(|filename| filename.to_str())
         .filter(|name| !name.is_empty())
-        .unwrap_or("未命名项目")
-        .to_string();
+        .map(safe_display_name)
+        .unwrap_or_else(|| "未命名项目".to_string());
 
     if raw_path.is_empty() || raw_path.len() > MAX_PATH_LENGTH || !path.is_absolute() {
         return rejected(&name, "invalid", "路径无效");
@@ -99,7 +116,17 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
-    fn empty_and_relative_paths_are_not_eligible() {
+    fn s0_display_name_strips_real_controls_and_preserves_unicode() {
+        assert_eq!(safe_display_name("样本\u{202e}cod.exe\n.tif"), "样本cod.exe.tif");
+        assert_eq!(safe_display_name("正常样本 01.tif"), "正常样本 01.tif");
+        assert_eq!(safe_display_name("\u{2066}\u{2069}"), "未命名项目");
+        let entry = inspect_one("relative\u{202e}name.tif");
+        assert_eq!(entry.name, "relativename.tif");
+        assert!(!entry.eligible);
+    }
+
+    #[test]
+    fn s0_empty_and_relative_paths_are_not_eligible() {
         let preview = inspect_drop_paths(vec!["".into(), "../relative.tif".into()]);
         assert_eq!(preview.total_received, 2);
         assert_eq!(preview.eligible_count, 0);
@@ -107,7 +134,7 @@ mod tests {
     }
 
     #[test]
-    fn inspection_returns_only_basename_and_never_modifies_source() {
+    fn s0_inspection_returns_only_basename_and_never_modifies_source() {
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("monotonic test time")

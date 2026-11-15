@@ -25,6 +25,8 @@ Data-M 是 Windows 11 单机科研实验与论文归档客户端。用户选择 
 
 ## 风险及代价
 
+S0 集成约束：唯一正式入口为 `apps/desktop`；浏览器与 WebView2 复用该入口及 `packages/ui`。只注册 `shell_status` 和 `inspect_drop_paths`，不在启动时打开数据库或写入 CAS。历史 demos 不构成第二条生产路线，此决策不授权合并 main 或替代 Windows 人工验收。
+
 - WebView2 的原生拖放与 HTML5 drag events 需要明确边界；
 - 完整拖出至 Windows Explorer 需要原生 OLE/COM 集成，属于以后独立任务；
 - Rust 业务层需要严格事务、恢复及跨平台/Windows E2E 测试；

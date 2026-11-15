@@ -27,7 +27,8 @@
     "test:assets": "npm run test -w @data-m/core",
     "test:e2e": "playwright test",
     "test:e2e:desktop": "playwright test -c playwright.desktop.config.ts",
-    "test:desktop": "npm run test -w @data-m/desktop"
+    "test:desktop": "npm run test -w @data-m/desktop",
+    "test:s0": "node --test scripts/s0-baseline.test.mjs"
   },
   "devDependencies": {
     "@types/react": "^19.1.0",

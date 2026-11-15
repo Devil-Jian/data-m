@@ -190,7 +190,9 @@
         "不合并历史 WPF/WinUI/Vue 试验路线"
       ],
       "safety_gate": "禁止未经审查的 PR 链整体合并和对 main 的强制推送；未人工验收时只能标记 manual_pending。",
-      "suggested_branch": "feat/s0-ui"
+      "suggested_branch": "feat/s0-ui",
+      "current_status": "in_progress",
+      "execution_report": "S0_EXECUTION_REPORT.md"
     },
     {
       "id": "S1",
