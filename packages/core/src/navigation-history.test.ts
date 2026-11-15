@@ -1,7 +1,7 @@
 import {describe,expect,it} from 'vitest';
 import {INITIAL_PROJECTS} from './data';
 import {
-  createHistory,historyStep,locationExists,sameLocation,visitLocation
+  createHistory,findHistoryTarget,historyStep,locationExists,sameLocation,visitLocation
 } from './navigation-history';
 import type {NavigationLocation} from './navigation-history';
 
@@ -47,6 +47,14 @@ describe('Explorer session navigation',()=>{
     const b={...a,panelId:'panel-123'};
     expect(sameLocation(a,b)).toBe(false);
     expect(sameLocation(first,a)).toBe(false);
+  });
+  it('skips deleted routes when seeking the next valid Back destination',()=>{
+    const stale={...first,groupId:'removed'};
+    const full=visitLocation(visitLocation(createHistory(first),stale),other);
+    const target=findHistoryTarget(full,-1,route=>locationExists(route,INITIAL_PROJECTS));
+    expect(target.index).toBe(0);
+    expect(target.entries[target.index]).toEqual(first);
+    expect(findHistoryTarget(target,-1,()=>true)).toBe(target);
   });
   it('rejects stale project and group identities before restoring',()=>{
     expect(locationExists(first,INITIAL_PROJECTS)).toBe(true);
