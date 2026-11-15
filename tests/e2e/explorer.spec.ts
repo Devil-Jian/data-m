@@ -376,3 +376,66 @@ test('file selection and search filtering do not add navigation history entries'
   await expect(raw).toBeVisible();
   await expect(page.locator('.dm-selection-actions')).not.toContainText('已选');
 });
+
+test('F2 opens inline editor, preserves suffix, and submits a no-write rename intent',async ({page})=>{
+  const asset=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  await asset.click();
+  await page.keyboard.press('F2');
+  const editor=page.getByRole('textbox',{name:'重命名文件'});
+  await expect(editor).toBeVisible();
+  await expect(editor).toHaveValue('Control_Rep1.tif');
+  expect(await editor.evaluate(el=>(el as HTMLInputElement).selectionEnd))
+    .toBe('Control_Rep1'.length);
+  await editor.fill('肝脏实验_01.tif');
+  await editor.press('Enter');
+  await expect(editor).toHaveCount(0);
+  await expect(page.locator('.dm-toast')).toContainText('演示重命名请求：Control_Rep1.tif → 肝脏实验_01.tif；未修改真实文件');
+  await expect(asset).toContainText('Control_Rep1.tif');
+  await expect(page.locator('.dm-explorer-canvas')).toBeFocused();
+});
+
+test('F2 refuses invalid Windows names, extensions and duplicate siblings',async ({page})=>{
+  await page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]').click();
+  await page.keyboard.press('F2');
+  const editor=page.getByRole('textbox',{name:'重命名文件'});
+  await editor.fill('NUL.tif');
+  await editor.press('Enter');
+  await expect(page.getByRole('alert')).toContainText('Windows 保留设备名称');
+  await editor.fill('Control_Rep2.tif');
+  await editor.press('Enter');
+  await expect(page.getByRole('alert')).toContainText('同名文件');
+  await editor.fill('Control_Rep1.xlsx');
+  await editor.press('Enter');
+  await expect(page.getByRole('alert')).toContainText('扩展名');
+  await editor.press('Escape');
+  await expect(editor).toHaveCount(0);
+  await expect(page.locator('.dm-toast')).toHaveCount(0);
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]')).toContainText('Control_Rep1.tif');
+});
+
+test('context-menu Rename creates the same inline preview as F2',async ({page})=>{
+  const asset=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  await asset.click({button:'right'});
+  await page.getByRole('menuitem',{name:/重命名/}).click();
+  const editor=page.getByRole('textbox',{name:'重命名文件'});
+  await expect(editor).toBeFocused();
+  await editor.fill('Renamed_01.tif');
+  await editor.press('Enter');
+  await expect(page.locator('.dm-toast')).toContainText('演示重命名请求');
+  await expect(asset).toContainText('Control_Rep1.tif');
+});
+
+test('10k virtual file list supports inline rename without remounting all rows',async ({page})=>{
+  await page.goto('/?virtualDemo=10000');
+  await page.getByRole('button',{name:'分阶段'}).click();
+  await page.getByTitle('虚拟文件列表').click();
+  const viewport=page.getByRole('region',{name:'虚拟文件资产列表'});
+  const first=page.locator('[data-explorer-id="asset:raw:virtual-perf-0"]');
+  await first.click();
+  await page.keyboard.press('F2');
+  const editor=page.getByRole('textbox',{name:'重命名文件'});
+  await expect(editor).toHaveValue('Virtual_Asset_00000.tif');
+  expect(await viewport.locator('[data-explorer-id]').count()).toBeLessThan(50);
+  await editor.press('Escape');
+  await expect(first).toContainText('Virtual_Asset_00000.tif');
+});
