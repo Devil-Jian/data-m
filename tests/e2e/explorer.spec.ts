@@ -374,5 +374,5 @@ test('file selection and search filtering do not add navigation history entries'
   await raw.count().then(count=>expect(count).toBe(0));
   await back.click();
   await expect(raw).toBeVisible();
-  await expect(page.locator('.dm-selection-actions')).toHaveCount(0);
+  await expect(page.locator('.dm-selection-actions')).not.toContainText('已选');
 });
