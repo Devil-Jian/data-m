@@ -462,9 +462,9 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
                   disabled={explorer.contextMenu.ids.length!==1}
                   onClick={()=>explorer.contextAction('rename')}>重命名 <kbd>F2</kbd></button>
                 <button role="menuitem" type="button" onClick={()=>explorer.contextAction('delete')}>删除 <kbd>Delete</kbd></button>
-              </>:explorer.hasClipboard?
-                <button role="menuitem" type="button" onClick={()=>explorer.contextAction('paste')}>粘贴操作意图 <kbd>Ctrl+V</kbd></button>:
-                <div className="dm-context-caption">当前没有可粘贴的演示资产</div>}
+              </>:<div className="dm-context-caption">当前实验分组</div>}
+              <button role="menuitem" type="button" disabled={!explorer.hasClipboard}
+                onClick={()=>explorer.contextAction('paste')}>粘贴操作意图 <kbd>Ctrl+V</kbd></button>
               <div className="dm-context-hint">演示模式：不会修改真实文件</div>
             </div>}
           </div>
