@@ -4,6 +4,7 @@
 //! All real asset mutations will go through validated application use cases.
 mod drop_preview;
 mod domain_db;
+mod cas;
 #[tauri::command]
 fn shell_status() -> &'static str {
     "data-m-desktop-shell"
