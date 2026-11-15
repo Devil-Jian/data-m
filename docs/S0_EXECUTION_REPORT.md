@@ -1,6 +1,6 @@
 # S0 执行与验收报告
 
-状态：`in_progress`。本报告不是 accepted 签收；未合并 main，未关闭关联 Issue。
+状态：`manual_pending`。本报告不是 accepted 签收；未合并 main，未关闭关联 Issue。
 
 ## 范围与基线
 
@@ -30,7 +30,26 @@
 
 发现并修复 Windows PowerShell 5.1 解析无 BOM 中文 UTF-8 脚本失败；修复后上述自检通过。独立审查未发现开放写 IPC，要求补齐 Cargo.lock 与防止 Rust 专项空跑，已纳入后续验证。
 
-Windows 首轮 CI：[run 43727800015](https://github.com/Devil-Jian/data-m/actions/runs/43727800015)。该轮仍在运行；不引用历史绿色 CI 替代本次验证。机器验收未全部通过前不标记 machine_passed 或 manual_pending。
+Windows 首轮 CI：[run 43727800015](https://github.com/Devil-Jian/data-m/actions/runs/43727800015) 的 4 项 S0、21 项 Rust 测试通过，但 rustfmt 失败，整轮失败；依据实际格式差异修正后重新验证，未放宽断言。
+
+最终实现提交：`1c4765a1506f7d9f813bb45ff2fb8c1800bb39e1`。后续验收文档提交只更新证据与状态，不修改可执行代码、依赖或测试。
+
+- [最终 Windows CI](https://github.com/Devil-Jian/data-m/actions/runs/43728489141)：整轮 `success`；使用 Node.js 22、已提交的 npm/Cargo 锁文件，完整 JS/Rust/浏览器检查、格式检查、cargo check 与 EXE 构建全部通过。
+- [最终 Linux UI CI](https://github.com/Devil-Jian/data-m/actions/runs/43728489120)：三套历史 UI 构建与 Explorer 回归成功。
+- Rust 专项实际包含 4 项，全量包含 21 项；CI 先检查专项发现数量非零，再执行测试。
+- 同 SHA 的重复 push 流水线 `43728484414` 为节省资源主动取消；以上 PR 流水线才是验收依据。
+- 便携 EXE artifact：`data-m-p1-unsigned-portable-windows`（沿用既有命名，不代表正式 P1 发布），位于最终 Windows CI。
+- 已下载 EXE 至 `D:\paper\s0-artifacts-1c4765a\data-m-desktop.exe`，SHA-256：`5B86CB4ED6DAD971DFBF0051417F2E1FD6FE59BAC361EC5347084B535C4D356B`。未运行 GUI，哈希不能替代人工验收。
+- 独立复审确认 Cargo 锁定、防空跑和只读 IPC 边界；未发现剩余 critical/important 代码问题。
+
+结构化命令、退出码和用例数量见 [机器证据 JSON](S0_EXECUTION_REPORT.json)。`head_sha` 指实际受测实现提交，最后的文档提交仅记录结果。本机 Rust 下载未完成且无 C++ 工具链，未将本机原生验证报告为通过；上述原生结果来自同 SHA 的真实 Windows CI。
+
+| S0 条件 | 证据与限制 |
+| --- | --- |
+| M1 | 候选集成分支含完整工程，npm ci 从零安装及 CI 通过；main 合并与集成签收未获批准，保持待审批 |
+| M2 | Desktop 与兼容浏览器入口共用 packages/ui；正式浏览器与原生配置使用同一 apps/desktop；专项工程与 CSS/交互检查通过 |
+| M3 | 对上述实现 SHA 的 PR 流水线检查并输出 EXE；原生 GUI 仍需人工 |
+| M4 | 根 README、CONTRIBUTING、ADR 与 S0_TOOLCHAIN 给出安装、双模式预览与测试命令；历史路线保持隔离 |
 
 ## Windows 人工验收（全部 manual_pending）
 

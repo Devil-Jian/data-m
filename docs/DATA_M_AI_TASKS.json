@@ -191,8 +191,10 @@
       ],
       "safety_gate": "禁止未经审查的 PR 链整体合并和对 main 的强制推送；未人工验收时只能标记 manual_pending。",
       "suggested_branch": "feat/s0-ui",
-      "current_status": "in_progress",
-      "execution_report": "S0_EXECUTION_REPORT.md"
+      "current_status": "manual_pending",
+      "execution_report": "S0_EXECUTION_REPORT.md",
+      "pr_url": "https://github.com/Devil-Jian/data-m/pull/42",
+      "machine_evidence": "S0_EXECUTION_REPORT.json"
     },
     {
       "id": "S1",

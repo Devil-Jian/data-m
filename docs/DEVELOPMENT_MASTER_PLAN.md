@@ -1,6 +1,6 @@
 # Data-M 产品需求、开发进度、后续计划与验收基线
 
-> S0 最新执行状态：`in_progress`；独立候选分支正在验证，证据与 Windows 人工待验收步骤见 [S0 执行报告](S0_EXECUTION_REPORT.md)。下文历史快照不代表本次签收。
+> S0 最新执行状态：`manual_pending`；独立 PR #42 的实现已通过机器验证，证据与 Windows 人工待验收步骤见 [S0 执行报告](S0_EXECUTION_REPORT.md)。未合并 main，未签收；下文历史快照不代表本次签收。
 
 > 文档版本：v1.0（2026-11-15，开发状态快照）  
 > 产品：Data-M —— Windows 单机科研实验数据与论文图表资产管理系统  
