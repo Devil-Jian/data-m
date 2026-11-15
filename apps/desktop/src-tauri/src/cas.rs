@@ -27,7 +27,7 @@ fn safe_directory(path: &Path) -> io::Result<()> {
     Ok(())
 }
 
-fn hash_file(path: &Path) -> io::Result<(String, u64)> {
+pub(crate) fn hash_file(path: &Path) -> io::Result<(String, u64)> {
     let mut input = File::open(path)?;
     let mut hasher = Sha256::new();
     let mut size = 0_u64;
