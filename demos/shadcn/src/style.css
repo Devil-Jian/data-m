@@ -1,4 +1,10 @@
 @import "tailwindcss";
+/* Desktop imports this stylesheet across workspace boundaries.
+   Explicit sources ensure production EXE includes the exact same utility rules
+   as the browser shadcn demo; Vite source-directory auto detection is insufficient. */
+@source "./";
+@source "../../../packages/core/src";
+@source "../../../apps/desktop/src";
 /* Locally owned shadcn-style Radix components + Tailwind utilities. */
 .dm-shadcn{font-family:Inter,"Segoe UI",sans-serif}
 .dm-shadcn .dm-header button[data-variant="ghost"]{color:#dbe7f7}
