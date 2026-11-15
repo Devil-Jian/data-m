@@ -1,3 +1,8 @@
+.dm-desktop-shell{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.dm-desktop-modebar{display:flex;align-items:center;gap:10px;padding:6px 18px;flex:none;background:#e8eef7;border-bottom:1px solid #cbd5e1;font-size:12px}
+.dm-desktop-modebar span{color:#475569}
+.dm-desktop-content{flex:1;min-height:0;overflow:auto}
+.dm-desktop-content>.dm-app{height:100%;min-height:0}
 .dm-native-drop{
   position:fixed;z-index:200;bottom:26px;right:24px;width:min(520px,calc(100vw - 48px));
   padding:14px 16px;border:1px solid #436788;border-radius:12px;background:#223a55;color:#fff;

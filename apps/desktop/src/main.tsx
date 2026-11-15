@@ -1,4 +1,4 @@
-import React, {useEffect,useReducer,useRef} from 'react';
+import React, {useEffect,useReducer,useRef,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {Workbench} from '@data-m/core';
 import {getCurrentWebview} from '@tauri-apps/api/webview';
@@ -9,9 +9,12 @@ import {shadcnUI} from '@data-m/ui/workbench-ui';
 import '@data-m/core/style.css';
 import '@data-m/ui/style.css';
 import './desktop.css';
+import {ProjectTreeManager} from './project-tree.tsx';
 
 /** Native Windows drop adapter. Inspection is read-only; source paths never reach UI state. */
 function DesktopApp(){
+  const [managingProjects,setManagingProjects]=useState(false);
+  const [projectBusy,setProjectBusy]=useState(false);
   const [drop,dispatch]=useReducer(dropReducer,initialDropState);
   const dismissButtonRef=useRef<HTMLButtonElement>(null);
   // Make the native drop preview dismissible with Escape, including during inspection.
@@ -68,8 +71,15 @@ function DesktopApp(){
 
   const dismiss=()=>dispatch({type:'dismiss'});
   const summary=drop.kind==='ready'?drop.preview:null;
-  return <>
-    <Workbench ui={shadcnUI} variant="shadcn"/>
+  return <div className="dm-desktop-shell">
+    <nav className="dm-desktop-modebar" aria-label="工作区模式">
+      <shadcnUI.Button disabled={projectBusy} variant={managingProjects?'primary':'secondary'} small onClick={()=>setManagingProjects(true)}>项目管理</shadcnUI.Button>
+      <shadcnUI.Button disabled={projectBusy} variant={managingProjects?'secondary':'primary'} small onClick={()=>setManagingProjects(false)}>演示工作区</shadcnUI.Button>
+      <span>{managingProjects?'Project / Theme / Assay':'演示数据与文件交互，不代表真实入库'}</span>
+    </nav>
+    <div className="dm-desktop-content">
+      {managingProjects?<ProjectTreeManager onBusyChange={setProjectBusy}/>:<Workbench ui={shadcnUI} variant="shadcn"/>}
+    </div>
     {drop.kind!=='idle'&&<section
       className={'dm-native-drop '+(drop.kind==='over'?'is-over':'')}
       role={drop.kind==='ready'?'dialog':'status'}
@@ -97,6 +107,6 @@ function DesktopApp(){
           真正导入需要 P2 安全存储服务，当前不可用。</p>
       </>}
     </section>}
-  </>;
+  </div>;
 }
 createRoot(document.getElementById('root')!).render(<React.StrictMode><DesktopApp/></React.StrictMode>);

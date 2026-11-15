@@ -6,6 +6,9 @@ mod cas;
 mod cas_audit;
 mod domain_db;
 mod drop_preview;
+mod project_tree;
+#[cfg(test)]
+mod s1_ipc_tests;
 #[tauri::command]
 fn shell_status() -> &'static str {
     "data-m-desktop-shell"
@@ -16,7 +19,8 @@ pub fn run() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             shell_status,
-            drop_preview::inspect_drop_paths
+            drop_preview::inspect_drop_paths,
+            project_tree::project_tree
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Data-M desktop");
