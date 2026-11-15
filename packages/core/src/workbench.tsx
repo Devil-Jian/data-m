@@ -432,6 +432,7 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
           </div>}
           <div className="dm-workspace-scroll dm-explorer-canvas" data-source-container-id={group.id}
             role="group" aria-label="文件资源管理器工作区" tabIndex={0}
+            onFocusCapture={explorer.onFocusCapture}
             onPointerDown={explorer.onPointerDown}
              onContextMenu={explorer.onContextMenu}
              onDragStart={e=>e.preventDefault()}>
