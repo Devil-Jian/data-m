@@ -3,6 +3,7 @@
 //! This first milestone intentionally exposes no destructive file operations.
 //! All real asset mutations will go through validated application use cases.
 mod cas;
+mod cas_audit;
 mod domain_db;
 mod drop_preview;
 #[tauri::command]
