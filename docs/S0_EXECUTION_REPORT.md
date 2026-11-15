@@ -13,7 +13,24 @@
 
 ## 机器验收
 
-执行结果、源码 SHA 和 CI 链接在检查结束后补充。机器验收未全部通过前不标记 machine_passed 或 manual_pending。
+独立 Draft PR：[#42](https://github.com/Devil-Jian/data-m/pull/42)。初次验证提交 `c063bfd30fb468108f38beaee1f7df29442378b9`；后续提交补充依赖锁定与审查修复，最终证据在检查结束后记录。
+
+本机 Node.js v26.13.1 / npm 11.20.0；CI 使用 Node.js 22。以下命令已实跑，退出码均为 0：
+
+| 命令 | 结果 |
+| --- | --- |
+| `npm ci --no-audit --no-fund` | 从锁文件重装成功 |
+| `npm run test:s0` | 3 项工程边界检查 |
+| `npm run check` | 28 项交互、20 项资产等测试；三套历史 UI 与 Desktop 构建成功 |
+| `npm run test:desktop` | 7 项测试 |
+| `npm run test:e2e:desktop -- --grep "@S0"` | 2 项专项测试 |
+| `npm run test:e2e:desktop` | 3 项测试 |
+| `npm run test:e2e` | 29 项测试 |
+| `powershell -NoProfile -File scripts/test-p1-drop-source.ps1 -SelfTest` | 源文件校验器自检通过；不证明原生 GUI |
+
+发现并修复 Windows PowerShell 5.1 解析无 BOM 中文 UTF-8 脚本失败；修复后上述自检通过。独立审查未发现开放写 IPC，要求补齐 Cargo.lock 与防止 Rust 专项空跑，已纳入后续验证。
+
+Windows 首轮 CI：[run 43727800015](https://github.com/Devil-Jian/data-m/actions/runs/43727800015)。该轮仍在运行；不引用历史绿色 CI 替代本次验证。机器验收未全部通过前不标记 machine_passed 或 manual_pending。
 
 ## Windows 人工验收（全部 manual_pending）
 

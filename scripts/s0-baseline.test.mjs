@@ -29,10 +29,11 @@ test('S0 both renderer entries consume the canonical UI and styles',()=>{
   assert.equal(config.bundle.active,false);
 });
 
-test('S0 CI installs locked dependencies and runs non-empty S0 suites',()=>{
+test('S0 CI installs locked dependencies and guards S0 test discovery',()=>{
   assert.ok(existsSync(new URL('../package-lock.json',import.meta.url)));
   const workflow=read('.github/workflows/desktop-windows.yml');
   assert.match(workflow,/npm ci/);
   assert.match(workflow,/test:s0/);
-  assert.match(workflow,/cargo test --no-default-features s0_/);
+  assert.match(workflow,/cargo test --locked --no-default-features s0_/);
+  assert.match(workflow,/S0 Rust suite must contain tests/);
 });

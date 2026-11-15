@@ -9,6 +9,8 @@ Windows 11 单机、离线优先的科研实验与论文归档客户端。
 安装 Node.js 22（与 CI 一致）、npm 和 Git，检出此 PR 分支。在根目录执行：
 
 ```powershell
+git clone --branch chore/s0-development-baseline https://github.com/Devil-Jian/data-m.git data-m-dev
+cd data-m-dev
 npm.cmd ci
 npm.cmd run dev:desktop
 ```

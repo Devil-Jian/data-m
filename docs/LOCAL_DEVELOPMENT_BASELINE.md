@@ -1,11 +1,13 @@
 # 本地开发基线
 
+> 这是开始 S0 前的准备记录；后续实现和最终验证状态以 [S0 执行报告](S0_EXECUTION_REPORT.md) 为准。
+
 准备日期：2026-11-15。此记录用于本地开发，不代表 S0 已验收。
 
 ## 工作区与来源
 
 - 正式开发工作区：`D:\paper\data-m-dev`（Git linked worktree）。
-- 本地分支：`chore/s0-development-baseline`，尚未发布，不配置远端上游。
+- 分支：`chore/s0-development-baseline`；S0 实施期间已发布独立 Draft PR #42，上游为同名远端分支。
 - 基础提交：`9a60c46751104b3ef87ac9b082b82dc0c08a955a`。
 - 来源：`origin/docs/data-m-development-master-plan`；继承 `origin/refactor/p1-single-ui-package` 的完整工程，额外增加三份开发规划文档。
 - 原工作区 `D:\paper\data-m` 保持在 `feat/file-interaction-engine`，其未跟踪文件保留。

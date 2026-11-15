@@ -117,7 +117,10 @@ mod tests {
 
     #[test]
     fn s0_display_name_strips_real_controls_and_preserves_unicode() {
-        assert_eq!(safe_display_name("样本\u{202e}cod.exe\n.tif"), "样本cod.exe.tif");
+        assert_eq!(
+            safe_display_name("样本\u{202e}cod.exe\n.tif"),
+            "样本cod.exe.tif"
+        );
         assert_eq!(safe_display_name("正常样本 01.tif"), "正常样本 01.tif");
         assert_eq!(safe_display_name("\u{2066}\u{2069}"), "未命名项目");
         let entry = inspect_one("relative\u{202e}name.tif");
@@ -144,6 +147,7 @@ mod tests {
         fs::create_dir(&root).expect("create isolated test directory");
         let file = root.join("source.tif");
         fs::write(&file, b"original scientific data").expect("create isolated fixture");
+        let modified_before = fs::metadata(&file).unwrap().modified().unwrap();
         let preview = inspect_drop_paths(vec![
             file.to_string_lossy().to_string(),
             root.to_string_lossy().to_string(),
@@ -156,6 +160,10 @@ mod tests {
         assert_eq!(preview.entries[1].kind, "directory");
         assert_eq!(preview.entries[1].size_bytes, None);
         assert_eq!(fs::read(&file).unwrap(), b"original scientific data");
+        assert_eq!(
+            fs::metadata(&file).unwrap().modified().unwrap(),
+            modified_before
+        );
         let serialized = serde_json::to_string(&preview).unwrap();
         assert!(!serialized.contains(root.to_string_lossy().as_ref()));
         fs::remove_file(file).unwrap();

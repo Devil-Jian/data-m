@@ -68,16 +68,20 @@ jobs:
         run: npm run test:e2e:desktop
       - name: S0 read-only Rust tests
         working-directory: apps/desktop/src-tauri
-        run: cargo test --no-default-features s0_
+        run: |
+          $discovered = cargo test --locked --no-default-features s0_ -- --list
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not ($discovered -match 's0_.*: test$')) { throw 'S0 Rust suite must contain tests' }
+          cargo test --locked --no-default-features s0_
       - name: Rust tests
         working-directory: apps/desktop/src-tauri
-        run: cargo test --no-default-features
+        run: cargo test --locked --no-default-features
       - name: Rust fmt
         working-directory: apps/desktop/src-tauri
         run: cargo fmt --all -- --check
       - name: Rust check
         working-directory: apps/desktop/src-tauri
-        run: cargo check
+        run: cargo check --locked
       - name: Build Windows executable (no installer yet)
         run: npm run tauri:build
       - name: Upload unsigned portable P1 EXE for native WebView2 acceptance

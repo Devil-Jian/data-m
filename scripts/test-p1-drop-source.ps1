@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 <#
 .SYNOPSIS
   Creates disposable Windows Explorer drag/drop fixtures and verifies their integrity.
