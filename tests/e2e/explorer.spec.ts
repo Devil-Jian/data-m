@@ -241,3 +241,77 @@ test('global file shortcuts do not select files outside active Explorer canvas',
   await expect(page.locator('.dm-selection-actions')).toContainText('1 个文件资产');
   await expect(page.locator('.dm-toast')).toHaveCount(0);
 });
+
+test('Shift+F10 opens the Explorer asset menu with arrow, Home and End focus navigation',async ({page})=>{
+  const file=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  await file.click();
+  await page.keyboard.press('Shift+F10');
+  const menu=page.getByRole('menu',{name:'文件操作菜单'});
+  await expect(menu).toBeVisible();
+  await expect(menu).toContainText('已选择 1 个文件资产');
+  const copy=menu.getByRole('menuitem',{name:/复制/});
+  const cut=menu.getByRole('menuitem',{name:/剪切/});
+  const del=menu.getByRole('menuitem',{name:/删除/});
+  await expect(copy).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(cut).toBeFocused();
+  await page.keyboard.press('End');
+  await expect(del).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(copy).toBeFocused();
+  await page.keyboard.press('ArrowUp');
+  await expect(del).toBeFocused();
+  await page.keyboard.press('Home');
+  await expect(copy).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(menu).toHaveCount(0);
+  await expect(page.locator('.dm-toast')).toContainText('已选择复制 1 个演示项');
+  await expect(page.locator('.dm-explorer-canvas')).toBeFocused();
+  await expect(file).toHaveClass(/selected/);
+});
+
+test('ContextMenu key retains multi-file selection and skips disabled rename',async ({page})=>{
+  const first=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  const second=page.locator('[data-explorer-id="asset:processed:ros-g1-r1"]');
+  await first.click();
+  await second.click({modifiers:['Control']});
+  await page.keyboard.press('ContextMenu');
+  const menu=page.getByRole('menu',{name:'文件操作菜单'});
+  await expect(menu).toContainText('已选择 2 个文件资产');
+  await expect(menu.getByRole('menuitem',{name:/重命名/})).toBeDisabled();
+  await page.keyboard.press('ArrowDown');
+  await expect(menu.getByRole('menuitem',{name:/剪切/})).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(menu.getByRole('menuitem',{name:/删除/})).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+  await expect(first).toHaveClass(/selected/);
+  await expect(second).toHaveClass(/selected/);
+  await expect(page.locator('.dm-explorer-canvas')).toBeFocused();
+});
+
+test('keyboard menu shortcut does not hijack the sample search field',async ({page})=>{
+  await page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]').click();
+  const input=page.getByPlaceholder('搜索样本文件…');
+  await input.click();
+  await page.keyboard.press('Shift+F10');
+  await expect(page.getByRole('menu',{name:'文件操作菜单'})).toHaveCount(0);
+  await expect(input).toBeFocused();
+});
+
+test('keyboard context menu can open on an offscreen virtualized file after End',async ({page})=>{
+  await page.goto('/?virtualDemo=10000');
+  await page.getByRole('button',{name:'分阶段'}).click();
+  await page.getByTitle('虚拟文件列表').click();
+  await page.locator('[data-explorer-id="asset:raw:virtual-perf-0"]').click();
+  await page.keyboard.press('End');
+  const last=page.locator('[data-explorer-id="asset:raw:virtual-perf-9999"]');
+  await expect(last).toBeVisible();
+  await page.keyboard.press('Shift+F10');
+  const menu=page.getByRole('menu',{name:'文件操作菜单'});
+  await expect(menu).toContainText('已选择 1 个文件资产');
+  await expect(menu.getByRole('menuitem',{name:/复制/})).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+  await expect(last).toHaveClass(/selected/);
+});

@@ -132,10 +132,24 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
   });
   useEffect(()=>{
     if(explorer.contextMenu){
-      menuRef.current?.querySelector<HTMLButtonElement>('button:not([disabled])')
+      menuRef.current?.querySelector<HTMLButtonElement>('button[role="menuitem"]:not([disabled])')
         ?.focus({preventScroll:true});
     }
   },[explorer.contextMenu]);
+  function onMenuKeyDown(event:React.KeyboardEvent<HTMLDivElement>){
+    if(!['ArrowUp','ArrowDown','Home','End'].includes(event.key))return;
+    event.preventDefault();
+    event.stopPropagation();
+    const items=Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>(
+      'button[role="menuitem"]:not([disabled])'
+    )||[]);
+    if(!items.length)return;
+    const current=items.indexOf(document.activeElement as HTMLButtonElement);
+    const next=event.key==='Home'?0:event.key==='End'?items.length-1:
+      event.key==='ArrowDown'?(current+1)%items.length:
+      (current<=0?items.length-1:current-1);
+    items[next].focus({preventScroll:true});
+  }
   const selection=explorer.selectedIds;
   const setSelection=explorer.setSelectedIds;
   const selectedCount=selection.length;
@@ -449,6 +463,7 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
             {filtered.length===0&&mode==='overview'&&<div className="dm-empty">没有符合条件的样本</div>}
             <div className="dm-experiment-footnote"><Info size={14}/> 当前展示的是科研业务模拟数据及示意图，不包含真实科研文件。操作状态仅保留在本页会话内。</div>
             {explorer.contextMenu&&<div ref={menuRef} data-explorer-context-menu
+              onKeyDown={onMenuKeyDown}
               role="menu" aria-label="文件操作菜单" className="dm-explorer-context-menu"
               style={{
                 left:Math.max(8,Math.min(explorer.contextMenu.x,window.innerWidth-210)),

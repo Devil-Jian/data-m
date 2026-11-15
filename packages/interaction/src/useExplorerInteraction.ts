@@ -78,17 +78,10 @@ export function useExplorerInteraction(options:ExplorerOptions){
     rootRef.current=event.currentTarget;
   },[]);
 
-  const onContextMenu=useCallback((event:React.MouseEvent<HTMLElement>)=>{
+  /** Shared semantics for native mouse right-click and keyboard context-menu keys. */
+  const openContextMenu=useCallback((root:HTMLElement,itemId:string|null,x:number,y:number)=>{
     if(optionsRef.current.enabled===false)return;
-    const root=event.currentTarget;
-    const target=event.target;
-    if(!(target instanceof Element)||!root.contains(target)||isEditableTarget(target))return;
-    if(target.closest('button, a, input, label, [role="checkbox"], [data-explorer-no-gesture]'))return;
-    const el=target.closest<HTMLElement>('[data-explorer-id]');
-    if(el&&!root.contains(el))return;
-    const itemId=el?.dataset.explorerId||null;
     if(itemId&&!visibleRef.current.includes(itemId))return;
-    event.preventDefault();
     rootRef.current=root;
     root.focus({preventScroll:true});
     let ids:string[]=[];
@@ -98,13 +91,26 @@ export function useExplorerInteraction(options:ExplorerOptions){
       setSelection(updated);
       ids=[...updated.selected];
     }
-    setContextMenu({x:event.clientX,y:event.clientY,itemId,ids});
+    setContextMenu({x,y,itemId,ids});
   },[]);
+
+  const onContextMenu=useCallback((event:React.MouseEvent<HTMLElement>)=>{
+    if(optionsRef.current.enabled===false)return;
+    const root=event.currentTarget;
+    const target=event.target;
+    if(!(target instanceof Element)||!root.contains(target)||isEditableTarget(target))return;
+    if(target.closest('button, a, input, label, [role="checkbox"], [data-explorer-no-gesture]'))return;
+    const el=target.closest<HTMLElement>('[data-explorer-id]');
+    if(el&&!root.contains(el))return;
+    event.preventDefault();
+    openContextMenu(root,el?.dataset.explorerId||null,event.clientX,event.clientY);
+  },[openContextMenu]);
 
   const contextAction=useCallback((action:ExplorerContextAction)=>{
     const menu=contextMenuRef.current;
     if(!menu)return;
     setContextMenu(null);
+    rootRef.current?.focus({preventScroll:true});
     if(action==='paste'){
       const payload=clipboard.current;
       if(payload)optionsRef.current.onPaste?.(payload.ids,payload.operation);
@@ -316,6 +322,19 @@ export function useExplorerInteraction(options:ExplorerOptions){
       const active=document.activeElement;
       if(!root||!active||(active!==root&&!root.contains(active)))return;
       const mod=event.ctrlKey||event.metaKey;
+      if(event.key==='ContextMenu'||(event.key==='F10'&&event.shiftKey)){
+        event.preventDefault();
+        const focused=selectionRef.current.focused;
+        const itemId=focused&&visibleRef.current.includes(focused)?focused:
+          [...selectionRef.current.selected].find(id=>visibleRef.current.includes(id))||null;
+        const element=itemId?[...root.querySelectorAll<HTMLElement>('[data-explorer-id]')]
+          .find(el=>el.dataset.explorerId===itemId):null;
+        const box=(element||root).getBoundingClientRect();
+        const x=Math.min(window.innerWidth-12,box.left+(element?Math.min(box.width,36):24));
+        const y=Math.min(window.innerHeight-12,box.top+(element?Math.min(box.height,36):24));
+        openContextMenu(root,itemId,x,y);
+        return;
+      }
       const navigation=['ArrowUp','ArrowDown','Home','End','PageUp','PageDown'];
       if(navigation.includes(event.key)&&document.activeElement===rootRef.current){
         event.preventDefault();
@@ -344,6 +363,8 @@ export function useExplorerInteraction(options:ExplorerOptions){
         }
         return;
       }
+      // While a menu is open, only its own menu buttons may handle key commands.
+      if(contextMenuRef.current)return;
       if(mod&&event.key.toLowerCase()==='a'){
         event.preventDefault();setSelection(prev=>selectAll(visibleRef.current,prev));return;
       }
@@ -372,7 +393,7 @@ export function useExplorerInteraction(options:ExplorerOptions){
     }
     document.addEventListener('keydown',onKeyDown);
     return ()=>document.removeEventListener('keydown',onKeyDown);
-  },[options.enabled,clear]);
+  },[options.enabled,clear,openContextMenu]);
 
   const visibleKey=options.visibleIds.join('\u0000');
   useEffect(()=>{
