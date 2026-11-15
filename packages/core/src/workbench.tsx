@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft, BookOpen, Check, ChevronDown, ChevronRight, Copy, Download,
   FileArchive, FileImage, FileSpreadsheet, FileText, FlaskConical, Folder,
@@ -110,6 +110,7 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
   // The virtual row layout is available even when a row is not mounted in the DOM.
   const virtualRects=useMemo(()=>virtualAssetRects(selectableAssets,100_000),[selectableAssets]);
   const visibleIds=useMemo(()=>selectableAssets.map(a=>a.id),[selectableAssets]);
+  const menuRef=useRef<HTMLDivElement>(null);
   const explorer=useExplorerInteraction({
     visibleIds,enabled:module==='experiment'&&!activePanelId&&!newProjectOpen,
     getVirtualItems:()=>virtualRects,
@@ -129,6 +130,12 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
     onDelete:(ids)=>notify('请求删除 '+ids.length+' 个演示项；需后端引用保护'),
     onRename:(id)=>notify('重命名 '+id+' 需后端支持')
   });
+  useEffect(()=>{
+    if(explorer.contextMenu){
+      menuRef.current?.querySelector<HTMLButtonElement>('button:not([disabled])')
+        ?.focus({preventScroll:true});
+    }
+  },[explorer.contextMenu]);
   const selection=explorer.selectedIds;
   const setSelection=explorer.setSelectedIds;
   const selectedCount=selection.length;
@@ -425,7 +432,9 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
           </div>}
           <div className="dm-workspace-scroll dm-explorer-canvas" data-source-container-id={group.id}
             role="group" aria-label="文件资源管理器工作区" tabIndex={0}
-            onPointerDown={explorer.onPointerDown} onDragStart={e=>e.preventDefault()}>
+            onPointerDown={explorer.onPointerDown}
+             onContextMenu={explorer.onContextMenu}
+             onDragStart={e=>e.preventDefault()}>
             <div className="dm-section-heading"><div><h2>{mode==='overview'?'全阶段归档总览':stageName(stage)}
               <small>{mode==='overview'?'样本 × 数据阶段':'单阶段详细浏览'}</small></h2>
               <p>{group.name} · {filtered.length} 个样本 · {assay.groups.length} 个实验分组</p></div>
@@ -438,6 +447,25 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
             {mode==='overview'?overviewMatrix():stageContent()}
             {filtered.length===0&&mode==='overview'&&<div className="dm-empty">没有符合条件的样本</div>}
             <div className="dm-experiment-footnote"><Info size={14}/> 当前展示的是科研业务模拟数据及示意图，不包含真实科研文件。操作状态仅保留在本页会话内。</div>
+            {explorer.contextMenu&&<div ref={menuRef} data-explorer-context-menu
+              role="menu" aria-label="文件操作菜单" className="dm-explorer-context-menu"
+              style={{
+                left:Math.max(8,Math.min(explorer.contextMenu.x,window.innerWidth-210)),
+                top:Math.max(8,Math.min(explorer.contextMenu.y,window.innerHeight-260))
+              }}>
+              {explorer.contextMenu.itemId?<>
+                <div className="dm-context-caption">已选择 {explorer.contextMenu.ids.length} 个文件资产</div>
+                <button role="menuitem" type="button" onClick={()=>explorer.contextAction('copy')}>复制 <kbd>Ctrl+C</kbd></button>
+                <button role="menuitem" type="button" onClick={()=>explorer.contextAction('cut')}>剪切 <kbd>Ctrl+X</kbd></button>
+                <button role="menuitem" type="button"
+                  disabled={explorer.contextMenu.ids.length!==1}
+                  onClick={()=>explorer.contextAction('rename')}>重命名 <kbd>F2</kbd></button>
+                <button role="menuitem" type="button" onClick={()=>explorer.contextAction('delete')}>删除 <kbd>Delete</kbd></button>
+              </>:explorer.hasClipboard?
+                <button role="menuitem" type="button" onClick={()=>explorer.contextAction('paste')}>粘贴操作意图 <kbd>Ctrl+V</kbd></button>:
+                <div className="dm-context-caption">当前没有可粘贴的演示资产</div>}
+              <div className="dm-context-hint">演示模式：不会修改真实文件</div>
+            </div>}
           </div>
         </>:<div className="dm-paper-workspace">
           <div className="dm-workspace-head"><div className="dm-crumb">{project.code}<ChevronRight size={13}/>论文管理</div>
