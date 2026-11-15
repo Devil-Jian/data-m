@@ -1,13 +1,3 @@
-@import "tailwindcss";
-/* Desktop imports this stylesheet across workspace boundaries.
-   Explicit sources ensure production EXE includes the exact same utility rules
-   as the browser shadcn demo; Vite source-directory auto detection is insufficient. */
-@source "./";
-@source "../../../packages/core/src";
-@source "../../../apps/desktop/src";
-/* Locally owned shadcn-style Radix components + Tailwind utilities. */
-.dm-shadcn{font-family:Inter,"Segoe UI",sans-serif}
-.dm-shadcn .dm-header button[data-variant="ghost"]{color:#dbe7f7}
-.dm-shadcn .dm-header button[data-variant="ghost"]:hover{background:#33435c}
-.dm-shadcn .dm-project-picker button[role="combobox"]{color:#fff;border-color:transparent;background:transparent;max-width:225px}
-.dm-shadcn .dm-project-picker button[role="combobox"]>span{white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+/* Legacy UI comparison stylesheet.
+   The canonical component/theme CSS lives in @data-m/ui/style.css.
+   Keep this file empty to avoid loading Tailwind twice. */

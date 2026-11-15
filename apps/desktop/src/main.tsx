@@ -1,28 +1,15 @@
 import React, {useEffect,useReducer,useRef} from 'react';
 import {createRoot} from 'react-dom/client';
 import {Workbench} from '@data-m/core';
-import type {UIKit} from '@data-m/core';
 import {getCurrentWebview} from '@tauri-apps/api/webview';
 import {invoke,isTauri} from '@tauri-apps/api/core';
 import {dropReducer,formatDropSize,initialDropState} from './drop-preview';
 import type {DropPreview} from './drop-preview';
-import {Button} from '../../../demos/shadcn/src/components/ui/button';
-import {SelectField} from '../../../demos/shadcn/src/components/ui/select';
-import {CheckboxField} from '../../../demos/shadcn/src/components/ui/checkbox';
-import {InputField} from '../../../demos/shadcn/src/components/ui/input';
-import {BadgeField} from '../../../demos/shadcn/src/components/ui/badge';
+import {shadcnUI} from '@data-m/ui/workbench-ui';
 import '@data-m/core/style.css';
-import '../../../demos/shadcn/src/style.css';
+import '@data-m/ui/style.css';
 import './desktop.css';
 
-const ui:UIKit={
-  Button:({children,onClick,variant='secondary',small=false,disabled,title})=>
-    <Button onClick={onClick} variant={variant} small={small} disabled={disabled} title={title}>{children}</Button>,
-  Select:SelectField,
-  Input:InputField,
-  Check:CheckboxField,
-  Badge:BadgeField
-};
 /** Native Windows drop adapter. Inspection is read-only; source paths never reach UI state. */
 function DesktopApp(){
   const [drop,dispatch]=useReducer(dropReducer,initialDropState);
@@ -82,7 +69,7 @@ function DesktopApp(){
   const dismiss=()=>dispatch({type:'dismiss'});
   const summary=drop.kind==='ready'?drop.preview:null;
   return <>
-    <Workbench ui={ui} variant="shadcn"/>
+    <Workbench ui={shadcnUI} variant="shadcn"/>
     {drop.kind!=='idle'&&<section
       className={'dm-native-drop '+(drop.kind==='over'?'is-over':'')}
       role={drop.kind==='ready'?'dialog':'status'}
