@@ -37,7 +37,8 @@ export function visitLocation(
 ):NavigationHistory{
   if(sameLocation(history.entries[history.index],next))return history;
   const entries=[...history.entries.slice(0,history.index+1),next];
-  const bounded=entries.length>capacity?entries.slice(entries.length-capacity):entries;
+  const limit=Math.max(1,Math.trunc(capacity));
+  const bounded=entries.length>limit?entries.slice(entries.length-limit):entries;
   return {entries:bounded,index:bounded.length-1};
 }
 
@@ -63,8 +64,26 @@ export function locationExists(
   if(!assay||!assay.groups.some(g=>g.id===location.groupId))return false;
   if(location.module==='paper'){
     const paper=project.papers.find(p=>p.id===location.paperId);
-    if(!paper)return false;
+    if(!paper){
+      return location.paperId===''&&location.panelId===null&&project.papers.length===0;
+    }
     if(location.panelId&&!paper.figures.some(f=>f.panels.some(p=>p.id===location.panelId)))return false;
   }
   return true;
+}
+
+/** Walk past stale/deleted navigation targets without restoring fallback folders. */
+export function findHistoryTarget(
+  history:NavigationHistory,
+  offset:-1|1,
+  available:(location:NavigationLocation)=>boolean
+):NavigationHistory{
+  let target=historyStep(history,offset);
+  while(target!==history){
+    if(available(target.entries[target.index]))return target;
+    const subsequent=historyStep(target,offset);
+    if(subsequent===target)break;
+    target=subsequent;
+  }
+  return history;
 }
