@@ -1,6 +1,6 @@
 # S2 分组、样本与四阶段结构
 
-状态：`in_progress`，未人工验收、未合并。
+状态：`manual_pending`，机器验证通过，人工统一验收待执行，未合并。
 
 用户于 2026-11-16 授权 S1 机器通过后继续 S2、S3，最后一起人工验收。S1 保持 manual_pending，不将延后验收解释为 accepted。S2 基于 `feat/s1-project-tree` 的 `14eac03` 开发，独立 Draft PR 以该分支为目标；无自动合并授权。
 
@@ -14,7 +14,15 @@
 
 ## 机器验证
 
-待记录本次受测 SHA、真实命令、退出码、非零用例数、Windows/Linux CI 和 EXE 哈希。不能用 Python SQL smoke 或浏览器 Mock 代替 Rust/Tauri/真实库验证。
+受测实现 SHA：`3742f70548ace31972cccccee6f4fa2ec01f56fa`，独立 [Draft PR #45](https://github.com/Devil-Jian/data-m/pull/45)，堆叠于 S1 #44。后续文档提交不修改可执行代码。
+
+- [Windows CI](https://github.com/Devil-Jian/data-m/actions/runs/43735920859) 与 [Linux UI CI](https://github.com/Devil-Jian/data-m/actions/runs/43735920643) 整轮成功。
+- S2 Rust 7 项（含真实临时库命令处理器），全量 Rust 42 项、S1 专项14项、S0专项4项，全部通过。
+- JS 单元55项、工程检查3项；Desktop浏览器16项（含 S2 Mock 6 项）、Explorer29项，均通过。
+- rustfmt、cargo check、Desktop与历史UI构建、Windows便携EXE均通过，artifact 为 `data-m-s2-unsigned-portable-windows`。最终统一人工验收使用包含 S1–S3 的候选 EXE，并另行记录该 EXE 哈希。
+- 复审发现启动检查截取了空函数体，已先复现失败、再修正范围并验证真正覆盖 Builder；未放宽无启动写入断言。初轮格式失败按 Windows rustfmt 输出修正后重跑通过。
+
+命令、退出码、用例数和日志见 [结构化证据](S2_EXECUTION_REPORT.json)。按用户授权可继续 S3 实现，不把 S2 标记 accepted。
 
 ## 延后统一人工验收
 

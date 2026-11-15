@@ -330,8 +330,10 @@
       ],
       "safety_gate": "任何文件资产操作均不可改变真实 Replicate 数量；所有测试数据位于临时仓库。",
       "suggested_branch": "feat/s2-",
-      "current_status": "in_progress",
-      "execution_report": "S2_EXECUTION_REPORT.md"
+      "current_status": "manual_pending",
+      "execution_report": "S2_EXECUTION_REPORT.md",
+      "pr_url": "https://github.com/Devil-Jian/data-m/pull/45",
+      "machine_evidence": "S2_EXECUTION_REPORT.json"
     },
     {
       "id": "S3",

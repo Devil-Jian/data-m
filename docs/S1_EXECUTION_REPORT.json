@@ -142,6 +142,7 @@
     "S1 not merged into main",
     "No real scientific data before S0-S7 and recovery acceptance"
   ],
-  "next_task_recommendation": "Complete S1 manual acceptance before S2",
-  "report_followup": "Subsequent commit updates documentation only; head_sha identifies tested executable source."
+  "next_task_recommendation": "User authorized S2 then S3 development after machine validation; combined manual acceptance later, no automatic merge.",
+  "report_followup": "Subsequent commit updates documentation only; head_sha identifies tested executable source.",
+  "manual_acceptance_deferred_by_user": "2026-11-16"
 }
