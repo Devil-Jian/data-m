@@ -2,7 +2,7 @@ import {useCallback,useEffect,useRef,useState} from 'react';
 import {
   canDrop,contentMarqueeHits,contentPoint,createSelection,distance,dragItemIds,
   dragOperation,edgeScrollVelocity,isEditableTarget,navigateSelection,rectFromPoints,
-  selectAll,selectItem,selectMarquee
+  selectAll,selectContextItem,selectItem,selectMarquee
 } from './model';
 import type {
   DragIntent,ItemId,ModifierKeys,NavigationKey,Operation,Point,PositionedItem,Rect,Selection
@@ -23,6 +23,8 @@ type Pending={
   original:Set<ItemId>;
   moved:boolean;
 };
+export type ExplorerContextMenu={x:number;y:number;itemId:string|null;ids:string[]};
+export type ExplorerContextAction='copy'|'cut'|'paste'|'rename'|'delete';
 export type Gesture=
   | {kind:'idle'}
   | {kind:'marquee';rect:Rect}
@@ -49,6 +51,9 @@ export function useExplorerInteraction(options:ExplorerOptions){
   const visibleRef=useRef(options.visibleIds);visibleRef.current=options.visibleIds;
   const pending=useRef<Pending|null>(null);
   const clipboard=useRef<{ids:string[];operation:Operation}|null>(null);
+  const [contextMenu,setContextMenu]=useState<ExplorerContextMenu|null>(null);
+  const contextMenuRef=useRef(contextMenu);
+  contextMenuRef.current=contextMenu;
   const frame=useRef<number|null>(null);
   const rootRef=useRef<HTMLElement|null>(null);
 
@@ -67,10 +72,57 @@ export function useExplorerInteraction(options:ExplorerOptions){
     });
   },[]);
 
+  const onContextMenu=useCallback((event:React.MouseEvent<HTMLElement>)=>{
+    if(optionsRef.current.enabled===false)return;
+    const root=event.currentTarget;
+    const target=event.target;
+    if(!(target instanceof Element)||!root.contains(target)||isEditableTarget(target))return;
+    if(target.closest('button, a, input, label, [role="checkbox"], [data-explorer-no-gesture]'))return;
+    const el=target.closest<HTMLElement>('[data-explorer-id]');
+    if(el&&!root.contains(el))return;
+    const itemId=el?.dataset.explorerId||null;
+    if(itemId&&!visibleRef.current.includes(itemId))return;
+    event.preventDefault();
+    rootRef.current=root;
+    root.focus({preventScroll:true});
+    let ids:string[]=[];
+    if(itemId){
+      const updated=selectContextItem(selectionRef.current,itemId,visibleRef.current);
+      selectionRef.current=updated;
+      setSelection(updated);
+      ids=[...updated.selected];
+    }
+    setContextMenu({x:event.clientX,y:event.clientY,itemId,ids});
+  },[]);
+
+  const contextAction=useCallback((action:ExplorerContextAction)=>{
+    const menu=contextMenuRef.current;
+    if(!menu)return;
+    setContextMenu(null);
+    if(action==='paste'){
+      const payload=clipboard.current;
+      if(payload)optionsRef.current.onPaste?.(payload.ids,payload.operation);
+      return;
+    }
+    if(!menu.itemId||menu.ids.length===0)return;
+    if(action==='copy'){
+      clipboard.current={ids:[...menu.ids],operation:'copy'};
+      optionsRef.current.onCopy?.(menu.ids);
+    }else if(action==='cut'){
+      clipboard.current={ids:[...menu.ids],operation:'move'};
+      optionsRef.current.onCut?.(menu.ids);
+    }else if(action==='delete'){
+      optionsRef.current.onDelete?.(menu.ids);
+    }else if(action==='rename'&&menu.ids.length===1){
+      optionsRef.current.onRename?.(menu.ids[0]);
+    }
+  },[]);
+
   const onPointerDown=useCallback((event:React.PointerEvent<HTMLElement>)=>{
     if(optionsRef.current.enabled===false||event.button!==0||!event.isPrimary)return;
     const root=event.currentTarget,target=event.target;
     rootRef.current=root;
+    setContextMenu(null);
     if(!(target instanceof Element)||!root.contains(target)||isEditableTarget(target))return;
     if(target.closest('button, a, input, label, [role="checkbox"], [data-explorer-no-gesture]'))return;
     const item=target.closest<HTMLElement>('[data-explorer-id]');
@@ -210,7 +262,18 @@ export function useExplorerInteraction(options:ExplorerOptions){
       if(!p||!p.moved||p.kind!=='marquee')return;
       if(event.target===p.host||p.host.contains(event.target as Node))paintMarquee(p);
     }
-    const onBlur=()=>cancel();
+    const onBlur=()=>{
+      cancel();
+      setContextMenu(null);
+    };
+    function closeMenuOnOutsidePress(event:PointerEvent){
+      if(event.target instanceof Element &&
+        event.target.closest('[data-explorer-context-menu]'))return;
+      setContextMenu(null);
+    }
+    const onScrollCloseMenu=()=>setContextMenu(null);
+    document.addEventListener('pointerdown',closeMenuOnOutsidePress,true);
+    document.addEventListener('scroll',onScrollCloseMenu,true);
     window.addEventListener('pointermove',pointerMove,{passive:false});
     window.addEventListener('pointerup',pointerUp);
     window.addEventListener('pointercancel',cancel);
@@ -223,6 +286,8 @@ export function useExplorerInteraction(options:ExplorerOptions){
       window.removeEventListener('pointercancel',cancel);
       window.removeEventListener('blur',onBlur);
       document.removeEventListener('scroll',onScroll,true);
+      document.removeEventListener('pointerdown',closeMenuOnOutsidePress,true);
+      document.removeEventListener('scroll',onScrollCloseMenu,true);
     };
   },[clear]);
 
@@ -232,10 +297,15 @@ export function useExplorerInteraction(options:ExplorerOptions){
       if(frame.current!==null)cancelAnimationFrame(frame.current);
       frame.current=null;
       setGesture({kind:'idle'});
+      setContextMenu(null);
       return;
     }
     function onKeyDown(event:KeyboardEvent){
       if(isEditableTarget(event.target)||event.defaultPrevented)return;
+      // Never hijack document-wide shortcuts while a different pane has focus.
+      const root=rootRef.current;
+      const active=document.activeElement;
+      if(!root||!active||(active!==root&&!root.contains(active)))return;
       const mod=event.ctrlKey||event.metaKey;
       const navigation=['ArrowUp','ArrowDown','Home','End','PageUp','PageDown'];
       if(navigation.includes(event.key)&&document.activeElement===rootRef.current){
@@ -249,6 +319,12 @@ export function useExplorerInteraction(options:ExplorerOptions){
         return;
       }
       if(event.key==='Escape'){
+        if(contextMenuRef.current){
+          setContextMenu(null);
+          event.preventDefault();
+          root.focus({preventScroll:true});
+          return;
+        }
         if(pending.current){
           pending.current=null;
           if(frame.current!==null)cancelAnimationFrame(frame.current);
@@ -304,6 +380,8 @@ export function useExplorerInteraction(options:ExplorerOptions){
     focusedId:selection.focused,
     anchorId:selection.anchor,
     gesture,onPointerDown,
-    setSelectedIds,clear,select,toggle
+    setSelectedIds,clear,select,toggle,
+    contextMenu,onContextMenu,contextAction,
+    hasClipboard:clipboard.current!==null
   };
 }
