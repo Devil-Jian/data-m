@@ -43,7 +43,6 @@ test('desktop browser preview can right-click a file and use keyboard shortcuts'
 });
 
 test('right-click inside a file action opens file menu, toolbar remains usable',async ({page})=>{
-  const file=page.locator('[data-explorer-id="asset:display:ros-']).first();
   // Stage-specific display assets can be exercised without touching real paths.
   await page.getByRole('button',{name:'分阶段'}).click();
   await page.getByRole('button',{name:/04_Display/}).first().click();
