@@ -49,7 +49,11 @@ fn safe_display_name(name: &str) -> String {
                     | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
         })
         .collect();
-    if cleaned.is_empty() { "未命名项目".to_string() } else { cleaned }
+    if cleaned.is_empty() {
+        "未命名项目".to_string()
+    } else {
+        cleaned
+    }
 }
 
 fn inspect_one(raw_path: &str) -> DropEntry {
