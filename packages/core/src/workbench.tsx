@@ -164,6 +164,12 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
     [assay,group,filtered,mode,stage,stageFilter,stressDemo,view]);
   // The virtual row layout is available even when a row is not mounted in the DOM.
   const virtualRects=useMemo(()=>virtualAssetRects(selectableAssets,100_000),[selectableAssets]);
+  // Rename collisions must include hidden files, not just the current search/role-filtered view.
+  const renameScopeAssets=useMemo(()=>
+    stressDemo&&mode==='stage'&&stage==='raw'&&view==='list'
+      ?selectableAssets
+      :selectableDemoAssets(assay,group,group.replicates,mode,stage,stageFilter),
+    [assay,group,mode,stage,stageFilter,stressDemo,view,selectableAssets]);
   const visibleIds=useMemo(()=>selectableAssets.map(a=>a.id),[selectableAssets]);
   const menuRef=useRef<HTMLDivElement>(null);
   const explorer=useExplorerInteraction({
@@ -219,8 +225,8 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
     restoreExplorerFocus();
   }
   function siblingsOf(id:string):string[]{
-    const asset=selectableAssets.find(a=>a.id===id);
-    return asset?selectableAssets.filter(
+    const asset=renameScopeAssets.find(a=>a.id===id);
+    return asset?renameScopeAssets.filter(
       a=>a.id!==id&&a.containerId===asset.containerId&&a.stage===asset.stage
     ).map(a=>a.filename):[];
   }
