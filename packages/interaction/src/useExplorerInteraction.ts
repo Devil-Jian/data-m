@@ -121,6 +121,7 @@ export function useExplorerInteraction(options:ExplorerOptions){
   const onPointerDown=useCallback((event:React.PointerEvent<HTMLElement>)=>{
     if(optionsRef.current.enabled===false||event.button!==0||!event.isPrimary)return;
     const root=event.currentTarget,target=event.target;
+    if(target instanceof Element&&target.closest('[data-explorer-context-menu]'))return;
     rootRef.current=root;
     setContextMenu(null);
     if(!(target instanceof Element)||!root.contains(target)||isEditableTarget(target))return;
