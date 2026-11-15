@@ -174,7 +174,10 @@ fn schema(connection: &Connection) -> rusqlite::Result<Vec<(String, String, Stri
     let mut statement = connection.prepare(
         "SELECT type,name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name",
     )?;
-    let rows = statement.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+    let rows = statement.query_map([], |r| {
+        let sql: String = r.get(2)?;
+        Ok((r.get(0)?, r.get(1)?, sql.replace("\r\n", "\n")))
+    })?;
     rows.collect()
 }
 fn initialize(connection: &mut Connection) -> Result<(), TreeError> {

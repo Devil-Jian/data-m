@@ -1,6 +1,21 @@
 use super::*;
 
 #[test]
+fn s1_owned_schema_recognition_is_independent_of_checkout_line_endings() {
+    let lf = MIGRATION.replace("\r\n", "\n");
+    for migration in [lf.clone(), lf.replace('\n', "\r\n")] {
+        let connection = Connection::open_in_memory().unwrap();
+        connection.execute_batch(&migration).unwrap();
+        connection.execute_batch(REQUEST_SCHEMA).unwrap();
+        connection
+            .pragma_update(None, "application_id", APPLICATION_ID)
+            .unwrap();
+        connection.pragma_update(None, "user_version", 1).unwrap();
+        recognized(&connection).unwrap();
+    }
+}
+
+#[test]
 fn s1_failed_initialization_never_publishes_final_database_and_can_retry() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("tree.sqlite");
