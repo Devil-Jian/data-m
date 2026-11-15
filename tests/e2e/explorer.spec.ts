@@ -315,3 +315,64 @@ test('keyboard context menu can open on an offscreen virtualized file after End'
   await expect(menu).toHaveCount(0);
   await expect(last).toHaveClass(/selected/);
 });
+
+test('Alt+Left / Alt+Right navigate real experiment group history without affecting files',async ({page})=>{
+  const back=page.getByRole('button',{name:'后退到上一目录'});
+  const forward=page.getByRole('button',{name:'前进到下一目录'});
+  await expect(back).toBeDisabled();
+  await expect(forward).toBeDisabled();
+  await page.locator('.dm-group-tabs button').nth(1).click();
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g2-r1"]')).toBeVisible();
+  await expect(back).toBeEnabled();
+  await page.keyboard.press('Alt+ArrowLeft');
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]')).toBeVisible();
+  await expect(forward).toBeEnabled();
+  await page.keyboard.press('Alt+ArrowRight');
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g2-r1"]')).toBeVisible();
+  await expect(forward).toBeDisabled();
+});
+
+test('navigation buttons restore current group and truncate forward on new navigation',async ({page})=>{
+  const back=page.getByRole('button',{name:'后退到上一目录'});
+  const forward=page.getByRole('button',{name:'前进到下一目录'});
+  await page.locator('.dm-group-tabs button').nth(1).click();
+  await page.locator('.dm-group-tabs button').nth(2).click();
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g3-r1"]')).toBeVisible();
+  await back.click();
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g2-r1"]')).toBeVisible();
+  await page.locator('.dm-group-tabs button').nth(3).click();
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g4-r1"]')).toBeVisible();
+  await expect(forward).toBeDisabled();
+  await back.click();
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g2-r1"]')).toBeVisible();
+  await forward.click();
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g4-r1"]')).toBeVisible();
+});
+
+test('Back and Forward restore project module and experimental folder context',async ({page})=>{
+  const back=page.getByRole('button',{name:'后退到上一目录'});
+  const forward=page.getByRole('button',{name:'前进到下一目录'});
+  await page.locator('.dm-group-tabs button').nth(1).click();
+  await page.locator('nav[aria-label="核心模块"] button').nth(1).click();
+  await expect(page.getByRole('heading',{name:/论文管理/})).toBeVisible();
+  await back.click();
+  await expect(page.locator('[data-explorer-id="asset:raw:ros-g2-r1"]')).toBeVisible();
+  await forward.click();
+  await expect(page.getByRole('heading',{name:/论文管理/})).toBeVisible();
+});
+
+test('file selection and search filtering do not add navigation history entries',async ({page})=>{
+  const back=page.getByRole('button',{name:'后退到上一目录'});
+  const raw=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  await raw.click();
+  await expect(back).toBeDisabled();
+  await page.getByPlaceholder('搜索样本文件…').fill('Control');
+  await expect(back).toBeDisabled();
+  await page.getByPlaceholder('搜索样本文件…').fill('');
+  await page.locator('.dm-group-tabs button').nth(1).click();
+  await expect(back).toBeEnabled();
+  await raw.count().then(count=>expect(count).toBe(0));
+  await back.click();
+  await expect(raw).toBeVisible();
+  await expect(page.locator('.dm-selection-actions')).not.toContainText('已选');
+});

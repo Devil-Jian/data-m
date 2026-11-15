@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowLeft, BookOpen, Check, ChevronDown, ChevronRight, Copy, Download,
+  ArrowLeft, ArrowRight, BookOpen, Check, ChevronDown, ChevronRight, Copy, Download,
   FileArchive, FileImage, FileSpreadsheet, FileText, FlaskConical, Folder,
   FolderOpen, Grid2X2, Image, Info, LayoutGrid, List, MoreHorizontal, Plus,
   Search, ShieldCheck, Table2, Upload, X
@@ -9,6 +9,8 @@ import { allPanels, findAssay, INITIAL_PROJECTS, STAGES, summary } from './data'
 import { demoAssetId, selectableDemoAssets } from './demo-assets';
 import { VirtualAssetList } from './virtual-asset-list';
 import {makeVirtualStressAssets,virtualAssetRects} from './virtual-layout';
+import {createHistory,findHistoryTarget,locationExists,sameLocation,visitLocation} from './navigation-history';
+import type {NavigationLocation} from './navigation-history';
 import { useExplorerInteraction } from '@data-m/interaction';
 import type { Assay, DataFile, ModuleName, Panel, Project, Replica, Stage, ViewMode } from './data';
 
@@ -93,6 +95,56 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
   const paper=project.papers.find(p=>p.id===activePaperId)||project.papers[0];
   const panel=paper?.figures.flatMap(f=>f.panels).find(p=>p.id===activePanelId)||null;
   const panelAssay=panel ? findAssay(project,panel.assayId):undefined;
+
+  // Record actual navigation destinations, not selection, filtering, scrolling or file gestures.
+  const location=useMemo<NavigationLocation>(()=>({
+    module,projectId:project.id,themeId:theme.id,assayId:assay.id,
+    groupId:group.id,paperId:paper?.id||'',
+    panelId:module==='paper'?activePanelId:null
+  }),[module,project.id,theme.id,assay.id,group.id,paper?.id,activePanelId]);
+  const [history,setHistory]=useState(()=>createHistory(location));
+  const restoring=useRef<NavigationLocation|null>(null);
+  useEffect(()=>{
+    if(restoring.current&&sameLocation(restoring.current,location)){
+      restoring.current=null;
+      return;
+    }
+    // If the selected destination was externally invalidated, record the effective route.
+    restoring.current=null;
+    setHistory(previous=>visitLocation(previous,location));
+  },[location]);
+  const canBack=history.index>0;
+  const canForward=history.index<history.entries.length-1;
+  function navigateHistory(offset:-1|1){
+    const next=findHistoryTarget(history,offset,route=>locationExists(route,projects));
+    if(next===history)return;
+    const to=next.entries[next.index];
+    restoring.current=to;
+    setHistory(next);
+    setProjectId(to.projectId);setThemeId(to.themeId);
+    setAssayId(to.assayId);setGroupId(to.groupId);
+    setModule(to.module);setActivePaperId(to.paperId);
+    setActivePanelId(to.module==='paper'?to.panelId:null);
+    setTrace(null);setNewProjectOpen(false);
+    setSearch('');setSelection([]);
+  }
+  useEffect(()=>{
+    function onHistoryKey(event:KeyboardEvent){
+      if(!event.altKey||event.ctrlKey||event.metaKey||event.shiftKey)return;
+      const direction=event.key==='ArrowLeft'?-1:event.key==='ArrowRight'?1:null;
+      if(!direction)return;
+      if(event.defaultPrevented)return;
+      const target=event.target;
+      if(target instanceof Element &&
+        target.closest('input,textarea,select,[contenteditable="true"],[role="textbox"]'))return;
+      // Prevent the hosting browser from navigating away from the app at history boundaries.
+      event.preventDefault();
+      if(newProjectOpen)return;
+      navigateHistory(direction);
+    }
+    document.addEventListener('keydown',onHistoryKey,true);
+    return ()=>document.removeEventListener('keydown',onHistoryKey,true);
+  });
 
   const filtered=useMemo(()=>group.replicates.filter(r=>
     (role==='all'||(role==='rep'?r.isRep:r.inStats)) &&
@@ -364,6 +416,12 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
   return <div className={'dm-app dm-'+variant}>
     <header className="dm-header">
       <div className="dm-logo"><span>BM</span><strong>科研实验与论文管理系统</strong></div>
+      <div className="dm-history-controls" role="group" aria-label="目录导航历史">
+        <button type="button" aria-label="后退到上一目录" title="后退 (Alt+←)"
+          disabled={!canBack} onClick={()=>navigateHistory(-1)}><ArrowLeft size={16}/></button>
+        <button type="button" aria-label="前进到下一目录" title="前进 (Alt+→)"
+          disabled={!canForward} onClick={()=>navigateHistory(1)}><ArrowRight size={16}/></button>
+      </div>
       <div className="dm-project-picker"><small>课题/论文项目</small><UI.Select value={project.id}
         onChange={chooseProject} options={projects.map(p=>({value:p.id,label:p.name}))} ariaLabel="选择科研项目"/></div>
       <nav className="dm-primary-nav" aria-label="核心模块">

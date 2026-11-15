@@ -215,3 +215,9 @@ button{cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}
 .dm-explorer-context-menu kbd{font-family:inherit;font-size:10px;color:#64748b}
 .dm-context-caption{font-weight:600;color:#4a5a70;padding:7px 10px;border-bottom:1px solid #e2e8f0}
 .dm-context-hint{font-size:10px;color:#6b7280;padding:7px 10px;border-top:1px solid #e2e8f0}
+
+/* Session-local Explorer Back/Forward; disabled state is visually explicit. */
+.dm-history-controls{display:flex;align-items:center;gap:3px;padding:2px;background:#1b2b43;border-radius:8px;flex:none}
+.dm-history-controls button{display:grid;place-items:center;width:29px;height:29px;border:0;border-radius:6px;background:transparent;color:#e4edf8}
+.dm-history-controls button:enabled:hover,.dm-history-controls button:focus-visible{background:#345173;outline:2px solid #7baafa}
+.dm-history-controls button:disabled{opacity:.35;cursor:not-allowed}
