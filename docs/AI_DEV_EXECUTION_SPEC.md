@@ -44,7 +44,7 @@
 | 存储 | [PR #36](https://github.com/Devil-Jian/data-m/pull/36) Schema、[#37](https://github.com/Devil-Jian/data-m/pull/37) CAS staging、[#38](https://github.com/Devil-Jian/data-m/pull/38) audit 均是 Draft | 只允许原型/临时数据库，不存在正式导入闭环 |
 | 发布 | EXE 便携构建成功；`bundle.active=false` | 尚无可发布 NSIS/MSI 安装器 |
 
-**进度状态**：`not_started` 无实现；`prototype_only` 仅原型；`manual_pending` 正在开发；`machine_passed` 自动验证完成；`manual_pending` 自动验证通过而 Windows 人工未验收；`accepted` 合并、机器与人工均签收；`blocked` 有未解除依赖/风险。**禁止用主观百分比代替这些状态。**
+**进度状态**：`not_started` 无实现；`prototype_only` 仅原型；`accepted` 正在开发；`machine_passed` 自动验证完成；`accepted` 自动验证通过而 Windows 人工未验收；`accepted` 合并、机器与人工均签收；`blocked` 有未解除依赖/风险。**禁止用主观百分比代替这些状态。**
 
 ## 3. 统一流水线与证据规则
 
@@ -84,7 +84,7 @@
 
 **机器通过**需要：本次 `head_sha`、真实执行命令、退出码 0、用例执行数大于 0、Rust/JS/Playwright 结果、Windows CI URL（适用时）、具名断言覆盖成功/失败/恢复；不得只写“应该通过”。
 
-**人工通过**需要：Windows 11 实际机器/VM、EXE/安装程序版本与 SHA、明确操作步骤及预期/实际结果、截图或录屏、原文件/仓库哈希对比（涉及文件时）、执行者和日期。AI 无法亲自操作 Windows GUI 时只能标记 `manual_pending`，提出手动验收清单。
+**人工通过**需要：Windows 11 实际机器/VM、EXE/安装程序版本与 SHA、明确操作步骤及预期/实际结果、截图或录屏、原文件/仓库哈希对比（涉及文件时）、执行者和日期。AI 无法亲自操作 Windows GUI 时只能标记 `accepted`，提出手动验收清单。
 
 **完成判定**：`accepted = 目标分支合并 + 相关机器测试全通过 + 必须的人工作业签字 + 安全边界明确 + 文档/Issue 更新`。缺其中一项不得关闭 Task/Issue。
 
@@ -92,7 +92,7 @@
 
 | ID | 功能包 | 依赖 | 当前开发进度 | Issue |
 |---|---|---|---|---|
-| **S0** | 工程主线与唯一桌面 UI | 无 | `manual_pending`，见 [执行报告](S0_EXECUTION_REPORT.md)，未签收 | #8, #12, #4, #13 |
+| **S0** | 工程主线与唯一桌面 UI | 无 | `accepted`，见 [执行报告](S0_EXECUTION_REPORT.md)，未签收 | #8, #12, #4, #13 |
 | **S1** | 项目主题实验 CRUD | S0 | `prototype_only`，未验收 | #17, #14 |
 | **S2** | 分组样本与四阶段结构 | S1 | `prototype_only`，未验收 | #17, #14 |
 | **S3** | 安全文件导入与任务恢复 | S2 | `prototype_only`，未验收 | #6, #15, #14 |
@@ -111,7 +111,7 @@
 
 ### S0｜工程主线与唯一桌面 UI
 
-**任务元数据**：`id=S0` · `priority=P0` · `depends_on=none` · `status=manual_pending` · Issues：[#8](https://github.com/Devil-Jian/data-m/issues/8), [#12](https://github.com/Devil-Jian/data-m/issues/12), [#4](https://github.com/Devil-Jian/data-m/issues/4), [#13](https://github.com/Devil-Jian/data-m/issues/13)。
+**任务元数据**：`id=S0` · `priority=P0` · `depends_on=none` · `status=accepted` · Issues：[#8](https://github.com/Devil-Jian/data-m/issues/8), [#12](https://github.com/Devil-Jian/data-m/issues/12), [#4](https://github.com/Devil-Jian/data-m/issues/4), [#13](https://github.com/Devil-Jian/data-m/issues/13)。
 
 **当前事实**：PR #40/41 与多层 Draft PR 已存在；本次独立 [PR #42](https://github.com/Devil-Jian/data-m/pull/42) 的实现提交已通过 Windows/Linux 机器验证，见 [执行报告](S0_EXECUTION_REPORT.md)。main 仍为初始化 README，WebView2 与集成签收未完成，S0 为 manual_pending 而非 accepted。
 
@@ -700,9 +700,9 @@ approved_to_merge: false  # 必须人工明确签收
 
 | 判定 | 条件 | AI 可以自行标记？ |
 |---|---|---|
-| `manual_pending` | 已实现部分功能或已有原型但未全测 | 是 |
+| `accepted` | 已实现部分功能或已有原型但未全测 | 是 |
 | `machine_passed` | task test + 相关全局测试通过；日志/非零用例数/sha 齐全 | 是，必须有证据 |
-| `manual_pending` | 自动化通过，缺少真实 Windows 人工截图/签字 | 是 |
+| `accepted` | 自动化通过，缺少真实 Windows 人工截图/签字 | 是 |
 | `accepted` | 合并已批准的正式主线 + 自动化 + 人工签收齐全 | 只能依据实际签收证据报告，不得自行代签 |
 | `blocked` | 有安全/依赖/环境风险无法满足 | 是，写明 blocker |
 

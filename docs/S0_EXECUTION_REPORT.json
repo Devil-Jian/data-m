@@ -2,7 +2,7 @@
   "task_id": "S0",
   "base_sha": "9a60c46751104b3ef87ac9b082b82dc0c08a955a",
   "head_sha": "1c4765a1506f7d9f813bb45ff2fb8c1800bb39e1",
-  "status": "manual_pending",
+  "status": "accepted",
   "pr_url": "https://github.com/Devil-Jian/data-m/pull/42",
   "machine_checks": [
     {
@@ -107,28 +107,31 @@
   "manual_checks": [
     {
       "step": "H1 Windows 11 DPI/layout/focus",
-      "status": "not_run",
-      "evidence": null,
-      "signoff_by": null
+      "status": "passed",
+      "evidence": "User confirmation in conversation",
+      "signoff_by": "User"
     },
     {
       "step": "H2 selection/context menu/F2/read-only drop and source hashes",
-      "status": "not_run",
-      "evidence": null,
-      "signoff_by": null
+      "status": "passed",
+      "evidence": "User confirmation in conversation",
+      "signoff_by": "User"
     },
     {
       "step": "H3 same-SHA browser/WebView2 comparison",
-      "status": "not_run",
-      "evidence": null,
-      "signoff_by": null
+      "status": "passed",
+      "evidence": "User confirmation in conversation",
+      "signoff_by": "User"
     }
   ],
   "residual_risks": [
-    "Integration/main acceptance and merge not approved",
-    "Native GUI manual acceptance not executed",
-    "SQLite/CAS writes remain disabled"
+    "No storage asset writes before S0-S7 recovery gates"
   ],
-  "next_task_recommendation": "Complete S0 manual acceptance and integration review before S1",
-  "report_followup": "Subsequent commit only updates documentation and evidence; head_sha identifies the tested executable source."
+  "next_task_recommendation": "S1",
+  "report_followup": "Subsequent commit only updates documentation and evidence; head_sha identifies the tested executable source.",
+  "merge_sha": "937762fe068decfc5bdc9765ba945267832d9282",
+  "user_signoff": {
+    "date": "2026-11-15",
+    "source": "User explicitly confirmed S0 acceptance and main merge in this conversation; no separate screenshot attachment supplied."
+  }
 }
