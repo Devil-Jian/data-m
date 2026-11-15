@@ -1,7 +1,7 @@
 import {describe,expect,it} from 'vitest';
 import {
   canDrop,contentMarqueeHits,contentPoint,createSelection,dragItemIds,dragOperation,
-  edgeScrollVelocity,intersects,marqueeHits,navigateSelection,
+  edgeScrollVelocity,intersects,marqueeHits,navigateSelection,selectContextItem,
   rectFromPoints,selectAll,selectItem,selectMarquee
 } from './model';
 const ids=['a','b','c','d','e'];
@@ -178,5 +178,27 @@ describe('Explorer keyboard navigation',()=>{
   it('does nothing to an empty scope',()=>{
     const before=createSelection();
     expect(navigateSelection(before,[],'End')).toBe(before);
+  });
+});
+
+describe('Windows Explorer right-click asset selection',()=>{
+  it('preserves multi-selection when an already selected asset is right-clicked',()=>{
+    const selected=selectItem(selectItem(createSelection(),'a',ids),'c',ids,{ctrlKey:true});
+    const menu=selectContextItem(selected,'a',ids);
+    expect(menu.selected).toEqual(new Set(['a','c']));
+    expect(menu.anchor).toBe('c');
+    expect(menu.focused).toBe('a');
+  });
+  it('replaces selection if the right-clicked file was not selected',()=>{
+    const selected=selectItem(selectItem(createSelection(),'a',ids),'c',ids,{ctrlKey:true});
+    const next=selectContextItem(selected,'b',ids);
+    expect(next.selected).toEqual(new Set(['b']));
+    expect(next.anchor).toBe('b');
+    expect(next.focused).toBe('b');
+  });
+  it('does not select stale or outside-scope assets',()=>{
+    const previous=selectItem(createSelection(),'b',ids);
+    expect(selectContextItem(previous,'stale-asset',ids)).toBe(previous);
+    expect(previous.selected.has('stale-asset')).toBe(false);
   });
 });

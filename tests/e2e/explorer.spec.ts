@@ -90,6 +90,8 @@ test('TanStack Virtual renders a bounded DOM while selecting 10,000 file assets'
   await expect(page.locator('[data-explorer-id="asset:raw:virtual-perf-0"]')).toBeVisible();
   const initiallyRendered=await viewport.locator('[data-explorer-id]').count();
   expect(initiallyRendered).toBeLessThan(50);
+  // Keyboard commands require the Explorer canvas to own focus.
+  await page.locator('.dm-explorer-canvas').focus();
   await page.keyboard.press('Control+a');
   await expect(page.locator('.dm-selection-actions')).toContainText('10000 个文件资产');
   // No synthetic biological sample is introduced by the stress fixture.
@@ -174,4 +176,68 @@ test('typing shortcuts in search do not change file selection',async ({page})=>{
   await page.keyboard.press('Control+a');
   await page.keyboard.press('ArrowDown');
   await expect(page.locator('.dm-selection-actions')).toContainText('1 个文件资产');
+});
+
+test('right-click on selected asset preserves the entire multi-selection',async ({page})=>{
+  const raw=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  const processed=page.locator('[data-explorer-id="asset:processed:ros-g1-r1"]');
+  await raw.click();
+  await processed.click({modifiers:['Control']});
+  await raw.click({button:'right'});
+  const menu=page.getByRole('menu',{name:'文件操作菜单'});
+  await expect(menu).toBeVisible();
+  await expect(menu).toContainText('已选择 2 个文件资产');
+  await expect(raw).toHaveClass(/selected/);
+  await expect(processed).toHaveClass(/selected/);
+  await menu.getByRole('menuitem',{name:/复制/}).click();
+  await expect(page.locator('.dm-toast')).toContainText('已选择复制 2 个演示项');
+  await expect(menu).toHaveCount(0);
+  await expect(raw).toHaveClass(/selected/);
+  await expect(processed).toHaveClass(/selected/);
+});
+
+test('right-clicking an unselected file narrows selection to that file',async ({page})=>{
+  const first=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  const second=page.locator('[data-explorer-id="asset:raw:ros-g1-r2"]');
+  await first.click();
+  await second.click({button:'right'});
+  const menu=page.getByRole('menu',{name:'文件操作菜单'});
+  await expect(menu).toContainText('已选择 1 个文件资产');
+  await expect(first).not.toHaveClass(/selected/);
+  await expect(second).toHaveClass(/selected/);
+  await menu.getByRole('menuitem',{name:/删除/}).click();
+  await expect(page.locator('.dm-toast')).toContainText('请求删除 1 个演示项');
+  await expect(second).toBeVisible();
+});
+
+test('right-click empty canvas supports mock clipboard paste without filesystem changes',async ({page})=>{
+  const first=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  await first.click({button:'right'});
+  await page.getByRole('menuitem',{name:/复制/}).click();
+  await expect(page.locator('.dm-toast')).toContainText('已选择复制 1 个演示项');
+  await page.locator('.dm-explorer-canvas').click({button:'right',position:{x:4,y:4}});
+  const menu=page.getByRole('menu',{name:'文件操作菜单'});
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole('menuitem',{name:/粘贴操作意图/})).toBeEnabled();
+  await menu.getByRole('menuitem',{name:/粘贴操作意图/}).click();
+  await expect(page.locator('.dm-toast')).toContainText('请求复制 1 项');
+  await expect(first).toBeVisible();
+});
+
+test('Escape closes file menu before clearing selected assets',async ({page})=>{
+  const file=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
+  await file.click({button:'right'});
+  await expect(page.getByRole('menu',{name:'文件操作菜单'})).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu',{name:'文件操作菜单'})).toHaveCount(0);
+  await expect(file).toHaveClass(/selected/);
+});
+
+test('global file shortcuts do not select files outside active Explorer canvas',async ({page})=>{
+  await page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]').click();
+  await page.getByPlaceholder('搜索样本文件…').fill('Control');
+  await page.keyboard.press('Control+a');
+  await page.keyboard.press('Delete');
+  await expect(page.locator('.dm-selection-actions')).toContainText('1 个文件资产');
+  await expect(page.locator('.dm-toast')).toHaveCount(0);
 });

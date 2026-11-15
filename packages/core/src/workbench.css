@@ -198,3 +198,20 @@ button{cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}
 /* Explorer keyboard focus is separate from selection and supports unmounted virtual rows. */
 .dm-explorer-canvas:focus{outline:none}
 .dm-virtual-row.is-focused{box-shadow:inset 0 0 0 2px #2563eb}
+
+/* Asset-only context menu: actions remain non-destructive demo intents. */
+.dm-explorer-context-menu{
+  position:fixed;z-index:150;width:200px;max-height:min(70vh,310px);overflow:auto;
+  border-radius:10px;border:1px solid #cad5e2;box-shadow:0 12px 30px #0f172a33;
+  background:#fff;color:#243247;padding:5px;font-size:12px;user-select:none;
+}
+.dm-explorer-context-menu button{
+  border:0;background:none;width:100%;padding:9px 11px;text-align:left;display:flex;
+  justify-content:space-between;align-items:center;border-radius:6px;color:inherit;cursor:pointer;
+}
+.dm-explorer-context-menu button:hover,
+.dm-explorer-context-menu button:focus-visible{background:#e7f0fd;outline:1px solid #8db9fc}
+.dm-explorer-context-menu button:disabled{opacity:.4;cursor:not-allowed}
+.dm-explorer-context-menu kbd{font-family:inherit;font-size:10px;color:#64748b}
+.dm-context-caption{font-weight:600;color:#4a5a70;padding:7px 10px;border-bottom:1px solid #e2e8f0}
+.dm-context-hint{font-size:10px;color:#6b7280;padding:7px 10px;border-top:1px solid #e2e8f0}
