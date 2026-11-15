@@ -3,6 +3,7 @@
 //! This first milestone intentionally exposes no destructive file operations.
 //! All real asset mutations will go through validated application use cases.
 mod drop_preview;
+mod domain_db;
 #[tauri::command]
 fn shell_status() -> &'static str {
     "data-m-desktop-shell"
