@@ -313,7 +313,10 @@ pub(super) fn with_database_at<T>(
     operation(&mut connection)
 }
 
-fn execute_request(connection: &mut Connection, request: TreeRequest) -> Result<TreeSnapshot, TreeError> {
+fn execute_request(
+    connection: &mut Connection,
+    request: TreeRequest,
+) -> Result<TreeSnapshot, TreeError> {
     if request.action != "list" {
         let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let token = request.request_id.as_deref().ok_or_else(TreeError::input)?;

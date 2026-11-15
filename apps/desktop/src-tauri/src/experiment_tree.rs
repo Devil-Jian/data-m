@@ -94,7 +94,9 @@ fn validate(request: &ExperimentRequest) -> Result<(), TreeError> {
             required_name(request.name.as_deref())?;
             match kind {
                 Kind::Group if request.parent_id.is_some() => return Err(TreeError::input()),
-                Kind::Replicate => { required(request.parent_id.as_deref(), 128)?; }
+                Kind::Replicate => {
+                    required(request.parent_id.as_deref(), 128)?;
+                }
                 Kind::Group => {}
             }
         }
@@ -123,7 +125,10 @@ fn ensure_assay(connection: &Connection, assay: &str) -> Result<(), TreeError> {
     if exists {
         Ok(())
     } else {
-        Err(TreeError::new("NOT_FOUND", "The selected assay no longer exists."))
+        Err(TreeError::new(
+            "NOT_FOUND",
+            "The selected assay no longer exists.",
+        ))
     }
 }
 
@@ -138,18 +143,29 @@ fn execute_at(path: &Path, request: ExperimentRequest) -> Result<ExperimentSnaps
             // a token for another assay or operation, cannot replay unrelated work.
             let payload = serde_json::to_string(&serde_json::json!({
                 "scope": "experiment_tree", "request": &request
-            })).map_err(|_| TreeError::input())?;
-            let previous: Option<String> = tx.query_row(
-                "SELECT payload FROM s1_requests WHERE request_id=?1", [token], |row| row.get(0),
-            ).optional()?;
+            }))
+            .map_err(|_| TreeError::input())?;
+            let previous: Option<String> = tx
+                .query_row(
+                    "SELECT payload FROM s1_requests WHERE request_id=?1",
+                    [token],
+                    |row| row.get(0),
+                )
+                .optional()?;
             match previous {
-                Some(previous) if previous != payload => return Err(TreeError::new(
-                    "REQUEST_CONFLICT", "This request ID was already used for a different operation.",
-                )),
+                Some(previous) if previous != payload => {
+                    return Err(TreeError::new(
+                        "REQUEST_CONFLICT",
+                        "This request ID was already used for a different operation.",
+                    ))
+                }
                 Some(_) => {}
                 None => {
                     mutate(&tx, &request)?;
-                    tx.execute("INSERT INTO s1_requests(request_id,payload) VALUES(?1,?2)", params![token,payload])?;
+                    tx.execute(
+                        "INSERT INTO s1_requests(request_id,payload) VALUES(?1,?2)",
+                        params![token, payload],
+                    )?;
                 }
             }
             tx.commit()?;
@@ -186,7 +202,10 @@ fn mutate(connection: &Connection, request: &ExperimentRequest) -> Result<(), Tr
             Kind::Replicate => {
                 let parent = required(request.parent_id.as_deref(), 128)?;
                 if !group_exists(connection, assay, parent)? {
-                    return Err(TreeError::new("INVALID_PARENT", "Select an existing group in this assay."));
+                    return Err(TreeError::new(
+                        "INVALID_PARENT",
+                        "Select an existing group in this assay.",
+                    ));
                 }
                 connection.execute(
                     "INSERT INTO replicates(id,group_id,label) VALUES(lower(hex(randomblob(16))),?1,?2)",
@@ -205,14 +224,20 @@ fn mutate(connection: &Connection, request: &ExperimentRequest) -> Result<(), Tr
         )?,
     };
     if !exists {
-        return Err(TreeError::new("NOT_FOUND", "The selected item no longer exists in this assay."));
+        return Err(TreeError::new(
+            "NOT_FOUND",
+            "The selected item no longer exists in this assay.",
+        ));
     }
     if request.action == "rename" {
         let sql = match kind {
             Kind::Group => "UPDATE experiment_groups SET name=?1 WHERE id=?2 AND assay_id=?3",
             Kind::Replicate => "UPDATE replicates SET label=?1 WHERE id=?2 AND group_id IN (SELECT id FROM experiment_groups WHERE assay_id=?3)",
         };
-        connection.execute(sql, params![required_name(request.name.as_deref())?.trim(),id,assay])?;
+        connection.execute(
+            sql,
+            params![required_name(request.name.as_deref())?.trim(), id, assay],
+        )?;
         return Ok(());
     }
     let guard = match kind {
@@ -220,13 +245,16 @@ fn mutate(connection: &Connection, request: &ExperimentRequest) -> Result<(), Tr
         Kind::Replicate => "SELECT EXISTS(SELECT 1 FROM asset_links WHERE replicate_id=?1 AND deleted_at IS NULL UNION ALL SELECT 1 FROM analysis_samples WHERE replicate_id=?1 UNION ALL SELECT 1 FROM representative_sources WHERE replicate_id=?1)",
     };
     if connection.query_row(guard, [id], |row| row.get::<_, bool>(0))? {
-        return Err(TreeError::new("NODE_IN_USE", "Remove this item's children and associations before deleting it."));
+        return Err(TreeError::new(
+            "NODE_IN_USE",
+            "Remove this item's children and associations before deleting it.",
+        ));
     }
     let sql = match kind {
         Kind::Group => "UPDATE experiment_groups SET deleted_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?1 AND assay_id=?2",
         Kind::Replicate => "UPDATE replicates SET deleted_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?1 AND group_id IN (SELECT id FROM experiment_groups WHERE assay_id=?2)",
     };
-    connection.execute(sql, params![id,assay])?;
+    connection.execute(sql, params![id, assay])?;
     Ok(())
 }
 
@@ -234,26 +262,60 @@ fn snapshot(connection: &Connection, assay: &str) -> Result<ExperimentSnapshot, 
     let mut statement = connection.prepare(
         "SELECT id,name FROM experiment_groups WHERE assay_id=?1 AND deleted_at IS NULL ORDER BY sort_order,name,id",
     )?;
-    let group_rows = statement.query_map([assay], |row| Ok((row.get::<_, String>(0)?,row.get::<_, String>(1)?)))?
+    let group_rows = statement
+        .query_map([assay], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     let mut groups = Vec::with_capacity(group_rows.len());
     let mut replicate_count = 0;
     let mut samples = connection.prepare(
         "SELECT id,label FROM replicates WHERE group_id=?1 AND deleted_at IS NULL ORDER BY label,id",
     )?;
-    for (id,name) in group_rows {
-        let replicates = samples.query_map([&id], |row| Ok(ReplicateNode { id:row.get(0)?,label:row.get(1)? }))?
+    for (id, name) in group_rows {
+        let replicates = samples
+            .query_map([&id], |row| {
+                Ok(ReplicateNode {
+                    id: row.get(0)?,
+                    label: row.get(1)?,
+                })
+            })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         replicate_count += replicates.len();
-        groups.push(GroupNode { id,name,replicates });
+        groups.push(GroupNode {
+            id,
+            name,
+            replicates,
+        });
     }
     let stages = vec![
-        StageNode { id:"raw",label:"Raw",scope:"replicate" },
-        StageNode { id:"processed",label:"Processed",scope:"replicate" },
-        StageNode { id:"statistics",label:"Statistics",scope:"assay" },
-        StageNode { id:"display",label:"Display",scope:"assay" },
+        StageNode {
+            id: "raw",
+            label: "Raw",
+            scope: "replicate",
+        },
+        StageNode {
+            id: "processed",
+            label: "Processed",
+            scope: "replicate",
+        },
+        StageNode {
+            id: "statistics",
+            label: "Statistics",
+            scope: "assay",
+        },
+        StageNode {
+            id: "display",
+            label: "Display",
+            scope: "assay",
+        },
     ];
-    Ok(ExperimentSnapshot { assay_id:assay.to_string(),groups,stages,replicate_count })
+    Ok(ExperimentSnapshot {
+        assay_id: assay.to_string(),
+        groups,
+        stages,
+        replicate_count,
+    })
 }
 
 #[cfg(test)]
