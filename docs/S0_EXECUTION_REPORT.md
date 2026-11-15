@@ -67,3 +67,7 @@ Windows 首轮 CI：[run 43727800015](https://github.com/Devil-Jian/data-m/actio
 - main 仍为初始化主线；本次仅提交候选集成 PR，不代表已获准合并或满足 M1 主线批准条件。
 - SQLite/CAS 仍是隔离原型，启动不初始化用户数据库，未注册写入 IPC。
 - S1–S11 不在本次范围，下游不能依据本次 Draft PR 宣称 S0 accepted。
+
+## 用户人工签收
+
+2026-11-15（Asia/Singapore），用户在当前会话明确确认“S0 验收通过，合并到 main”。按用户确认记录 H1–H3 人工验收通过；未另行收到截图、Windows 版本或录屏，不虚构这些附件。PR 已改以 main 为目标；本记录提交时等待实际合并，合并成功后记录最终 accepted 状态。
