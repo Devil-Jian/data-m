@@ -31,7 +31,7 @@ fn hash_file(path: &Path) -> io::Result<(String, u64)> {
     let mut input = File::open(path)?;
     let mut hasher = Sha256::new();
     let mut size = 0_u64;
-    let mut buffer = [0_u8; 1024 * 1024];
+    let mut buffer = vec![0_u8; 1024 * 1024];
     loop {
         let length = input.read(&mut buffer)?;
         if length == 0 {
@@ -67,7 +67,7 @@ pub fn copy_file_to_cas(source: &Path, root: &Path) -> io::Result<StoredBlob> {
     let mut input = File::open(source)?;
     let mut sha = Sha256::new();
     let mut size = 0_u64;
-    let mut buffer = [0_u8; 1024 * 1024];
+    let mut buffer = vec![0_u8; 1024 * 1024];
     loop {
         let count = input.read(&mut buffer)?;
         if count == 0 {
@@ -122,7 +122,6 @@ pub fn copy_file_to_cas(source: &Path, root: &Path) -> io::Result<StoredBlob> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Read;
 
     #[test]
     fn imports_without_modifying_source_and_deduplicates() {
