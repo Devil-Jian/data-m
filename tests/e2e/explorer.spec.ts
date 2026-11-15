@@ -233,7 +233,7 @@ test('Escape closes file menu before clearing selected assets',async ({page})=>{
 
 test('global file shortcuts do not select files outside active Explorer canvas',async ({page})=>{
   await page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]').click();
-  await page.getByPlaceholder('搜索样本文件…').fill('ros');
+  await page.getByPlaceholder('搜索样本文件…').fill('Control');
   await page.keyboard.press('Control+a');
   await page.keyboard.press('Delete');
   await expect(page.locator('.dm-selection-actions')).toContainText('1 个文件资产');
