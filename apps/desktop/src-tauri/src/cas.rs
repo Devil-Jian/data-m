@@ -27,7 +27,7 @@ fn safe_directory(path: &Path) -> io::Result<()> {
     Ok(())
 }
 
-fn hash_file(path: &Path) -> io::Result<(String, u64)> {
+pub(crate) fn hash_file(path: &Path) -> io::Result<(String, u64)> {
     let mut input = File::open(path)?;
     let mut hasher = Sha256::new();
     let mut size = 0_u64;
@@ -89,7 +89,9 @@ pub fn copy_file_to_cas(source: &Path, root: &Path) -> io::Result<StoredBlob> {
         return Err(reject("source changed during staging"));
     }
     let digest = format!("{:x}", sha.finalize());
-    let fanout = PathBuf::from("objects").join(&digest[0..2]).join(&digest[2..4]);
+    let fanout = PathBuf::from("objects")
+        .join(&digest[0..2])
+        .join(&digest[2..4]);
     let parent = root.join(&fanout);
     safe_directory(&parent)?;
     let relative_path = fanout.join(&digest);
@@ -138,7 +140,10 @@ mod tests {
         assert_eq!(first.sha256, second.sha256);
         assert_eq!(first.size_bytes, bytes.len() as u64);
         assert_eq!(fs::read(&source).unwrap(), bytes);
-        assert_eq!(fs::read(repository.join(&first.relative_path)).unwrap(), bytes);
+        assert_eq!(
+            fs::read(repository.join(&first.relative_path)).unwrap(),
+            bytes
+        );
         let after = fs::metadata(&source).unwrap();
         assert_eq!(before.len(), after.len());
         assert_eq!(before.modified().ok(), after.modified().ok());
