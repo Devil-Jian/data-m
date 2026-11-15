@@ -99,9 +99,12 @@ export function useExplorerInteraction(options:ExplorerOptions){
     const root=event.currentTarget;
     const target=event.target;
     if(!(target instanceof Element)||!root.contains(target)||isEditableTarget(target))return;
-    if(target.closest('button, a, input, label, [role="checkbox"], [data-explorer-no-gesture]'))return;
     const el=target.closest<HTMLElement>('[data-explorer-id]');
     if(el&&!root.contains(el))return;
+    if(target.closest('[data-explorer-no-gesture]'))return;
+    // Right-clicking a file label, thumbnail or inline action should open the
+    // same file menu. Keep the browser menu on standalone toolbar controls.
+    if(!el&&target.closest('button, a, input, label, [role="checkbox"]'))return;
     event.preventDefault();
     openContextMenu(root,el?.dataset.explorerId||null,event.clientX,event.clientY);
   },[openContextMenu]);
