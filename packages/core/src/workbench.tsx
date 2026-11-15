@@ -8,6 +8,8 @@ import {
 import { allPanels, findAssay, INITIAL_PROJECTS, STAGES, summary } from './data';
 import { demoAssetId, selectableDemoAssets } from './demo-assets';
 import { VirtualAssetList } from './virtual-asset-list';
+import {InlineRename} from './inline-rename';
+import {renameValidationError} from './rename-validation';
 import {makeVirtualStressAssets,virtualAssetRects} from './virtual-layout';
 import {createHistory,findHistoryTarget,locationExists,sameLocation,visitLocation} from './navigation-history';
 import type {NavigationLocation} from './navigation-history';
@@ -87,6 +89,7 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
   const [newProjectName,setNewProjectName]=useState('');
   const [newThemeName,setNewThemeName]=useState('');
   const [notice,setNotice]=useState('');
+  const [renameEditingId,setRenameEditingId]=useState<string|null>(null);
 
   const project=projects.find(p=>p.id===projectId) || projects[0];
   const theme=project.themes.find(t=>t.id===themeId)||project.themes[0];
@@ -161,6 +164,12 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
     [assay,group,filtered,mode,stage,stageFilter,stressDemo,view]);
   // The virtual row layout is available even when a row is not mounted in the DOM.
   const virtualRects=useMemo(()=>virtualAssetRects(selectableAssets,100_000),[selectableAssets]);
+  // Rename collisions must include hidden files, not just the current search/role-filtered view.
+  const renameScopeAssets=useMemo(()=>
+    stressDemo&&mode==='stage'&&stage==='raw'&&view==='list'
+      ?selectableAssets
+      :selectableDemoAssets(assay,group,group.replicates,mode,stage,stageFilter),
+    [assay,group,mode,stage,stageFilter,stressDemo,view,selectableAssets]);
   const visibleIds=useMemo(()=>selectableAssets.map(a=>a.id),[selectableAssets]);
   const menuRef=useRef<HTMLDivElement>(null);
   const explorer=useExplorerInteraction({
@@ -180,7 +189,7 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
     onCut:(ids)=>notify('已选择剪切 '+ids.length+' 个演示项'),
     onPaste:(ids,operation)=>notify('请求'+(operation==='copy'?'复制':'移动')+' '+ids.length+' 项；需选择目标容器并连接后端'),
     onDelete:(ids)=>notify('请求删除 '+ids.length+' 个演示项；需后端引用保护'),
-    onRename:(id)=>notify('重命名 '+id+' 需后端支持')
+    onRename:(id)=>beginRename(id)
   });
   useEffect(()=>{
     if(explorer.contextMenu){
@@ -202,6 +211,43 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
       (current<=0?items.length-1:current-1);
     items[next].focus({preventScroll:true});
   }
+  function restoreExplorerFocus(){
+    window.requestAnimationFrame(()=>
+      document.querySelector<HTMLElement>('.dm-explorer-canvas')?.focus({preventScroll:true})
+    );
+  }
+  function beginRename(id:string){
+    if(!selectableAssets.some(asset=>asset.id===id))return;
+    setRenameEditingId(id);
+  }
+  function endRename(){
+    setRenameEditingId(null);
+    restoreExplorerFocus();
+  }
+  function siblingsOf(id:string):string[]{
+    const asset=renameScopeAssets.find(a=>a.id===id);
+    return asset?renameScopeAssets.filter(
+      a=>a.id!==id&&a.containerId===asset.containerId&&a.stage===asset.stage
+    ).map(a=>a.filename):[];
+  }
+  function confirmRename(id:string,next:string){
+    const asset=selectableAssets.find(a=>a.id===id);
+    if(!asset){endRename();return;}
+    if(renameValidationError(next,asset.filename,siblingsOf(id))!==null)return;
+    setRenameEditingId(null);
+    restoreExplorerFocus();
+    if(next!==asset.filename){
+      notify('演示重命名请求：'+asset.filename+' → '+next+'；未修改真实文件');
+    }
+  }
+  function renderName(id:string,filename:string):React.ReactNode{
+    if(renameEditingId!==id)return filename;
+    return <InlineRename key={id} original={filename} siblings={siblingsOf(id)}
+      onConfirm={next=>confirmRename(id,next)} onCancel={endRename}/>;
+  }
+  useEffect(()=>{
+    setRenameEditingId(old=>old&&!visibleIds.includes(old)?null:old);
+  },[visibleIds]);
   const selection=explorer.selectedIds;
   const setSelection=explorer.setSelectedIds;
   const selectedCount=selection.length;
@@ -300,7 +346,7 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
       return <div data-explorer-id={id} title={'演示文件资产：'+name}
         className={'dm-asset-cell dm-selectable-asset'+(selection.includes(id)?' selected':'')}>
         <div className="dm-small-thumb"><Preview type={rep.visual}/></div>
-        <div className="dm-asset-meta"><strong title={name}>{name}</strong>
+        <div className="dm-asset-meta"><strong title={name}>{renderName(id,name)}</strong>
           <span>{s==='raw'?'原始文件（演示）':'处理文件（演示）'}</span></div>
       </div>;
     }
@@ -331,7 +377,7 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
       (trace&&allPapers.some(p=>p.id===trace.panelId&&p.highlightRepIds.includes(rep.id))?' highlighted':'')}>
       <div className="dm-card-head">
         <UI.Check checked={selection.includes(assetId)} onChange={v=>setSelected(assetId,v)}/>
-        <strong title={stage==='raw'?rep.name:rep.procName}>{stage==='raw'?rep.name:rep.procName}</strong>
+        <strong title={stage==='raw'?rep.name:rep.procName}>{renderName(assetId,stage==='raw'?rep.name:rep.procName)}</strong>
         <span className="dm-card-muted">{rep.value.toFixed(2)} {assay.metricUnit}</span>
       </div>
       <Preview type={rep.visual}/>
@@ -372,7 +418,7 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
           {s.id==='raw'||s.id==='processed'
             ?<div data-explorer-id={demoAssetId(s.id,rep.id)}
               className={'dm-selectable-asset dm-inline-asset'+(selection.includes(demoAssetId(s.id,rep.id))?' selected':'')}>
-                {s.id==='raw'?rep.name:rep.procName}</div>
+                {renderName(demoAssetId(s.id,rep.id),s.id==='raw'?rep.name:rep.procName)}</div>
             :s.id==='stats'?(rep.inStats?'已纳入统计':'—'):(rep.isRep?'展示源':'—')}
         </td>)}
       </tr>)}</tbody></table>
@@ -384,7 +430,7 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
         {assay.statFiles.map(f=><div
           className={'dm-file-line dm-selectable-asset'+(selection.includes(demoAssetId('stats',f.id))?' selected':'')}
           data-explorer-id={demoAssetId('stats',f.id)} key={f.id}>
-          <FileSpreadsheet size={18}/><div><strong>{f.name}</strong><small>{f.note}</small></div>
+          <FileSpreadsheet size={18}/><div><strong>{renderName(demoAssetId('stats',f.id),f.name)}</strong><small>{f.note}</small></div>
           <UI.Badge tone="green">汇总文件</UI.Badge></div>)}
         {!assay.statFiles.length&&<p className="dm-muted">尚无统计文件</p>}
       </section>
@@ -399,14 +445,15 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
     if(stage==='display')return <div className="dm-display-grid">{assay.displayFiles.map(f=>
       <div className={'dm-content-card dm-selectable-asset'+(selection.includes(demoAssetId('display',f.id))?' selected':'')}
         data-explorer-id={demoAssetId('display',f.id)} key={f.id}>
-        <Preview type={f.visual} large/><h3>{f.name}</h3><p className="dm-muted">{f.note}</p>
+        <Preview type={f.visual} large/><h3>{renderName(demoAssetId('display',f.id),f.name)}</h3><p className="dm-muted">{f.note}</p>
         {allPapers.filter(p=>p.displayIds.includes(f.id)).map(p=><button
           key={p.id} className="dm-ref-chip" onClick={()=>jumpToPaper(p)}>{p.label} ↗</button>)}
       </div>)}
       {!assay.displayFiles.length&&<div className="dm-empty">暂无展示文件</div>}</div>;
     if(view==='list')return <VirtualAssetList
       assets={selectableAssets} selected={explorer.selectedSet}
-      focusedId={explorer.focusedId} onToggle={setSelected}/>;
+      focusedId={explorer.focusedId} onToggle={setSelected}
+      renderName={asset=>renderName(asset.id,asset.filename)}/>;
     return <div className="dm-cards">{filtered.map(sampleCard)}</div>;
   }
   const paperPanels=(paper?.figures||[]).flatMap(f=>f.panels);
