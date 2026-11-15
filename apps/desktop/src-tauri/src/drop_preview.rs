@@ -38,6 +38,24 @@ fn rejected(name: &str, kind: &'static str, warning: &'static str) -> DropEntry 
     }
 }
 
+// Display-only sanitization: preserve the actual source path for metadata lookup,
+// but never render control characters or bidirectional formatting controls in UI.
+fn safe_display_name(name: &str) -> String {
+    let cleaned: String = name
+        .chars()
+        .filter(|ch| {
+            !ch.is_control()
+                && !matches!(*ch, '\u{061c}' | '\u{200e}' | '\u{200f}'
+                    | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
+        })
+        .collect();
+    if cleaned.is_empty() {
+        "未命名项目".to_string()
+    } else {
+        cleaned
+    }
+}
+
 fn inspect_one(raw_path: &str) -> DropEntry {
     // Never echo absolute paths or operating-system error strings to the UI.
     let path = Path::new(raw_path);
@@ -45,8 +63,8 @@ fn inspect_one(raw_path: &str) -> DropEntry {
         .file_name()
         .and_then(|filename| filename.to_str())
         .filter(|name| !name.is_empty())
-        .unwrap_or("未命名项目")
-        .to_string();
+        .map(safe_display_name)
+        .unwrap_or_else(|| "未命名项目".to_string());
 
     if raw_path.is_empty() || raw_path.len() > MAX_PATH_LENGTH || !path.is_absolute() {
         return rejected(&name, "invalid", "路径无效");
@@ -142,6 +160,13 @@ mod tests {
         assert_eq!(preview.entries.len(), 100);
         assert_eq!(preview.total_received, 105);
         assert_eq!(preview.omitted_count, 5);
+    }
+
+    #[test]
+    fn preview_name_strips_bidi_and_control_characters_without_changing_unicode() {
+        assert_eq!(safe_display_name("样本\\u{202e}cod.exe\\n.tif"), "样本cod.exe.tif");
+        assert_eq!(safe_display_name("正常样本 01.tif"), "正常样本 01.tif");
+        assert_eq!(safe_display_name("\\u{2066}\\u{2069}"), "未命名项目");
     }
 
     #[cfg(unix)]
