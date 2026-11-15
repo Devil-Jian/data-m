@@ -19,6 +19,8 @@
 
 后续将 `TASK_ID=S0` 改为具体 S1–S11；**一次只执行一个任务包**。如任务依赖未通过，则记录 `blocked`，不绕过依赖。
 
+2026-11-16 用户明确授权 S1 机器通过后继续顺序开发 S2、S3，最后统一人工验收。本次允许基于机器通过的前置候选堆叠开发；人工状态仍为 manual_pending，不改写为 accepted，不自动合并。S2 机器验证通过前不进入 S3 实现，S7 珍贵数据与恢复门槛不变。
+
 ## 1. 项目不变量与授权边界
 
 **技术基线**：Windows 11 单机、离线优先；React/TypeScript + shadcn/ui + Tauri 2 + Rust + SQLite + CAS；正式 UI 入口 `apps/desktop`，公用 UI 在 `packages/ui`，业务 UI 在 `packages/core`，Explorer 交互在 `packages/interaction`。
@@ -94,7 +96,7 @@
 |---|---|---|---|---|
 | **S0** | 工程主线与唯一桌面 UI | 无 | `accepted`，用户签收并已合并 main，见 [执行报告](S0_EXECUTION_REPORT.md) | #8, #12, #4, #13 |
 | **S1** | 项目主题实验 CRUD | S0 | `manual_pending`，见 [执行报告](S1_EXECUTION_REPORT.md)，未验收 | #17, #14 |
-| **S2** | 分组样本与四阶段结构 | S1 | `prototype_only`，未验收 | #17, #14 |
+| **S2** | 分组样本与四阶段结构 | S1 | `in_progress`，见 [报告](S2_EXECUTION_REPORT.md)，统一人工验收待执行 | #17, #14 |
 | **S3** | 安全文件导入与任务恢复 | S2 | `prototype_only`，未验收 | #6, #15, #14 |
 | **S4** | 真实文件浏览搜索与选择 | S3 | `prototype_only`，未验收 | #5, #13, #17 |
 | **S5** | 资产复制与逻辑移动 | S4 | `prototype_only`，未验收 | #6, #7, #13 |

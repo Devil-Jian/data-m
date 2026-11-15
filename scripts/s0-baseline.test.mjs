@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import {readFileSync,existsSync} from 'node:fs';
 const read = path => readFileSync(new URL('../'+path,import.meta.url),'utf8');
 
-test('S0 shell retains read-only drop/status plus authorized S1 metadata IPC, with no DB startup',()=>{
+test('S0 shell retains read-only drop/status plus authorized S1/S2 metadata IPC, with no DB startup',()=>{
   const shell=read('apps/desktop/src-tauri/src/lib.rs');
   const handlers=shell.match(/generate_handler!\[([\s\S]*?)\]/)?.[1];
   assert.ok(handlers);
   assert.deepEqual(handlers.split(',').map(x=>x.trim()).filter(Boolean),
-    ['shell_status','drop_preview::inspect_drop_paths','project_tree::project_tree']);
+    ['shell_status','drop_preview::inspect_drop_paths','project_tree::project_tree','experiment_tree::experiment_tree']);
   const run=shell.slice(shell.indexOf('pub fn run()'),shell.indexOf('#[cfg(test)]'));
   assert.doesNotMatch(run,/Connection::|domain_db::|cas::|\.setup\(/);
 });

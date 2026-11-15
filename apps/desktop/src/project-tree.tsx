@@ -2,6 +2,7 @@ import React,{useEffect,useRef,useState} from 'react';
 import {shadcnUI} from '@data-m/ui/workbench-ui';
 import {projectTreeApi,projectTreeMode,safeProjectTreeError,validateProjectTreeResponse} from './project-tree.ts';
 import type {ProjectTreeApi,ProjectTreeKind,ProjectTreeNode,ProjectTreeRequest} from './project-tree.ts';
+import {ExperimentTreeManager} from './experiment-tree.tsx';
 import './project-tree.css';
 
 const {Button,Input,Badge}=shadcnUI;
@@ -15,6 +16,7 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange}:{ap
   const [pending,setPending]=useState(false);
   const [error,setError]=useState('');
   const [editor,setEditor]=useState<Editor|null>(null);
+  const [experiment,setExperiment]=useState<{id:string;name:string}|null>(null);
   const alive=useRef(true);
   const busy=useRef(false);
   const dialog=useRef<HTMLDialogElement>(null);
@@ -83,6 +85,9 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange}:{ap
     </li>);
   }
 
+  if(experiment)return <ExperimentTreeManager key={experiment.id} assayId={experiment.id} assayName={experiment.name}
+    onClose={()=>setExperiment(null)} onBusyChange={onBusyChange}/>;
+
   return <main className="dm-project-manager" aria-label="项目管理工作区" aria-busy={pending}>
     <header className="dm-project-header">
       <div><p className="dm-project-eyebrow">DATA M / S1</p><h1>项目管理</h1><p>项目 → 主题 → 实验</p></div>
@@ -106,6 +111,7 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange}:{ap
           <dl><div><dt>所属位置</dt><dd>{selected.parentId?nodes.find(node=>node.id===selected.parentId)?.name:'项目根目录'}</dd></div>
             <div><dt>直接下级</dt><dd>{nodes.filter(node=>node.parentId===selected.id).length} 项</dd></div></dl>
           <div className="dm-project-detail-actions">
+            {selected.kind==='assay'&&<Button variant="primary" disabled={pending} onClick={()=>setExperiment({id:selected.id,name:selected.name})}>分组与样本</Button>}
             {childKind&&<Button variant="primary" disabled={pending} onClick={()=>open({action:'create',kind:childKind,parentId:selected.id,name:''})}>新建{labels[childKind]}</Button>}
             <Button disabled={pending} onClick={()=>open({action:'rename',kind:selected.kind,target:selected,name:selected.name})}>重命名</Button>
             <Button variant="danger" disabled={pending} onClick={()=>open({action:'delete',kind:selected.kind,target:selected,name:selected.name})}>删除</Button>
