@@ -1,0 +1,147 @@
+{
+  "task_id": "S1",
+  "base_sha": "8a7d2f9c5ed584caa13fbca64de69771da7d08c0",
+  "head_sha": "de9644e7987c96d9aaa615f04ad0efafde45e05d",
+  "status": "manual_pending",
+  "verification_date": "2026-11-16",
+  "pr_url": "https://github.com/Devil-Jian/data-m/pull/44",
+  "machine_checks": [
+    {
+      "command": "npm run test:s0",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 3,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43733131429"
+    },
+    {
+      "command": "npm run test:interaction",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 28,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43733131429"
+    },
+    {
+      "command": "npm run test:assets",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 20,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43733131429"
+    },
+    {
+      "command": "npm run test:desktop",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 7,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43733131429"
+    },
+    {
+      "command": "npm run test:e2e:desktop",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 10,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43733131429"
+    },
+    {
+      "command": "npm run test:e2e:desktop -- --grep \"@S1\"",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 7,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43733131429"
+    },
+    {
+      "command": "npm run test:e2e",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 29,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43733131429"
+    },
+    {
+      "command": "cargo test --locked --no-default-features s1_",
+      "cwd": "apps/desktop/src-tauri",
+      "exit_code": 0,
+      "tests_executed": 14,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43733131429"
+    },
+    {
+      "command": "cargo test --locked --no-default-features s0_",
+      "cwd": "apps/desktop/src-tauri",
+      "exit_code": 0,
+      "tests_executed": 4,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43733131429"
+    },
+    {
+      "command": "cargo test --locked --no-default-features",
+      "cwd": "apps/desktop/src-tauri",
+      "exit_code": 0,
+      "tests_executed": 35,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43733131429"
+    },
+    {
+      "command": "npm ci --no-audit --no-fund",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": null,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43733131429"
+    },
+    {
+      "command": "npm run build:desktop",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": null,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43733131429"
+    },
+    {
+      "command": "cargo fmt --all -- --check",
+      "cwd": "apps/desktop/src-tauri",
+      "exit_code": 0,
+      "tests_executed": null,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43733131429"
+    },
+    {
+      "command": "cargo check --locked",
+      "cwd": "apps/desktop/src-tauri",
+      "exit_code": 0,
+      "tests_executed": null,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43733131429"
+    },
+    {
+      "command": "npm run tauri:build",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": null,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43733131429"
+    }
+  ],
+  "manual_checks": [
+    {
+      "step": "H1 create two projects with multiple themes/assays, restart and compare",
+      "status": "not_run",
+      "evidence": null,
+      "signoff_by": null
+    },
+    {
+      "step": "H2 reject empty names and nonempty parent deletion without data loss",
+      "status": "not_run",
+      "evidence": null,
+      "signoff_by": null
+    },
+    {
+      "step": "H3 save Windows screenshots and inspect disposable test database",
+      "status": "not_run",
+      "evidence": null,
+      "signoff_by": null
+    }
+  ],
+  "artifact": {
+    "name": "data-m-s1-unsigned-portable-windows",
+    "exe_sha256": "5ADFC11AC41E4F5C22FDD1CFFBBA53BDD0D176D6A592964544234AB10AF3542B",
+    "local_path": "D:/paper/s1-artifacts-de9644e/data-m-desktop.exe"
+  },
+  "residual_risks": [
+    "Windows GUI/manual acceptance not executed",
+    "S1 not merged into main",
+    "No real scientific data before S0-S7 and recovery acceptance"
+  ],
+  "next_task_recommendation": "Complete S1 manual acceptance before S2",
+  "report_followup": "Subsequent commit updates documentation only; head_sha identifies tested executable source."
+}

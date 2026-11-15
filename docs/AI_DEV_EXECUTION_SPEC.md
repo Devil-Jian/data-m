@@ -93,7 +93,7 @@
 | ID | 功能包 | 依赖 | 当前开发进度 | Issue |
 |---|---|---|---|---|
 | **S0** | 工程主线与唯一桌面 UI | 无 | `accepted`，用户签收并已合并 main，见 [执行报告](S0_EXECUTION_REPORT.md) | #8, #12, #4, #13 |
-| **S1** | 项目主题实验 CRUD | S0 | `in_progress`，见 [执行报告](S1_EXECUTION_REPORT.md)，未验收 | #17, #14 |
+| **S1** | 项目主题实验 CRUD | S0 | `manual_pending`，见 [执行报告](S1_EXECUTION_REPORT.md)，未验收 | #17, #14 |
 | **S2** | 分组样本与四阶段结构 | S1 | `prototype_only`，未验收 | #17, #14 |
 | **S3** | 安全文件导入与任务恢复 | S2 | `prototype_only`，未验收 | #6, #15, #14 |
 | **S4** | 真实文件浏览搜索与选择 | S3 | `prototype_only`，未验收 | #5, #13, #17 |
@@ -151,9 +151,9 @@
 
 ### S1｜项目主题实验 CRUD
 
-**任务元数据**：`id=S1` · `priority=P1` · `depends_on=S0` · `status=in_progress` · Issues：[#17](https://github.com/Devil-Jian/data-m/issues/17), [#14](https://github.com/Devil-Jian/data-m/issues/14)。
+**任务元数据**：`id=S1` · `priority=P1` · `depends_on=S0` · `status=manual_pending` · Issues：[#17](https://github.com/Devil-Jian/data-m/issues/17), [#14](https://github.com/Devil-Jian/data-m/issues/14)。
 
-**当前事实**：已有项目树 Demo 与 SQLite projects/themes/assays 表；生产 CRUD、IPC 和数据持久化未实现。
+**当前事实**：S1 候选 PR #44 已实现受控测试库的 Repository、结构化 IPC 与项目管理视图，并通过本次机器验收；Windows 人工验收尚未执行，状态 manual_pending。来源、SHA、命令与结果见 [S1 执行报告](S1_EXECUTION_REPORT.md)，不得视为已签收或生产文件管理能力。
 
 **用户结果**：在 UI 新建/重命名/软删除 Project → Theme → Assay，重启依然正确。
 

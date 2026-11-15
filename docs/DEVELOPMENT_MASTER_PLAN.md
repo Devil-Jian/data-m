@@ -1,6 +1,6 @@
 # Data-M 产品需求、开发进度、后续计划与验收基线
 
-> S1 当前为 `in_progress`：基于已验收的 main 实现项目/主题/实验持久化，测试与人工清单见 [S1 报告](S1_EXECUTION_REPORT.md)。
+> S1 当前为 `manual_pending`：PR #44 的项目/主题/实验持久化已通过 Windows/Linux 机器验证，未人工签收、未合并；证据与人工清单见 [S1 报告](S1_EXECUTION_REPORT.md)。
 
 > S0 最新执行状态：`accepted`；PR #42 已通过机器验证、用户人工签收并合并 main，证据见 [S0 执行报告](S0_EXECUTION_REPORT.md)。S1 可从该主线开始；下文保留历史快照。
 
