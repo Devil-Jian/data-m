@@ -19,6 +19,8 @@
 
 原生 handler 集成采用 Tauri MockRuntime + 真实临时 SQLite 库，测试请求序列化、命令注册、持久化及失败回滚；这不是 WebView2 GUI 验收。[Tauri 官方 IPC 测试接口](https://docs.rs/tauri/latest/tauri/test/fn.get_ipc_response.html)
 
+Windows CI `43732333032` 曾编译成功但测试二进制在发现用例前以 `0xc0000139` 退出，不能计为测试通过。调查对应 Tauri 的 Windows Common Controls 清单仅链接 bins、未进入单元测试二进制的已知问题；按维护者方案将相同的 Common Controls v6 清单通过 MSVC 链接器嵌入所有产物，不删除或跳过 IPC 测试。修复仍需后续 CI 实跑验证。[上游问题与维护者方案](https://github.com/tauri-apps/tauri/issues/13419)
+
 ## Windows 人工验收（manual_pending）
 
 1. 使用本次 S1 CI EXE，记录源码 SHA、EXE SHA-256、Windows 版本、日期和执行者，不使用旧 S0 EXE。
