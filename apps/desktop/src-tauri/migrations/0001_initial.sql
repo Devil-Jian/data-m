@@ -30,14 +30,16 @@ CREATE TABLE experiment_groups(
   name TEXT NOT NULL CHECK(length(trim(name)) > 0),
   sort_order INTEGER NOT NULL DEFAULT 0,
   deleted_at TEXT,
-  UNIQUE(assay_id,id)
+  UNIQUE(assay_id,id),
+  UNIQUE(id,assay_id)
 ) STRICT;
 CREATE TABLE replicates(
   id TEXT PRIMARY KEY,
   group_id TEXT NOT NULL REFERENCES experiment_groups(id) ON DELETE RESTRICT,
   label TEXT NOT NULL CHECK(length(trim(label)) > 0),
   deleted_at TEXT,
-  UNIQUE(group_id,id)
+  UNIQUE(group_id,id),
+  UNIQUE(id,group_id)
 ) STRICT;
 
 -- CAS blobs are immutable bytes addressed by lowercase sha256.
