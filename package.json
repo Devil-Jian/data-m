@@ -19,11 +19,14 @@
     "test:interaction": "npm run test -w @data-m/interaction",
     "check": "npm run test:interaction && npm run test:assets && npm run build:all && npm run build:desktop",
     "dev:desktop": "npm run dev -w @data-m/desktop",
+    "preview:desktop": "npm run dev:desktop",
+    "preview:desktop:windows": "npm run tauri:dev",
     "build:desktop": "npm run build -w @data-m/desktop",
     "tauri:dev": "npm run tauri -w @data-m/desktop -- dev",
     "tauri:build": "npm run tauri -w @data-m/desktop -- build",
     "test:assets": "npm run test -w @data-m/core",
     "test:e2e": "playwright test",
+    "test:e2e:desktop": "playwright test -c playwright.desktop.config.ts",
     "test:desktop": "npm run test -w @data-m/desktop"
   },
   "devDependencies": {

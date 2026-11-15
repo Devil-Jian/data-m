@@ -51,6 +51,8 @@ jobs:
         run: npx playwright install chromium
       - name: Windows Chromium pointer and keyboard E2E
         run: npm run test:e2e
+      - name: Desktop renderer CSS and keyboard E2E (port 5176)
+        run: npm run test:e2e:desktop
       - name: Rust tests
         working-directory: apps/desktop/src-tauri
         run: cargo test --no-default-features
