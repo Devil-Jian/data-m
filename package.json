@@ -26,6 +26,7 @@
     "tauri:build": "npm run tauri -w @data-m/desktop -- build",
     "test:assets": "npm run test -w @data-m/core",
     "test:e2e": "playwright test",
+    "test:e2e:desktop": "playwright test -c playwright.desktop.config.ts",
     "test:desktop": "npm run test -w @data-m/desktop"
   },
   "devDependencies": {
