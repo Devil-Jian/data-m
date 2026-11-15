@@ -1,0 +1,948 @@
+{
+  "schema_version": "1.0.0",
+  "doc_version": "2026-11-15.1",
+  "snapshot_date": "2026-11-15",
+  "repository": "https://github.com/Devil-Jian/data-m",
+  "base_branch": "main",
+  "candidate_branch": "refactor/p1-single-ui-package",
+  "task_order": [
+    "S0",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "S6",
+    "S7",
+    "S8",
+    "S9",
+    "S10",
+    "S11"
+  ],
+  "status_vocab": [
+    "not_started",
+    "prototype_only",
+    "in_progress",
+    "machine_passed",
+    "manual_pending",
+    "accepted",
+    "blocked"
+  ],
+  "gate_policy": {
+    "accepted": "代码已进入批准主线 + 必需机器检查通过 + Windows 人工证据 + 核准人签字",
+    "machine_passed": "有本次提交 SHA 的成功日志和非 0 用例执行记录（非空跑）",
+    "manual_pending": "机器检查完成但没有真实 Windows GUI/数据安全签收证据",
+    "data_safety": "S0-S7 验收与恢复演练之前禁止重要真实科研数据作为开发输入",
+    "merge": "每个包允许多 PR，但仅包整体完成才关闭；无批准禁止自动合并 main"
+  },
+  "baseline_provenance": [
+    {
+      "claim": "main 只有初始化 README，不含正式 app；截止审查时主线落后 Draft 代码",
+      "ref": "https://github.com/Devil-Jian/data-m/tree/main"
+    },
+    {
+      "claim": "PR #40 是统一 UI 的候选 Draft，Windows 和 UI CI 成功，不等于已合并/Windows 人工验收",
+      "ref": "https://github.com/Devil-Jian/data-m/pull/40"
+    },
+    {
+      "claim": "PR #41 为已有开发总文档，仍为 Draft",
+      "ref": "https://github.com/Devil-Jian/data-m/pull/41"
+    },
+    {
+      "claim": "Schema / CAS staging / 审计为 #36/#37/#38 Draft 原型，不是生产存储",
+      "ref": "https://github.com/Devil-Jian/data-m/pull/38"
+    }
+  ],
+  "global_checks": [
+    {
+      "id": "G01",
+      "command": "npm run build:desktop",
+      "cwd": ".",
+      "required": "all",
+      "note": "TypeScript + Vite 桌面 UI 构建；不能替代原生验收"
+    },
+    {
+      "id": "G02",
+      "command": "npm run test:interaction",
+      "cwd": ".",
+      "required": "all",
+      "note": "Explorer 选择/拖拽规则回归"
+    },
+    {
+      "id": "G03",
+      "command": "npm run test:assets",
+      "cwd": ".",
+      "required": "all",
+      "note": "Asset/Replicate 身份不变量回归"
+    },
+    {
+      "id": "G04",
+      "command": "npm run test:desktop",
+      "cwd": ".",
+      "required": "all",
+      "note": "桌面前端单元测试"
+    },
+    {
+      "id": "G05",
+      "command": "npm run test:e2e:desktop",
+      "cwd": ".",
+      "required": "all",
+      "note": "5176 端口桌面渲染器浏览器 E2E"
+    },
+    {
+      "id": "G06",
+      "command": "npm run test:e2e",
+      "cwd": ".",
+      "required": "all",
+      "note": "Explorer 旧回归测试（保留至迁移完成）"
+    },
+    {
+      "id": "G07",
+      "command": "cargo test --no-default-features",
+      "cwd": "apps/desktop/src-tauri",
+      "required": "all",
+      "note": "Rust/SQLite/CAS 单元与集成测试"
+    },
+    {
+      "id": "G08",
+      "command": "cargo fmt --all -- --check",
+      "cwd": "apps/desktop/src-tauri",
+      "required": "all",
+      "note": "Rust 格式检查"
+    },
+    {
+      "id": "G09",
+      "command": "cargo check",
+      "cwd": "apps/desktop/src-tauri",
+      "required": "all",
+      "note": "Rust 编译检查"
+    },
+    {
+      "id": "G10",
+      "command": "npm run tauri:build",
+      "cwd": ".",
+      "required": "windows_ci",
+      "note": "Windows CI 构建便携 EXE（当前不是安装程序）"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "S0",
+      "title": "工程主线与唯一桌面 UI",
+      "priority": "P0",
+      "depends_on": [],
+      "issues": [
+        8,
+        12,
+        4,
+        13
+      ],
+      "initial_status": "prototype_only",
+      "evidence_snapshot": "PR #40/41 与多层 Draft PR 已存在；PR #40 Windows/UI CI 通过，但 main 仍为初始化 README，WebView2 未人工签收。",
+      "user_outcome": "统一可复现的正式工作树：一套 UI、一条主线、两种调试模式。",
+      "frontend_scope": [
+        "apps/desktop 作为正式界面入口，packages/ui 统一样式与组件",
+        "保留核心 Workbench/interaction，清理重复前端源并修正 README 的 Vue/React 叙述",
+        "提供浏览器热更新入口和原生调试入口；不新增业务功能"
+      ],
+      "backend_scope": [
+        "保持只读 drop inspect 与 shell_status；禁止将实验性 CAS/DB 注册为写入 IPC",
+        "核对 Draft PR 依赖和 PR #35 的 Unicode 安全修复，避免遗漏改动"
+      ],
+      "data_contract": [
+        "主线不得误初始化或修改用户已有数据库",
+        "统一文档声明 Schema 原型不具备用户文件导入能力"
+      ],
+      "deliverables": [
+        "可复现主线/集成 PR",
+        "README、技术栈 ADR 和工具链文档",
+        "Windows CI URL + EXE Artifact + Windows 实测记录"
+      ],
+      "machine_tests": [
+        {
+          "id": "S0-U",
+          "type": "rust_unit_integration",
+          "command": "cargo test --no-default-features s0_",
+          "cwd": "apps/desktop/src-tauri",
+          "test_convention": "复用或增加 S0 Rust smoke/test；验证壳与只读接口未出现写操作"
+        },
+        {
+          "id": "S0-E",
+          "type": "browser_e2e",
+          "command": "npm run test:e2e:desktop -- --grep \"@S0\"",
+          "cwd": ".",
+          "test_convention": "增加 @S0 浏览器与 Desktop 一致性测试"
+        }
+      ],
+      "machine_acceptance": [
+        "main 或经明确批准的集成主线包含完整工程，工作树可从零安装",
+        "Desktop 与浏览器加载同一 packages/ui；移除第二套生产 UI",
+        "CI 在合并目标 SHA 下跑完 JS/Rust、Windows EXE 输出；所有必需任务通过",
+        "实际 repo 根目录存在可重复的安装/预览/测试说明，旧试验分支保持隔离"
+      ],
+      "human_acceptance": [
+        "在 Windows 11 上打开经 CI 生成的 EXE；检查页面布局、100% 与 150% DPI、缩放和焦点",
+        "鼠标单选、Ctrl/Shift、右键与 F2 交互；拖入仅展示只读预览，原文件哈希不变",
+        "检查浏览器 5176 与 WebView2 主页面一致，操作中无崩溃；保存截图、EXE SHA 和 Windows 版本"
+      ],
+      "out_of_scope": [
+        "不在本任务开放文件导入/移动/删除",
+        "不合并历史 WPF/WinUI/Vue 试验路线"
+      ],
+      "safety_gate": "禁止未经审查的 PR 链整体合并和对 main 的强制推送；未人工验收时只能标记 manual_pending。",
+      "suggested_branch": "feat/s0-ui"
+    },
+    {
+      "id": "S1",
+      "title": "项目主题实验 CRUD",
+      "priority": "P1",
+      "depends_on": [
+        "S0"
+      ],
+      "issues": [
+        17,
+        14
+      ],
+      "initial_status": "prototype_only",
+      "evidence_snapshot": "已有项目树 Demo 与 SQLite projects/themes/assays 表；生产 CRUD、IPC 和数据持久化未实现。",
+      "user_outcome": "在 UI 新建/重命名/软删除 Project → Theme → Assay，重启依然正确。",
+      "frontend_scope": [
+        "复用左侧树、编辑对话框；加载/空态/冲突/失败显示",
+        "提交后重新查询服务器数据，不用 Demo 当成功凭据"
+      ],
+      "backend_scope": [
+        "Rust Repository + 结构化 Tauri CRUD 接口，参数校验、稳定 ID 与软删除检查",
+        "拒绝删除有子节点或关联资产的父节点，或提示按安全策略处理"
+      ],
+      "data_contract": [
+        "projects/themes/assays 及 FK；首次打开仅初始化受控的新测试数据库",
+        "幂等请求/事务；前端不提交任意 SQL"
+      ],
+      "deliverables": [
+        "Rust Repository + Tauri CRUD + UI 接线",
+        "针对临时 SQLite 的持久化/非法路径测试",
+        "功能录屏/截图与 PR 证据"
+      ],
+      "machine_tests": [
+        {
+          "id": "S1-U",
+          "type": "rust_unit_integration",
+          "command": "cargo test --no-default-features s1_",
+          "cwd": "apps/desktop/src-tauri",
+          "test_convention": "新增 Rust 测试函数以 s1_ 开头；必须至少有 1 个且执行数量>0"
+        },
+        {
+          "id": "S1-E",
+          "type": "browser_e2e",
+          "command": "npm run test:e2e:desktop -- --grep \"@S1\"",
+          "cwd": ".",
+          "test_convention": "新增 Playwright 用例标题带 @S1；必须至少有 1 个且执行数量>0"
+        }
+      ],
+      "machine_acceptance": [
+        "单元/集成测试创建2项目及多级节点后，关闭连接重开数据库记录一致",
+        "空名称、非法 parent id、重复操作、删除非空父节点的错误分支均被覆盖",
+        "浏览器 E2E 有明确后端 mock/真实运行态标签；Native IPC 集成测试使用临时持久库",
+        "失败时零部分提交；结果仅来自 DB 查询"
+      ],
+      "human_acceptance": [
+        "在 Windows EXE 中创建2项目、每项目多个主题/实验；退出重启后层级仍一致",
+        "尝试创建空名、删除有子项的项目；有清晰提示且数据未丢",
+        "手动证据包含界面前后截图与测试库文件检查"
+      ],
+      "out_of_scope": [
+        "不包括 Group/Replicate，交 S2",
+        "不加入云端账户或协作"
+      ],
+      "safety_gate": "不得在已有未知 SQLite 文件上运行初始化迁移；没有真实 Tauri 存储时禁止声称闭环。",
+      "suggested_branch": "feat/s1-crud"
+    },
+    {
+      "id": "S2",
+      "title": "分组样本与四阶段结构",
+      "priority": "P1",
+      "depends_on": [
+        "S1"
+      ],
+      "issues": [
+        17,
+        14
+      ],
+      "initial_status": "prototype_only",
+      "evidence_snapshot": "存在 Group/Replicate Demo 与 schema/页面结构；尚无实际分组或样本 CRUD。",
+      "user_outcome": "建立分组、真实生物学重复，并呈现 Raw/Processed/Statistics/Display 四阶段容器。",
+      "frontend_scope": [
+        "实验分组和 Replicate 的添加/修改/删除；样本量 n 独立显示",
+        "现有全景矩阵与阶段视图从 Repository 查询真实节点"
+      ],
+      "backend_scope": [
+        "group/replicate CRUD；禁止跨 assay 关联",
+        "阶段归属规则（Raw/Processed 为样本级，Statistics/Display 可为实验级）统一返回"
+      ],
+      "data_contract": [
+        "experiment_groups、replicates 与 asset_links 的层级约束",
+        "文件资产与生物重复分开计数，稳定 ID；删除非空容器需明确保护"
+      ],
+      "deliverables": [
+        "分组/样本 IPC 与 UI",
+        "四阶段数据契约",
+        "n 不变量测试/Windows 验收"
+      ],
+      "machine_tests": [
+        {
+          "id": "S2-U",
+          "type": "rust_unit_integration",
+          "command": "cargo test --no-default-features s2_",
+          "cwd": "apps/desktop/src-tauri",
+          "test_convention": "新增 Rust 测试函数以 s2_ 开头；必须至少有 1 个且执行数量>0"
+        },
+        {
+          "id": "S2-E",
+          "type": "browser_e2e",
+          "command": "npm run test:e2e:desktop -- --grep \"@S2\"",
+          "cwd": ".",
+          "test_convention": "新增 Playwright 用例标题带 @S2；必须至少有 1 个且执行数量>0"
+        }
+      ],
+      "machine_acceptance": [
+        "创建3组×6样本，DB 查询准确为18；重启后一致",
+        "非法跨实验关联被 FK 或用例拒绝",
+        "复制/关联资产不创建 Replicate 的不变量具备可运行回归测试",
+        "四阶段空视图无数据也不报错"
+      ],
+      "human_acceptance": [
+        "在 Windows EXE 创建 Control/Model/Treatment 每组6个样本，重启后 n=6",
+        "在 Raw、Processed、Statistics、Display 间切换，检查分组显示及缺省状态",
+        "尝试非法关联/删除含样本分组，核对安全提示与数据库状态"
+      ],
+      "out_of_scope": [
+        "不导入真实文件，交 S3",
+        "不实现统计计算和论文组图"
+      ],
+      "safety_gate": "任何文件资产操作均不可改变真实 Replicate 数量；所有测试数据位于临时仓库。",
+      "suggested_branch": "feat/s2-"
+    },
+    {
+      "id": "S3",
+      "title": "安全文件导入与任务恢复",
+      "priority": "P0",
+      "depends_on": [
+        "S2"
+      ],
+      "issues": [
+        6,
+        15,
+        14
+      ],
+      "initial_status": "prototype_only",
+      "evidence_snapshot": "已有 Windows 只读拖入、Rust CAS staging 和 SHA-256 原型；未注册真实导入 IPC，缺少 SQL 事务协同/崩溃恢复。",
+      "user_outcome": "Explorer 拖入→检查→确认→进度→入库，源文件保持不变。",
+      "frontend_scope": [
+        "复用外部拖入预览，增加目标容器与确认机制、任务进度/取消/重试/失败明细",
+        "不允许单靠预览“eligible”状态开启写入"
+      ],
+      "backend_scope": [
+        "Rust 校验源路径/类型及所属目标；流式复制、SHA-256、same-volume staging、不可覆盖 CAS 提交",
+        "持久 import job 状态；Blob/AssetVersion/AssetLink 事务登记与崩溃 reconcile",
+        "低空间/文件锁/重复文件/源文件读取期间改变/符号链接/路径竞态测试；最小权限"
+      ],
+      "data_contract": [
+        "Blob 由规范化 hash 索引；AssetId、AssetLinkId、AssetVersionId 不混淆",
+        "操作 requestId 幂等；数据库和文件系统跨资源协调要有可恢复状态机"
+      ],
+      "deliverables": [
+        "正式导入 IPC + job/进度事件",
+        "Staging/commit/reconcile 协议和故障测试",
+        "源保护与 SHA-256 记录"
+      ],
+      "machine_tests": [
+        {
+          "id": "S3-U",
+          "type": "rust_unit_integration",
+          "command": "cargo test --no-default-features s3_",
+          "cwd": "apps/desktop/src-tauri",
+          "test_convention": "新增 Rust 测试函数以 s3_ 开头；必须至少有 1 个且执行数量>0"
+        },
+        {
+          "id": "S3-E",
+          "type": "browser_e2e",
+          "command": "npm run test:e2e:desktop -- --grep \"@S3\"",
+          "cwd": ".",
+          "test_convention": "新增 Playwright 用例标题带 @S3；必须至少有 1 个且执行数量>0"
+        }
+      ],
+      "machine_acceptance": [
+        "创建小文件、100文件和受控大文件测试；哈希/大小与来源逐项一致；源内容/修改时间不变",
+        "重复导入相同字节只复用 Blob，不混淆不同样本关联",
+        "取消/强制中止/磁盘满/重名/锁定/坏 hash 与重启 reconcile 后没有“已确认但缺 Blob”的版本",
+        "导入完成后重启可查询，重复请求幂等；测试用例包含故障注入且不是只跑 happy path"
+      ],
+      "human_acceptance": [
+        "Windows 原生 EXE 将测试文件拖入指定 Raw 容器，人工确认并观察进度；重启可见",
+        "用 disposable 源文件模拟取消与重试，比较源目录哈希、数量、时间戳及目录结构",
+        "人为中断后重新打开软件，检查状态、仓库审计；证据含 job 记录和哈希报告"
+      ],
+      "out_of_scope": [
+        "不支持复杂目录递归/外部拖出",
+        "不解析 TIFF/SVS/CZI 深层元数据",
+        "不对用户重要文件开放生产导入"
+      ],
+      "safety_gate": "本任务完成只能在隔离测试仓库中试用；S7 备份恢复演练通过前明确禁止重要真实科研数据入库。",
+      "suggested_branch": "feat/s3-"
+    },
+    {
+      "id": "S4",
+      "title": "真实文件浏览搜索与选择",
+      "priority": "P1",
+      "depends_on": [
+        "S3"
+      ],
+      "issues": [
+        5,
+        13,
+        17
+      ],
+      "initial_status": "prototype_only",
+      "evidence_snapshot": "已有 DemoAsset 与 TanStack Virtual 10k 演示和键盘/鼠标交互；未连接真实 SQLite 查询。",
+      "user_outcome": "真实资产在正确实验位置以列表/表格/矩阵展示，搜索筛选与选择一致。",
+      "frontend_scope": [
+        "将 DemoAsset 数据读取替换为真实查询；保留同一选择/焦点模型",
+        "列表分页、搜索、排序、详情抽屉，显示哈希、大小、版本、阶段、引用状态"
+      ],
+      "backend_scope": [
+        "只读 list_assets/get_asset 查询，按作用域和排序做稳定分页",
+        "区分 AssetId 与 AssetLinkId（同一资产可被多个容器引用），选择操作目标应精确到上下文"
+      ],
+      "data_contract": [
+        "SQLite 索引和分页；引用版本 id 只读返回，禁止暴露任意磁盘写路径",
+        "同一容器重名和检索范围契约"
+      ],
+      "deliverables": [
+        "SQLite 资产查询 API",
+        "真实资产视图与回归测试",
+        "分页/选择一致性 Windows 检查"
+      ],
+      "machine_tests": [
+        {
+          "id": "S4-U",
+          "type": "rust_unit_integration",
+          "command": "cargo test --no-default-features s4_",
+          "cwd": "apps/desktop/src-tauri",
+          "test_convention": "新增 Rust 测试函数以 s4_ 开头；必须至少有 1 个且执行数量>0"
+        },
+        {
+          "id": "S4-E",
+          "type": "browser_e2e",
+          "command": "npm run test:e2e:desktop -- --grep \"@S4\"",
+          "cwd": ".",
+          "test_convention": "新增 Playwright 用例标题带 @S4；必须至少有 1 个且执行数量>0"
+        }
+      ],
+      "machine_acceptance": [
+        "从 S3 入库的100文件查询与 UI 总量一致，分页不重不漏",
+        "同一资产多容器关联时选中/拖拽作用域不混淆",
+        "Ctrl+A/Shift/框选在当前过滤的逻辑集合上确定一致",
+        "真实 SQLite 的分页边界、非法游标和稳定排序有集成测试"
+      ],
+      "human_acceptance": [
+        "Windows EXE 在不同组和阶段浏览真实测试文件，检查名称/数量/来源",
+        "过滤、分页、跨视图多选，10k 数据量由 S11 执行完整性能验收",
+        "再次启动后搜索结果正确且不存在 Demo 混入"
+      ],
+      "out_of_scope": [
+        "不新增图片格式解析",
+        "此任务为只读浏览，不实现文件移动或删除"
+      ],
+      "safety_gate": "允许渲染只读 hash/版本信息；选择/复制操作必须携带精确的作用域关联 ID。",
+      "suggested_branch": "feat/s4-"
+    },
+    {
+      "id": "S5",
+      "title": "资产复制与逻辑移动",
+      "priority": "P1",
+      "depends_on": [
+        "S4"
+      ],
+      "issues": [
+        6,
+        7,
+        13
+      ],
+      "initial_status": "prototype_only",
+      "evidence_snapshot": "已存在 Ctrl/Shift/拖放/剪贴板意图；尚无 Rust 实际资产链接事务。",
+      "user_outcome": "同仓库把测试资产复制或移动到合法目标，样本数量/版本来源保持稳定。",
+      "frontend_scope": [
+        "复用右键、快捷键、拖动，展示目标、冲突和操作状态",
+        "成功以 DB 返回值更新视图；失败保持原选择与可解释错误"
+      ],
+      "backend_scope": [
+        "Rust copy/move asset associations，执行权限/引用/冲突验证与事务更新",
+        "以 AssetLinkId 指明要移动的可见归属；Blob/AssetVersion 不因逻辑复制而重写"
+      ],
+      "data_contract": [
+        "同一 Blob 可经多个 AssetLink 共享；ReplicateId 不能被文件复制动作插入",
+        "请求 ID 幂等、批次操作原子或明确部分成功策略（第一版统一原子）"
+      ],
+      "deliverables": [
+        "可重试操作接口、审计与错误映射",
+        "真实 Explorer 交互闭环",
+        "批量回滚和身份不变量测试"
+      ],
+      "machine_tests": [
+        {
+          "id": "S5-U",
+          "type": "rust_unit_integration",
+          "command": "cargo test --no-default-features s5_",
+          "cwd": "apps/desktop/src-tauri",
+          "test_convention": "新增 Rust 测试函数以 s5_ 开头；必须至少有 1 个且执行数量>0"
+        },
+        {
+          "id": "S5-E",
+          "type": "browser_e2e",
+          "command": "npm run test:e2e:desktop -- --grep \"@S5\"",
+          "cwd": ".",
+          "test_convention": "新增 Playwright 用例标题带 @S5；必须至少有 1 个且执行数量>0"
+        }
+      ],
+      "machine_acceptance": [
+        "复制/移动到合法组后双向列表查询一致，重启后不回退",
+        "复制 10 个文件前后 Replicate 数不变，Blob 数不因纯逻辑复制增长",
+        "重名、非法目标和部分错误的批次回滚正确，版本哈希不变",
+        "所有操作都有结构化错误码和审计记录"
+      ],
+      "human_acceptance": [
+        "Windows EXE 使用 Ctrl+拖拽和 Shift+拖拽、Ctrl+C/X/V、右键操作",
+        "试跨组/跨阶段和非法位置；验证列表、样本 n、原文件 hash",
+        "刷新/重启与所见一致，失败不出现“成功”提示"
+      ],
+      "out_of_scope": [
+        "不实现跨仓库物理复制、外部 Explorer 拖出",
+        "不修改原始 Blob 字节"
+      ],
+      "safety_gate": "操作目标必须精确到 AssetLink/Version 的合法组合；不允许同一 Asset 在多上下文产生误删除。",
+      "suggested_branch": "feat/s5-"
+    },
+    {
+      "id": "S6",
+      "title": "重命名软删除与回收恢复",
+      "priority": "P1",
+      "depends_on": [
+        "S5"
+      ],
+      "issues": [
+        7,
+        13,
+        6
+      ],
+      "initial_status": "prototype_only",
+      "evidence_snapshot": "F2 与 Windows 文件名校验仅 Demo；后端无正式软删除/恢复接口。",
+      "user_outcome": "重命名归属名称、软删除并从回收视图恢复，引用文件版本不失效。",
+      "frontend_scope": [
+        "F2/右键重命名真实提交、删除确认、回收列表和恢复按钮",
+        "失败、重名、正在被引用时显示可理解的解释"
+      ],
+      "backend_scope": [
+        "Rust rename/delete/restore use cases；同容器同阶段冲突检查与外键校验",
+        "资产链接软删除；保留 CAS 原字节及被 Panel 锁定的版本"
+      ],
+      "data_contract": [
+        "display_name 修改不能改变 AssetId、AssetVersionId、BlobKey",
+        "跨关联删除与孤儿引用策略明确；回收冲突返回 NAME_CONFLICT"
+      ],
+      "deliverables": [
+        "Rename/soft-delete/restore IPC",
+        "回收视图与引用保护",
+        "错误场景与审计回归"
+      ],
+      "machine_tests": [
+        {
+          "id": "S6-U",
+          "type": "rust_unit_integration",
+          "command": "cargo test --no-default-features s6_",
+          "cwd": "apps/desktop/src-tauri",
+          "test_convention": "新增 Rust 测试函数以 s6_ 开头；必须至少有 1 个且执行数量>0"
+        },
+        {
+          "id": "S6-E",
+          "type": "browser_e2e",
+          "command": "npm run test:e2e:desktop -- --grep \"@S6\"",
+          "cwd": ".",
+          "test_convention": "新增 Playwright 用例标题带 @S6；必须至少有 1 个且执行数量>0"
+        }
+      ],
+      "machine_acceptance": [
+        "非法字符、设备保留名、Unicode、大小写冲突和隐藏重名覆盖",
+        "删除→恢复后关联、版本及 hash 完全一致；重启持久",
+        "已引用 AssetVersion 不会物理删除；失败/并发重试一致",
+        "回收恢复和重命名操作在 Audit 里有记录"
+      ],
+      "human_acceptance": [
+        "Windows EXE 执行 F2、右键删除并从回收视图恢复",
+        "尝试同名、非法名称、被论文关联场景（可用临时测试关系），检查错误提示",
+        "重启后文件与链接状态正确，原文件字节保持不变"
+      ],
+      "out_of_scope": [
+        "不实现物理 Blob GC",
+        "不实现磁盘级永久删除、Windows 回收站集成"
+      ],
+      "safety_gate": "强制禁止任何业务操作直接 unlink CAS objects；回收不是物理删除。",
+      "suggested_branch": "feat/s6-"
+    },
+    {
+      "id": "S7",
+      "title": "完整性检查备份恢复",
+      "priority": "P0",
+      "depends_on": [
+        "S6"
+      ],
+      "issues": [
+        16,
+        6,
+        15
+      ],
+      "initial_status": "prototype_only",
+      "evidence_snapshot": "有 SQLite/CAS 只读审计原型；无 WAL-safe 备份、重建验证、孤儿扫描、恢复 UI。",
+      "user_outcome": "对测试仓库核验、制作可验证快照，在空目录完整恢复文件和关系。",
+      "frontend_scope": [
+        "完整性检查/备份/恢复工作台，显示阶段进度、校验报告及风险提示",
+        "恢复操作明确目标、冲突及将覆盖什么；不静默改写现有仓库"
+      ],
+      "backend_scope": [
+        "SQLite 在线一致性备份（WAL-safe）、Blob manifest、不可变快照 ID",
+        "恢复时校验所有 SHA-256、schema、FK、引用关系、孤儿 staging；锁/权限/中断恢复",
+        "读审计不自动修复/删除损坏对象；用临时目录故障注入"
+      ],
+      "data_contract": [
+        "备份 manifest 含 schema_version、snapshot_id、AssetVersion/Blob、大小、sha256",
+        "恢复到全新目录后 entity/relationship/blob counts 和每个哈希与备份时一致"
+      ],
+      "deliverables": [
+        "可审计备份格式与恢复 IPC",
+        "WAL-safe 故障与整库恢复测试",
+        "Windows 恢复演练与逐项 hash/关系对比"
+      ],
+      "machine_tests": [
+        {
+          "id": "S7-U",
+          "type": "rust_unit_integration",
+          "command": "cargo test --no-default-features s7_",
+          "cwd": "apps/desktop/src-tauri",
+          "test_convention": "新增 Rust 测试函数以 s7_ 开头；必须至少有 1 个且执行数量>0"
+        },
+        {
+          "id": "S7-E",
+          "type": "browser_e2e",
+          "command": "npm run test:e2e:desktop -- --grep \"@S7\"",
+          "cwd": ".",
+          "test_convention": "新增 Playwright 用例标题带 @S7；必须至少有 1 个且执行数量>0"
+        }
+      ],
+      "machine_acceptance": [
+        "备份→清空测试仓库→恢复的全量对照测试通过",
+        "手工篡改字节、删除 Blob、断开 FK、插入孤儿 staging 能被识别且不误修复",
+        "执行中断/磁盘满后原仓库与已有备份保持可读，下一次可重试",
+        "SQLite WAL 活跃写入下备份仍可打开并通过 integrity_check/FK 校验"
+      ],
+      "human_acceptance": [
+        "Windows EXE 对 S1–S6 构造的测试仓库做完整备份，复制至另一空目录恢复",
+        "逐项比较组数/样本数/资产版本/Blob 哈希；输出并保存 diff=0 的证据",
+        "人为损坏测试备份后应拒绝误恢复，原仓库不受影响"
+      ],
+      "out_of_scope": [
+        "不实现云备份",
+        "不允许对被检测坏的 Blob 自动猜测修复"
+      ],
+      "safety_gate": "只有 S0–S7 全部通过且人工完成恢复演练，才可批准珍贵科研数据进入日常使用。",
+      "suggested_branch": "feat/s7-"
+    },
+    {
+      "id": "S8",
+      "title": "统计分析与样本纳入",
+      "priority": "P1",
+      "depends_on": [
+        "S7"
+      ],
+      "issues": [
+        17,
+        19,
+        14
+      ],
+      "initial_status": "prototype_only",
+      "evidence_snapshot": "已有 StatisticalAnalysis/AnalysisSample 表和演示 UI；没有真实分析 CRUD/输入版本锁定。",
+      "user_outcome": "记录某次统计选择了哪些生物学重复和哪些固定版本输入/结果，不执行统计计算。",
+      "frontend_scope": [
+        "统计分析列表/编辑器，选择纳入样本并关联文件版本",
+        "保存、冻结及重开已保存分析的审计视图"
+      ],
+      "backend_scope": [
+        "创建/修改/冻结分析用例；验证跨组/跨 assay 的合法样本集合",
+        "建立分析输入/结果的 AssetVersion 引用或快照迁移，冻结后禁止悄悄更改"
+      ],
+      "data_contract": [
+        "analysis_samples.included 属于 analysis × replicate；不能是 DataAsset 全局字段",
+        "需追加输入/结果版本关系，迁移兼容 S1–S7 的已有测试仓库"
+      ],
+      "deliverables": [
+        "分析 CRUD 与 version snapshot",
+        "Schema 增量迁移 + 回归测试",
+        "Windows n/冻结验收"
+      ],
+      "machine_tests": [
+        {
+          "id": "S8-U",
+          "type": "rust_unit_integration",
+          "command": "cargo test --no-default-features s8_",
+          "cwd": "apps/desktop/src-tauri",
+          "test_convention": "新增 Rust 测试函数以 s8_ 开头；必须至少有 1 个且执行数量>0"
+        },
+        {
+          "id": "S8-E",
+          "type": "browser_e2e",
+          "command": "npm run test:e2e:desktop -- --grep \"@S8\"",
+          "cwd": ".",
+          "test_convention": "新增 Playwright 用例标题带 @S8；必须至少有 1 个且执行数量>0"
+        }
+      ],
+      "machine_acceptance": [
+        "同一 n=6 组分析 A 纳入5、分析 B 纳入6，互不影响",
+        "复制 Raw 不改变两次统计 sample count；非法跨 assay 拒绝",
+        "冻结后的输入版本不随文件新版本/移动变化",
+        "迁移从 Schema v1 升级成功且原资产数据不丢"
+      ],
+      "human_acceptance": [
+        "Windows EXE 建立两个分析，分别选择5与6个样本；重新打开后选择仍正确",
+        "关联统计文件版本并冻结，修改文件上下文后引用无漂移",
+        "人工核对 n 与统计纳入清单，与生物学重复数量区分"
+      ],
+      "out_of_scope": [
+        "不自动执行 t 检验/ANOVA 或分析数值",
+        "不读专用实验格式算图"
+      ],
+      "safety_gate": "每次统计的 included 与输入版本为关系级语义；不得通过文件级 boolean 全局表达。",
+      "suggested_branch": "feat/s8-"
+    },
+    {
+      "id": "S9",
+      "title": "论文组图与固定版本关联",
+      "priority": "P1",
+      "depends_on": [
+        "S7"
+      ],
+      "issues": [
+        18,
+        14
+      ],
+      "initial_status": "prototype_only",
+      "evidence_snapshot": "已有 Paper/Figure/Panel 示意 UI 与 schema；尚无真实 CRUD 和 Panel 版本关联。",
+      "user_outcome": "创建 Paper/Figure/Panel，绑定多个展示、统计和来源版本，重启和重命名后仍准确。",
+      "frontend_scope": [
+        "论文树、Figure/Panel 创建排序、重命名、关联文件选取器",
+        "展示每条关联用途和固定版本，不误将最新文件版本覆盖旧引用"
+      ],
+      "backend_scope": [
+        "论文结构 CRUD/顺序事务；PanelAssetVersion 与代表来源用例",
+        "锁定 AssetVersionId，验证跨 Project/Assay 合法性，重复关联去重"
+      ],
+      "data_contract": [
+        "papers/figures/panels/panel_asset_versions/representative_sources",
+        "引用标识不能依赖易变磁盘路径或 asset display_name"
+      ],
+      "deliverables": [
+        "Paper/Figure/Panel CRUD",
+        "固定版本关联与审计",
+        "面向 Windows 的引用稳定测试"
+      ],
+      "machine_tests": [
+        {
+          "id": "S9-U",
+          "type": "rust_unit_integration",
+          "command": "cargo test --no-default-features s9_",
+          "cwd": "apps/desktop/src-tauri",
+          "test_convention": "新增 Rust 测试函数以 s9_ 开头；必须至少有 1 个且执行数量>0"
+        },
+        {
+          "id": "S9-E",
+          "type": "browser_e2e",
+          "command": "npm run test:e2e:desktop -- --grep \"@S9\"",
+          "cwd": ".",
+          "test_convention": "新增 Playwright 用例标题带 @S9；必须至少有 1 个且执行数量>0"
+        }
+      ],
+      "machine_acceptance": [
+        "创建1 Paper、2 Figure、每张3 Panel，各 Panel 多文件版本关联并重启一致",
+        "把被引用 DataAsset 重命名/逻辑移动后 Panel 版本不变",
+        "资产新增 v2 不改变既有 Panel 钉住的 v1",
+        "非法/重复引用和顺序修改具有事务测试"
+      ],
+      "human_acceptance": [
+        "Windows EXE 创建 Figure 3 Panel A/B/C，关联 Raw/Processed/Statistics 测试文件",
+        "修改关联来源的文件名称、移动其逻辑位置并重启，Panel 仍展示原版本",
+        "对照所选版本 SHA 与 Panel 查询结果，保留证据"
+      ],
+      "out_of_scope": [
+        "不做在线画布排版或图片编辑",
+        "不做投稿网站集成"
+      ],
+      "safety_gate": "默认阻止断链操作：已引用 AssetVersion 不能被静默物理删除或替换。",
+      "suggested_branch": "feat/s9-"
+    },
+    {
+      "id": "S10",
+      "title": "双向溯源与无损导出",
+      "priority": "P1",
+      "depends_on": [
+        "S8",
+        "S9"
+      ],
+      "issues": [
+        19,
+        18
+      ],
+      "initial_status": "prototype_only",
+      "evidence_snapshot": "只有 Demo 示例跳转；没有跨统计/Panel/文件的真实链路查询与导出 manifest。",
+      "user_outcome": "从 Panel 查到统计输入、Replicate 和原始文件；从 Asset 找到被引用的 Paper/Panel 并无损导出。",
+      "frontend_scope": [
+        "Panel 的正向来源树、资产详情的反向引用列表",
+        "选择 Figure 导出目标并展示结果/失败日志"
+      ],
+      "backend_scope": [
+        "按固定 AssetVersion 查询正向/反向依赖及审计上下文",
+        "将所选版本字节导出、计算对照哈希并写 figure-manifest.json；失败时不修改 CAS"
+      ],
+      "data_contract": [
+        "manifest 包含 AssetId/VersionId、BlobKey、sha256、Panel、统计纳入集合及 schema/导出版本",
+        "多来源不能丢项，导出名称冲突有可预测处理"
+      ],
+      "deliverables": [
+        "溯源 API 与引用索引",
+        "Figure manifest/文件无损导出",
+        "正反一致性、路径安全、哈希对照测试"
+      ],
+      "machine_tests": [
+        {
+          "id": "S10-U",
+          "type": "rust_unit_integration",
+          "command": "cargo test --no-default-features s10_",
+          "cwd": "apps/desktop/src-tauri",
+          "test_convention": "新增 Rust 测试函数以 s10_ 开头；必须至少有 1 个且执行数量>0"
+        },
+        {
+          "id": "S10-E",
+          "type": "browser_e2e",
+          "command": "npm run test:e2e:desktop -- --grep \"@S10\"",
+          "cwd": ".",
+          "test_convention": "新增 Playwright 用例标题带 @S10；必须至少有 1 个且执行数量>0"
+        }
+      ],
+      "machine_acceptance": [
+        "任取 Panel 可追溯到其绑定的全部统计纳入样本和原始版本",
+        "逆向查询结果与正向引用集合匹配；软删除/逻辑移动后不丢链",
+        "所有导出文件的 SHA-256 与对应 CAS 注册 Blob 一致",
+        "导出路径不可穿越目标目录，部分失败不返回成功宣称"
+      ],
+      "human_acceptance": [
+        "在 Windows EXE 选择 Figure 3B，逐级打开统计→纳入样本→原始文件",
+        "从原始文件反查 Panel；随后重命名/移动再查一次",
+        "导出至新空文件夹，对比 manifest 与实际文件数量、名称、SHA-256"
+      ],
+      "out_of_scope": [
+        "不自动拼图、排版或编辑像素",
+        "不对接期刊投稿"
+      ],
+      "safety_gate": "只允许从受控文件版本导出，所有目标路径和文件名都需 Rust 验证，不允许路径穿越。",
+      "suggested_branch": "feat/s10-"
+    },
+    {
+      "id": "S11",
+      "title": "Windows 性能安装与正式交付",
+      "priority": "P0",
+      "depends_on": [
+        "S10"
+      ],
+      "issues": [
+        20,
+        21,
+        11
+      ],
+      "initial_status": "prototype_only",
+      "evidence_snapshot": "已有 10k Demo 虚拟列表与便携 EXE CI Artifact；无原生真实 10k 基准、NSIS/MSI、升级/回滚验收。",
+      "user_outcome": "在无 Node/Rust 的干净 Windows 11 安装、升级并管理/恢复科研仓库。",
+      "frontend_scope": [
+        "10k 真实 SQLite 文件浏览保持响应；长任务进度/取消可见",
+        "只实现必要的缩略图/延迟加载和操作错误提示"
+      ],
+      "backend_scope": [
+        "后台任务内存有界，仓库锁及恢复状态不会破坏并发操作",
+        "schema 迁移检查、版本回退/备份恢复验证；构建正式一种安装器"
+      ],
+      "data_contract": [
+        "发布 manifest（版本、构建 SHA、schema 支持范围、校验）、Release notes",
+        "采用 NSIS 或 MSI 一种作为首发，不能将当前 bundle.active=false 的 EXE 假称安装包"
+      ],
+      "deliverables": [
+        "正式 NSIS/MSI 安装程序与 SHA",
+        "真实 10k 性能基准及回归",
+        "Windows 升级/回退、备份恢复与 Release 审查"
+      ],
+      "machine_tests": [
+        {
+          "id": "S11-U",
+          "type": "rust_unit_integration",
+          "command": "cargo test --no-default-features s11_",
+          "cwd": "apps/desktop/src-tauri",
+          "test_convention": "新增 Rust 测试函数以 s11_ 开头；必须至少有 1 个且执行数量>0"
+        },
+        {
+          "id": "S11-E",
+          "type": "browser_e2e",
+          "command": "npm run test:e2e:desktop -- --grep \"@S11\"",
+          "cwd": ".",
+          "test_convention": "新增 Playwright 用例标题带 @S11；必须至少有 1 个且执行数量>0"
+        }
+      ],
+      "machine_acceptance": [
+        "真实 SQLite 10k+ 资产、分页搜索、选择和滚动回归通过；报告测试机器硬件/数据规模/延迟分布",
+        "以可复现基准设定：主列表首屏可交互≤3秒；同机 p95 搜索响应≤2秒；导入时 UI 无持续>500ms 阻塞（属于目标，不是现测结果）",
+        "干净 Windows 11 安装器可启动且无需 Node/Rust；升级/回滚不破坏已备份和恢复的数据",
+        "全部 P0/P1 缺陷关闭，Release 签核与恢复报告齐全"
+      ],
+      "human_acceptance": [
+        "全新 Windows 11 电脑或 VM 不安装开发工具，测试安装/启动/升级/卸载",
+        "验证 100%/150% DPI、文件拖放与恢复，至少一次完整论文导出闭环",
+        "对照真实测试仓库数据数、哈希和引用；记录机器配置、版本、操作步骤、日志"
+      ],
+      "out_of_scope": [
+        "不做云同步/多人权限/自动 AI 推理",
+        "没有全量多格式解析的承诺"
+      ],
+      "safety_gate": "不得在缺少恢复演练、人工签字或仍有 P0/P1 缺陷时宣布 v1.0 正式完成。",
+      "suggested_branch": "feat/s11-windows"
+    }
+  ],
+  "execution_report_schema": {
+    "task_id": "S0",
+    "base_sha": "<sha>",
+    "head_sha": "<sha>",
+    "status": "machine_passed|manual_pending|accepted|blocked",
+    "pr_url": null,
+    "machine_checks": [
+      {
+        "command": "<exact command>",
+        "cwd": "<path>",
+        "exit_code": 0,
+        "tests_executed": 1,
+        "log_url": "<url or local log path>"
+      }
+    ],
+    "manual_checks": [
+      {
+        "step": "<step>",
+        "status": "not_run|passed|failed",
+        "evidence": null,
+        "signoff_by": null
+      }
+    ],
+    "residual_risks": [],
+    "next_task_recommendation": null
+  }
+}
