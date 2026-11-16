@@ -1,4 +1,25 @@
 import {test,expect,Page} from '@playwright/test';
+import type {Locator} from '@playwright/test';
+
+/** Exercise native HTML5 drag gestures: Chromium needs several pointer moves
+ * after the initial mouse-down to cross its drag-start threshold on Windows. */
+async function pointerDrag(page:Page,source:Locator,destination:Locator,modifier:'Control'|'Shift'){
+  const from=await source.boundingBox(),to=await destination.boundingBox();
+  if(!from||!to)throw new Error('S5 drag source or target was not visible');
+  const x=from.x+from.width/2,y=from.y+from.height/2;
+  await page.mouse.move(x,y);
+  await page.keyboard.down(modifier);
+  try{
+    await page.mouse.down();
+    await page.mouse.move(x+4,y+3,{steps:8});
+    await page.mouse.move(x+12,y+10,{steps:8});
+    await page.mouse.move(to.x+to.width/2,to.y+to.height/2,{steps:24});
+    await page.mouse.up();
+  }finally{
+    await page.keyboard.up(modifier);
+  }
+}
+
 
 async function setup(page:Page){
   await page.addInitScript(()=>{
@@ -135,9 +156,7 @@ test('@S5 Ctrl+drag copies across stages and Shift+drag moves to another sample 
         target:(drag.target as HTMLElement)?.getAttribute('aria-label')??(drag.target as HTMLElement)?.textContent?.slice(0,40)});
     },true);
   });
-  await page.keyboard.down('Control');
-  await browser.getByRole('button',{name:'选择 raw00.png'}).dragTo(nav.getByRole('button',{name:/Processed/}));
-  await page.keyboard.up('Control');
+  await pointerDrag(page,browser.getByRole('button',{name:'选择 raw00.png'}),nav.getByRole('button',{name:/Processed/}),'Control');
   console.log('S5 drag diagnostics',JSON.stringify(await page.evaluate(()=>({
     events:(window as any).__S5_DRAG_EVENTS__,
     requests:(window as any).__S5_TEST__.requests,
@@ -145,9 +164,7 @@ test('@S5 Ctrl+drag copies across stages and Shift+drag moves to another sample 
   }))));
   await expect(browser.getByRole('status')).toContainText('匹配 1 条');
   await expect(nav.getByRole('button',{name:/Processed/})).toHaveAttribute('aria-current','page');
-  await page.keyboard.down('Shift');
-  await browser.getByRole('button',{name:'选择 raw00.png'}).dragTo(page.getByRole('button',{name:'样本：R2'}));
-  await page.keyboard.up('Shift');
+  await pointerDrag(page,browser.getByRole('button',{name:'选择 raw00.png'}),page.getByRole('button',{name:'样本：R2'}),'Shift');
   await expect(nav.getByRole('button',{name:/Processed/})).toHaveAttribute('aria-current','page');
   await expect(browser.getByRole('status')).toContainText('匹配 1 条');
   await expect(page.getByRole('button',{name:'样本：R2'})).toHaveAttribute('aria-current','true');
