@@ -7,8 +7,16 @@ test('S0 shell retains authorized metadata/import IPC without storage work at st
   const shell=read('apps/desktop/src-tauri/src/lib.rs');
   const handlers=shell.match(/generate_handler!\[([\s\S]*?)\]/)?.[1];
   assert.ok(handlers);
-  assert.deepEqual(handlers.split(',').map(x=>x.trim()).filter(Boolean),
-    ['shell_status','drop_preview::inspect_drop_paths','project_tree::project_tree','experiment_tree::experiment_tree','import_jobs::import_jobs']);
+  const registered = handlers.split(',').map(x=>x.trim()).filter(Boolean);
+  const baseline = ['shell_status','drop_preview::inspect_drop_paths','project_tree::project_tree','experiment_tree::experiment_tree','import_jobs::import_jobs'];
+  for (const command of baseline) {
+    assert.equal(registered.filter(x=>x===command).length,1,`baseline IPC missing or duplicated: ${command}`);
+  }
+  const s4 = ['asset_browser::list_assets','asset_browser::get_asset'];
+  for (const command of s4) {
+    assert.equal(registered.filter(x=>x===command).length,1,`S4 IPC missing or duplicated: ${command}`);
+  }
+  assert.deepEqual([...registered].sort(),[...baseline,...s4].sort(),'unexpected IPC command registered');
   const start=shell.indexOf('pub fn run()');
   const end=shell.indexOf('#[cfg(test)]',start);
   const run=shell.slice(start,end<0?undefined:end);

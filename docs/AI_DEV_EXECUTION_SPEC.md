@@ -21,6 +21,8 @@
 
 2026-11-16 用户明确授权 S1 机器通过后继续顺序开发 S2、S3，最后统一人工验收。本次允许基于机器通过的前置候选堆叠开发；人工状态仍为 manual_pending，不改写为 accepted，不自动合并。S2 机器验证通过前不进入 S3 实现，S7 珍贵数据与恢复门槛不变。
 
+2026-11-16 S4 阶段验收更新：用户明确签收合格；原生 Windows CI/EXE 已 PASS，详细证据见 [S4 报告](S4_EXECUTION_REPORT.md)。PR #47 仍是 Draft/未合并 main；正式任务的 `accepted` 仍需满足本规范第 3.3 节的合并与证据条件。下一任务 **S5（资产复制与逻辑移动）** 按既定顺序执行，不提前重做 UI 或进入 S6；基线若尚未合并则采用 S4 分支并保留依赖。S7 安全门槛不变。
+
 ## 1. 项目不变量与授权边界
 
 **技术基线**：Windows 11 单机、离线优先；React/TypeScript + shadcn/ui + Tauri 2 + Rust + SQLite + CAS；正式 UI 入口 `apps/desktop`，公用 UI 在 `packages/ui`，业务 UI 在 `packages/core`，Explorer 交互在 `packages/interaction`。
@@ -98,7 +100,7 @@
 | **S1** | 项目主题实验 CRUD | S0 | `accepted`，用户联合签收，PR #44 已合并 main | #17, #14 |
 | **S2** | 分组样本与四阶段结构 | S1 | `accepted`，用户联合签收，PR #45 已合并 main | #17, #14 |
 | **S3** | 安全文件导入与任务恢复 | S2 | `accepted`，用户联合签收并授权合并 PR #46 | #6, #15, #14 |
-| **S4** | 真实文件浏览搜索与选择 | S3 | `prototype_only`，未验收 | #5, #13, #17 |
+| **S4** | 真实文件浏览搜索与选择 | S3 | **用户阶段签收合格**（2026-11-16）；Windows 机器 PASS；[PR #47](https://github.com/Devil-Jian/data-m/pull/47) 仍 Draft/未合并，正式 `accepted` 待集成，详见 [S4 执行报告](S4_EXECUTION_REPORT.md) | #5, #13, #17 |
 | **S5** | 资产复制与逻辑移动 | S4 | `prototype_only`，未验收 | #6, #7, #13 |
 | **S6** | 重命名软删除与回收恢复 | S5 | `prototype_only`，未验收 | #7, #13, #6 |
 | **S7** | 完整性检查备份恢复 | S6 | `prototype_only`，未验收 | #16, #6, #15 |
@@ -273,9 +275,9 @@
 
 ### S4｜真实文件浏览搜索与选择
 
-**任务元数据**：`id=S4` · `priority=P1` · `depends_on=S3` · `status=prototype_only` · Issues：[#5](https://github.com/Devil-Jian/data-m/issues/5), [#13](https://github.com/Devil-Jian/data-m/issues/13), [#17](https://github.com/Devil-Jian/data-m/issues/17)。
+**任务元数据**：`id=S4` · `priority=P1` · `depends_on=S3` · `status=machine_passed`（用户已人工签收、PR 合并待处理） · Issues：[#5](https://github.com/Devil-Jian/data-m/issues/5), [#13](https://github.com/Devil-Jian/data-m/issues/13), [#17](https://github.com/Devil-Jian/data-m/issues/17)。
 
-**当前事实**：已有 DemoAsset 与 TanStack Virtual 10k 演示和键盘/鼠标交互；未连接真实 SQLite 查询。
+**当前事实（2026-11-16 更新）**：S4 已接入真实 SQLite 只读 `list_assets/get_asset`，搜索、分页、当前页选择和详情；Windows CI [#43826786651](https://github.com/Devil-Jian/data-m/actions/runs/43826786651) 全绿并上传便携 EXE。用户确认 100 张模拟 ROS PNG 导入成功并明确签收 S4 阶段；[S4 报告](S4_EXECUTION_REPORT.md) 记录未独立证明的人工场景及跨页/框选等缺口。PR #47 尚未合并，按本规范的 `accepted` 严格定义，暂记录 `machine_passed` + 用户签收 + merge_pending；允许 S5 以签收的 S4 分支作为受控开发基线，不允许自动 merge main。
 
 **用户结果**：真实资产在正确实验位置以列表/表格/矩阵展示，搜索筛选与选择一致。
 
