@@ -3,6 +3,7 @@ import {shadcnUI} from '@data-m/ui/workbench-ui';
 import {projectTreeApi,projectTreeMode,safeProjectTreeError,validateProjectTreeResponse} from './project-tree.ts';
 import type {ProjectTreeApi,ProjectTreeKind,ProjectTreeNode,ProjectTreeRequest} from './project-tree.ts';
 import {ExperimentTreeManager} from './experiment-tree.tsx';
+import {RepositorySafetyPanel} from './repository-safety.tsx';
 import type {ImportDropRegistrar} from './import-jobs.ts';
 import './project-tree.css';
 
@@ -18,6 +19,7 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
   const [error,setError]=useState('');
   const [editor,setEditor]=useState<Editor|null>(null);
   const [experiment,setExperiment]=useState<{id:string;name:string}|null>(null);
+  const [safetyOpen,setSafetyOpen]=useState(false);
   const alive=useRef(true);
   const busy=useRef(false);
   const dialog=useRef<HTMLDialogElement>(null);
@@ -86,6 +88,7 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
     </li>);
   }
 
+  if(safetyOpen)return <RepositorySafetyPanel onClose={()=>setSafetyOpen(false)}/>;
   if(experiment)return <ExperimentTreeManager key={experiment.id} assayId={experiment.id} assayName={experiment.name}
     onClose={()=>setExperiment(null)} onBusyChange={onBusyChange} registerImportDrop={registerImportDrop}/>;
 
@@ -99,6 +102,7 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
     <div className="dm-project-toolbar">
       <Button variant="primary" disabled={pending||!loaded} onClick={()=>open({action:'create',kind:'project',name:''})}>新建项目</Button>
       <Button disabled={pending||Boolean(editor)} onClick={()=>void reload()}>重新加载</Button>
+      <Button disabled={pending||Boolean(editor)} onClick={()=>setSafetyOpen(true)}>数据完整性与备份恢复 (S7)</Button>
       <span role="status">{pending?'正在读取或提交项目数据…':loaded?`${nodes.filter(node=>node.kind==='project').length} 个项目 · ${nodes.filter(node=>node.kind==='theme').length} 个主题 · ${nodes.filter(node=>node.kind==='assay').length} 个实验`:''}</span>
     </div>
     {error&&!editor&&<p className="dm-project-error" role="alert">{error}</p>}
