@@ -2,6 +2,7 @@
 //!
 //! This first milestone intentionally exposes no destructive file operations.
 //! All real asset mutations will go through validated application use cases.
+mod asset_browser;
 mod cas;
 mod cas_audit;
 mod domain_db;
@@ -21,6 +22,8 @@ pub fn run() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             shell_status,
+            asset_browser::list_assets,
+            asset_browser::get_asset,
             drop_preview::inspect_drop_paths,
             project_tree::project_tree,
             experiment_tree::experiment_tree,
