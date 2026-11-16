@@ -245,7 +245,9 @@ pub(super) fn name_conflict(
     let key = name.to_lowercase();
     for row in names {
         let (id, other) = row?;
-        if id != except && other.to_lowercase() == key {
+        // A legacy imported decomposed name cannot be safely normalized here.
+        // Conservatively block mutations in that scope rather than risk overwrite.
+        if id != except && (other.chars().any(combining_mark) || other.to_lowercase() == key) {
             return Ok(true);
         }
     }
@@ -283,9 +285,15 @@ pub(super) fn execute_at(path: &Path, req: LifecycleRequest) -> Result<Lifecycle
                     |r| r.get(0),
                 )
                 .optional()?;
-            return serde_json::from_str(
+            let data: serde_json::Value = serde_json::from_str(
                 response
                     .as_deref()
+                    .ok_or_else(|| fail("REQUEST_CONFLICT"))?,
+            )
+            .map_err(|_| fail("REQUEST_CONFLICT"))?;
+            return serde_json::from_value(
+                data.get("result")
+                    .cloned()
                     .ok_or_else(|| fail("REQUEST_CONFLICT"))?,
             )
             .map_err(|_| fail("REQUEST_CONFLICT"));
@@ -295,13 +303,26 @@ pub(super) fn execute_at(path: &Path, req: LifecycleRequest) -> Result<Lifecycle
             rows.push(current(&tx, s, &req.action)?);
         }
         if req.action == "rename" || req.action == "restore" {
+            let mut scheduled = HashSet::new();
             for row in &rows {
                 let name = if req.action == "rename" {
                     req.new_name.as_deref().unwrap()
                 } else {
                     &row.name
                 };
-                if name_conflict(&tx, &row.source, name, &row.source.asset_link_id)? {
+                if !valid_name(name) {
+                    return Err(fail("INVALID_NAME"));
+                }
+                let key = (
+                    row.source.assay_id.clone(),
+                    row.source.stage.clone(),
+                    row.source.group_id.clone(),
+                    row.source.replicate_id.clone(),
+                    name.to_lowercase(),
+                );
+                if !scheduled.insert(key)
+                    || name_conflict(&tx, &row.source, name, &row.source.asset_link_id)?
+                {
                     return Err(fail("NAME_CONFLICT"));
                 }
             }
@@ -365,7 +386,21 @@ pub(super) fn execute_at(path: &Path, req: LifecycleRequest) -> Result<Lifecycle
             action: req.action.clone(),
             results: result,
         };
-        let data = serde_json::to_string(&response).map_err(|_| fail("INVALID_REQUEST"))?;
+        let before = rows
+            .iter()
+            .map(|row| {
+                serde_json::json!({
+                    "identity": &row.source,
+                    "displayName": &row.name,
+                    "deletedAt": &row.deleted_at
+                })
+            })
+            .collect::<Vec<_>>();
+        let data = serde_json::to_string(&serde_json::json!({
+            "before": before,
+            "result": &response
+        }))
+        .map_err(|_| fail("INVALID_REQUEST"))?;
         tx.execute(
             "INSERT INTO audit_events(id,action,object_type,object_id,details_json)
             VALUES(?1,?2,'asset_link_lifecycle',?3,?4)",
