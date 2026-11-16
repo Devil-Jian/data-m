@@ -19,25 +19,25 @@ pub struct RecycleQuery {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecycledRow {
-    asset_link_id: String,
+    pub(super) asset_link_id: String,
     asset_id: String,
     asset_version_id: String,
     assay_id: String,
     stage: String,
     group_id: Option<String>,
     replicate_id: Option<String>,
-    name: String,
+    pub(super) name: String,
     deleted_at: String,
     sha256: String,
     referenced: bool,
-    can_restore: bool,
+    pub(super) can_restore: bool,
     restore_block_reason: Option<String>,
 }
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecyclePage {
-    items: Vec<RecycledRow>,
-    total: i64,
+    pub(super) items: Vec<RecycledRow>,
+    pub(super) total: i64,
     next_cursor: Option<String>,
 }
 
