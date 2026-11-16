@@ -193,8 +193,7 @@ fn safe_directory(path: &Path, create: bool) -> Result<(), TreeError> {
         let parent = path.parent().ok_or_else(|| failure("UNSAFE_PATH"))?;
         if parent != path { safe_directory(parent, true)?; }
         fs::create_dir(path).map_err(map_write)?;
-    } else {
-        let parent = path.parent().ok_or_else(|| failure("UNSAFE_PATH"))?;
+    } else if let Some(parent) = path.parent() {
         if parent != path { safe_directory(parent, false)?; }
     }
     let meta = fs::symlink_metadata(path).map_err(map_read)?;
@@ -297,15 +296,17 @@ fn database_issues(c:&Connection,report:&mut SafetyReport)->Result<(),TreeError>
 fn inspect_objects(root:&Path,staging:&Path,registered:&[BlobRecord],c:&Connection,report:&mut SafetyReport)->Result<(),TreeError>{
     let names=registered.iter().map(|b|b.sha256.as_str()).collect::<BTreeSet<_>>();
     if safe_optional_dir(root)? {
+        safe_directory(root,false)?;
         for entry in fs::read_dir(root).map_err(map_read)?{
             let entry=entry.map_err(map_read)?;
             let name=entry.file_name().to_string_lossy().into_owned();
-            if !names.contains(name.as_str()){
+            if name!=".data-m-directory-pin" && !names.contains(name.as_str()){
                 report.push("ORPHAN_OBJECT",&name.chars().take(64).collect::<String>());
             }
         }
     }
     if safe_optional_dir(staging)? {
+        safe_directory(staging,false)?;
         let mut known=BTreeSet::new();
         let mut stmt=c.prepare("SELECT staging_name FROM import_files").map_err(map_read)?;
         for item in stmt.query_map([],|r|r.get::<_,String>(0)).map_err(map_read)?{
