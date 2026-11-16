@@ -120,7 +120,7 @@ test('@S5 right-click cut move and destination conflict are atomic (explicit bro
   expect(result.audit).toHaveLength(2);
   expect(result.records).toHaveLength(11);
 });
-test('@S5 Ctrl+drag copies to another stage and Shift+drag moves back (explicit browser mock)',async({page})=>{
+test('@S5 Ctrl+drag copies across stages and Shift+drag moves to another sample (explicit browser mock)',async({page})=>{
   await setup(page);
   await page.getByRole('button',{name:'样本：R1'}).click();
   const browser=page.getByRole('region',{name:'真实资产浏览器'});
@@ -132,10 +132,11 @@ test('@S5 Ctrl+drag copies to another stage and Shift+drag moves back (explicit 
   await expect(browser.getByRole('status')).toContainText('匹配 1 条');
   await expect(nav.getByRole('button',{name:/Processed/})).toHaveAttribute('aria-current','page');
   await page.keyboard.down('Shift');
-  await browser.getByRole('button',{name:'选择 raw00.png'}).dragTo(nav.getByRole('button',{name:/Raw/}));
+  await browser.getByRole('button',{name:'选择 raw00.png'}).dragTo(page.getByRole('button',{name:'样本：R2'}));
   await page.keyboard.up('Shift');
-  await expect(nav.getByRole('button',{name:/Raw/})).toHaveAttribute('aria-current','page');
-  await expect(browser.getByRole('status')).toContainText('匹配 11 条');
+  await expect(nav.getByRole('button',{name:/Processed/})).toHaveAttribute('aria-current','page');
+  await expect(browser.getByRole('status')).toContainText('匹配 1 条');
+  await expect(page.getByRole('button',{name:'样本：R2'})).toHaveAttribute('aria-current','true');
   const result=await page.evaluate(()=>(window as any).__S5_TEST__);
   expect(result.audit.map((x:any)=>x.action)).toEqual(['copy','move']);
 });
