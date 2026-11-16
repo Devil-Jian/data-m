@@ -21,6 +21,8 @@
 
 2026-11-16 用户明确授权 S1 机器通过后继续顺序开发 S2、S3，最后统一人工验收。本次允许基于机器通过的前置候选堆叠开发；人工状态仍为 manual_pending，不改写为 accepted，不自动合并。S2 机器验证通过前不进入 S3 实现，S7 珍贵数据与恢复门槛不变。
 
+2026-11-16 S6 机器结果：在 `feat/s6-rename-recycle` 完成重命名、软删除、回收/恢复的 Rust/SQLite 与正式 React UI；[S6 Draft PR #50](https://github.com/Devil-Jian/data-m/pull/50) 以 S5 分支为 base，不合并 main。代码提交 `f591786df0d0d5a3049547cfc75612855bd16b0c` 的 [Windows CI #43895539113](https://github.com/Devil-Jian/data-m/actions/runs/43895539113) 为 **SUCCESS**：S6 原生 Rust 11/11、@S6 Playwright 4/4（显式 Mock）、完整 Rust 80/80、完整桌面 E2E 33/33、便携 EXE Artifact #14240920142。**S6 严格状态 `machine_passed / manual_pending`，非 `accepted`**；具体 Windows 人工核查见 [S6_EXECUTION_REPORT.md](S6_EXECUTION_REPORT.md)。不提前开发 S7–S11；任何珍贵/唯一科研数据的入库必须先完成 S7 恢复演练签收。
+
 2026-11-16 S5 阶段交接更新：**用户明确要求“标记为完成”**，故 S5 阶段开发与用户阶段确认记录为 `completed/confirmed`；正式 `accepted` 仍待 PR #49（及依赖 PR #47）合并与 Windows WebView2 原生人工逐项证据。S5 Windows CI [#43847745981](https://github.com/Devil-Jian/data-m/actions/runs/43847745981) 成功，测试提交 `0c35e4465c604eace5bffff1a52f465d9e498f91`。下一阶段为 **S6 重命名、软删除与回收恢复**；可执行开发指令见 [S6_DEVELOPMENT_TASK.md](S6_DEVELOPMENT_TASK.md)。S6 须从 S5 最新分支创建，严格禁止未经授权合并 main，S7 安全门槛继续有效。
 
 2026-11-16 S4 阶段验收更新：用户明确签收合格；原生 Windows CI/EXE 已 PASS，详细证据见 [S4 报告](S4_EXECUTION_REPORT.md)。PR #47 仍是 Draft/未合并 main；正式任务的 `accepted` 仍需满足本规范第 3.3 节的合并与证据条件。下一任务 **S5（资产复制与逻辑移动）** 按既定顺序执行，不提前重做 UI 或进入 S6；基线若尚未合并则采用 S4 分支并保留依赖。S7 安全门槛不变。
