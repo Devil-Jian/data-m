@@ -3,6 +3,7 @@ import {assetApi} from './asset-browser.ts';
 import type {AssetApi,AssetQuery,AssetRow} from './asset-browser.ts';
 import {beginAssetDrag,dropAssets,endAssetDrag,getClipboard,hasAssetDrag,pasteAssets,putClipboard,safeTransferError,sourcesFromRows,transferApi} from './asset-transfer.ts';
 import type {AssetScope,TransferApi} from './asset-transfer.ts';
+import {AssetLifecycle} from './asset-lifecycle.tsx';
 import './asset-browser.css';
 
 export function AssetBrowser({query,api=assetApi,transfers=transferApi}:{query:AssetQuery;api?:AssetApi;transfers?:TransferApi}){
@@ -12,7 +13,7 @@ export function AssetBrowser({query,api=assetApi,transfers=transferApi}:{query:A
   const [chosen,setChosen]=useState<Set<string>>(new Set()),[anchor,setAnchor]=useState<string|null>(null);
   const [detail,setDetail]=useState<AssetRow|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);
   const [revision,setRevision]=useState(0),[feedback,setFeedback]=useState(''),[clipboardCount,setClipboardCount]=useState(0);
-  const [menu,setMenu]=useState<{x:number;y:number}|null>(null);
+  const [menu,setMenu]=useState<{x:number;y:number;id:string}|null>(null);
   const epoch=useRef(0),rowRefs=useRef(new Map<string,HTMLButtonElement>()),listRef=useRef<HTMLDivElement>(null);
   const target:AssetScope|null=query.stage?{assayId:query.assayId,stage:query.stage,groupId:query.groupId??null,replicateId:query.replicateId??null}:null;
   useEffect(()=>{
@@ -24,6 +25,8 @@ export function AssetBrowser({query,api=assetApi,transfers=transferApi}:{query:A
     return ()=>{window.removeEventListener('data-m-s5-changed',onChanged);window.removeEventListener('data-m-s5-clipboard',onClipboard);};
   },[]);
   const pageCursor=pages.at(-1);
+  // A new page invalidates the previous page's write selection.
+  useEffect(()=>{setChosen(new Set());setAnchor(null);},[pageCursor]);
   useEffect(()=>{setPages([]);setPage([]);setChosen(new Set());setAnchor(null);setDetail(null);setMenu(null);},[query.assayId,query.stage,query.groupId,query.replicateId,search,sort]);
   useEffect(()=>{
     const ticket=++epoch.current;setBusy(true);setError('');
@@ -112,6 +115,7 @@ export function AssetBrowser({query,api=assetApi,transfers=transferApi}:{query:A
       <button type="button" disabled={!chosen.size||busy} onClick={()=>capture('move')}>剪切 (Ctrl+X)</button>
       <button type="button" disabled={!clipboardCount||!target||busy} onClick={()=>void paste()}>粘贴 (Ctrl+V)</button>
     </div>
+    <AssetLifecycle query={query} page={page} chosen={chosen} listRef={listRef} onChanged={()=>setRevision(x=>x+1)}/>
     <p className="dm-asset-hint">目标：{target?target.stage+' / '+(target.replicateId??'实验级'):'未选择合法阶段'} · 剪贴板 {clipboardCount} 条 · Ctrl+拖拽复制，Shift+拖拽移动。</p>
     {feedback&&<p className="dm-asset-feedback" aria-live="polite">{feedback}</p>}
     {error&&<p role="alert">{error}</p>}
@@ -125,7 +129,7 @@ export function AssetBrowser({query,api=assetApi,transfers=transferApi}:{query:A
       }}>
       {page.map(item=><div key={item.assetLinkId} role="option" aria-selected={chosen.has(item.assetLinkId)}
         className={chosen.has(item.assetLinkId)?'is-selected':''}
-        onContextMenu={event=>{event.preventDefault();if(!chosen.has(item.assetLinkId)){setChosen(new Set([item.assetLinkId]));setAnchor(item.assetLinkId);}setMenu({x:event.clientX,y:event.clientY});}}>
+        onContextMenu={event=>{event.preventDefault();if(!chosen.has(item.assetLinkId)){setChosen(new Set([item.assetLinkId]));setAnchor(item.assetLinkId);}setMenu({x:event.clientX,y:event.clientY,id:item.assetLinkId});}}>
         <button type="button" data-link-id={item.assetLinkId} draggable
           onDragStart={event=>{try{beginAssetDrag(selectedSources(item.assetLinkId));event.dataTransfer.setData('application/x-data-m-asset-links','1');event.dataTransfer.effectAllowed='copyMove';}catch(reason){event.preventDefault();setError(safeTransferError(reason).message);}}}
           onDragEnd={endAssetDrag} ref={node=>{if(node)rowRefs.current.set(item.assetLinkId,node);else rowRefs.current.delete(item.assetLinkId);}}
@@ -140,6 +144,8 @@ export function AssetBrowser({query,api=assetApi,transfers=transferApi}:{query:A
       <button type="button" role="menuitem" onClick={()=>capture('copy')}>复制</button>
       <button type="button" role="menuitem" onClick={()=>capture('move')}>剪切</button>
       <button type="button" role="menuitem" disabled={!clipboardCount} onClick={()=>void paste()}>粘贴到当前阶段</button>
+      <button type="button" role="menuitem" onClick={()=>{window.dispatchEvent(new CustomEvent('data-m-s6-rename',{detail:{id:menu.id}}));setMenu(null);}}>重命名</button>
+      <button type="button" role="menuitem" onClick={()=>{window.dispatchEvent(new CustomEvent('data-m-s6-delete',{detail:{id:menu.id}}));setMenu(null);}}>移至回收区</button>
       <button type="button" role="menuitem" onClick={()=>setMenu(null)}>关闭菜单</button>
     </div>}
     <footer>
