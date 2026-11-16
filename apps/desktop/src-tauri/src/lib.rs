@@ -3,6 +3,7 @@
 //! This first milestone intentionally exposes no destructive file operations.
 //! All real asset mutations will go through validated application use cases.
 mod asset_browser;
+mod asset_transfer;
 mod cas;
 mod cas_audit;
 mod domain_db;
@@ -24,6 +25,7 @@ pub fn run() {
             shell_status,
             asset_browser::list_assets,
             asset_browser::get_asset,
+            asset_transfer::asset_transfer,
             drop_preview::inspect_drop_paths,
             project_tree::project_tree,
             experiment_tree::experiment_tree,

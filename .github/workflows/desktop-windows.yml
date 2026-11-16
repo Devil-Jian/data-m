@@ -5,6 +5,7 @@ on:
       - feat/tauri2-desktop-shell
       - chore/s0-development-baseline
       - feat/s4-real-asset-browser
+      - feat/s5-asset-link-copy-move
     paths:
       - 'apps/desktop/**'
       - 'packages/**'
@@ -91,6 +92,15 @@ jobs:
         run: npm run test:e2e:desktop -- --grep "@S3"
       - name: S4 real asset browsing browser regression
         run: npm run test:e2e:desktop -- --grep "@S4"
+      - name: S5 real workspace transfer browser flows (explicit renderer mock)
+        run: npm run test:e2e:desktop -- --grep "@S5"
+      - name: S5 native SQLite asset-link transaction and invariants tests
+        working-directory: apps/desktop/src-tauri
+        run: |
+          $discovered = cargo test --locked --no-default-features s5_ -- --list
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not ($discovered -match 's5_.*: test$')) { throw 'S5 Rust suite must contain tests' }
+          cargo test --locked --no-default-features s5_
       - name: S4 SQLite pagination and scoped identity tests
         working-directory: apps/desktop/src-tauri
         run: |
@@ -134,10 +144,10 @@ jobs:
         run: cargo check --locked
       - name: Build Windows executable (no installer yet)
         run: npm run tauri:build
-      - name: Upload unsigned portable S4 EXE for Windows acceptance
+      - name: Upload unsigned portable S5 EXE for Windows acceptance
         uses: actions/upload-artifact@v4
         with:
-          name: data-m-s4-unsigned-portable-windows
+          name: data-m-s5-unsigned-portable-windows
           path: apps/desktop/src-tauri/target/release/data-m-desktop.exe
           if-no-files-found: error
           retention-days: 14

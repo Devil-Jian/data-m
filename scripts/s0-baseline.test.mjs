@@ -16,7 +16,11 @@ test('S0 shell retains authorized metadata/import IPC without storage work at st
   for (const command of s4) {
     assert.equal(registered.filter(x=>x===command).length,1,`S4 IPC missing or duplicated: ${command}`);
   }
-  assert.deepEqual([...registered].sort(),[...baseline,...s4].sort(),'unexpected IPC command registered');
+  const s5 = ['asset_transfer::asset_transfer'];
+  for (const command of s5) {
+    assert.equal(registered.filter(x=>x===command).length,1,`S5 audited transfer IPC missing or duplicated: ${command}`);
+  }
+  assert.deepEqual([...registered].sort(),[...baseline,...s4,...s5].sort(),'unexpected IPC command registered');
   const start=shell.indexOf('pub fn run()');
   const end=shell.indexOf('#[cfg(test)]',start);
   const run=shell.slice(start,end<0?undefined:end);
