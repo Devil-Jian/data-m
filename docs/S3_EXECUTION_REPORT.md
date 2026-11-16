@@ -1,6 +1,6 @@
 # S3 安全测试导入与任务恢复
 
-状态：`in_progress`，尚未机器验证、人工未验收、未合并。
+状态：`manual_pending`，机器验证通过；Windows GUI/拖放人工验收未执行，未合并。
 
 用户于 2026-11-16 明确授权在 S1/S2 机器通过后继续 S3，最后统一人工验收。S2 受测实现 `3742f70` 已通过 Windows/Linux 与 EXE 构建，本分支基于其文档提交 `faf94af537e03de57751accb74cc955683832d79`。S1/S2 保持 manual_pending，不把延后验收记为 accepted。
 
@@ -12,7 +12,16 @@
 
 ## 机器验证
 
-待记录真实运行命令、非零用例数、受测 SHA、Windows/Linux CI、原生进程终止恢复测试、源哈希与 EXE 产物。浏览器 Mock、SQL smoke 或仅编译成功不能代替原生测试。
+受测源码提交：`095d52752b63eb13b8a88c265ef0dbea78dfc0f8`。Draft PR：[PR #46](https://github.com/Devil-Jian/data-m/pull/46)。
+
+- Windows 原生流水线 [43791397423](https://github.com/Devil-Jian/data-m/actions/runs/43791397423) 全部通过：Rustfmt、锁定依赖、前端构建、浏览器回归、Rust 测试、`cargo check --locked`、release EXE 构建及产物上传。
+- S3 Rust 原生套件执行 17 项，17 通过、0 失败；包含 100 文件与 64 MiB 流式复制、源字节/mtime 不变、去重与幂等、取消边界、磁盘写入失败、坏 Blob、staging 身份竞态、仓库进程锁、真实子进程在 staged/published 断点退出并恢复、v1→v2 回滚、真实 Tauri IPC，以及 Windows 原地 junction 攻击/哨兵防护。
+- 完整 Rust 套件执行 59 项，59 通过；S2 过滤套件 7/7、S1 过滤套件 14/14、S0 过滤套件 4/4。
+- 浏览器执行：原文件交互 29/29、桌面全量 25/25、S3 显式 Mock 9/9；本地另执行 55 项 JS 单元测试和 3 项 S0 基线守卫，全部通过。
+- 跨平台 Web 构建流水线 [43791397325](https://github.com/Devil-Jian/data-m/actions/runs/43791397325) 的 Fluent、Mantine、shadcn 与 interaction-e2e 全部通过。S3 受保护文件服务明确为 Windows-only，非 Windows 返回 `UNSUPPORTED_PLATFORM`，不以浏览器 Mock 替代原生验收。
+- 候选 EXE：`data-m-s3-unsigned-portable-windows/data-m-desktop.exe`，11,100,160 bytes，SHA-256 `D543AFF7EA171A14FBBB0A91F5CBC691A60E78F57E611EC55A3F89442ED7AED6`；本地下载副本位于 `D:\paper\s3-artifacts-095d527\data-m-desktop.exe`。
+
+结构化证据见 [S3_EXECUTION_REPORT.json](S3_EXECUTION_REPORT.json)。浏览器 Mock、SQL smoke 或仅编译成功均未被当作原生通过证据。
 
 ## S1–S3 统一 Windows 人工验收（全部待执行）
 

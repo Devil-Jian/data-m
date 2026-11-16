@@ -1,0 +1,119 @@
+{
+  "task_id": "S3",
+  "base_sha": "faf94af537e03de57751accb74cc955683832d79",
+  "head_sha": "095d52752b63eb13b8a88c265ef0dbea78dfc0f8",
+  "status": "manual_pending",
+  "pr_url": "https://github.com/Devil-Jian/data-m/pull/46",
+  "machine_checks": [
+    {
+      "command": "npm run test:s0",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 3,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43791397423"
+    },
+    {
+      "command": "npm run test:interaction && npm run test:assets && npm run test:desktop",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 55,
+      "log_url": "local; repeated build/test groups passed in Windows CI 43791397423"
+    },
+    {
+      "command": "npm run test:e2e",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 29,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43791397423"
+    },
+    {
+      "command": "npm run test:e2e:desktop",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 25,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43791397423"
+    },
+    {
+      "command": "npm run test:e2e:desktop -- --grep \"@S3\"",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 9,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43791397423"
+    },
+    {
+      "command": "cargo test --locked --no-default-features s3_",
+      "cwd": "apps/desktop/src-tauri",
+      "exit_code": 0,
+      "tests_executed": 17,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43791397423"
+    },
+    {
+      "command": "cargo test --locked --no-default-features",
+      "cwd": "apps/desktop/src-tauri",
+      "exit_code": 0,
+      "tests_executed": 59,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43791397423"
+    },
+    {
+      "command": "cargo fmt --all -- --check && cargo check --locked",
+      "cwd": "apps/desktop/src-tauri",
+      "exit_code": 0,
+      "tests_executed": null,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43791397423"
+    },
+    {
+      "command": "npm run tauri:build",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": null,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43791397423"
+    },
+    {
+      "command": "build:fluent + build:mantine + build:shadcn + interaction-e2e",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": null,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43791397325"
+    }
+  ],
+  "artifact": {
+    "name": "data-m-s3-unsigned-portable-windows",
+    "file": "data-m-desktop.exe",
+    "size_bytes": 11100160,
+    "sha256": "D543AFF7EA171A14FBBB0A91F5CBC691A60E78F57E611EC55A3F89442ED7AED6",
+    "source_run": "https://github.com/Devil-Jian/data-m/actions/runs/43791397423"
+  },
+  "manual_checks": [
+    {
+      "step": "Combined S1 hierarchy persistence and guards",
+      "status": "not_run",
+      "evidence": null,
+      "signoff_by": null
+    },
+    {
+      "step": "Combined S2 groups, samples and four-stage scopes",
+      "status": "not_run",
+      "evidence": null,
+      "signoff_by": null
+    },
+    {
+      "step": "S3 native drop, explicit confirmation, progress, cancel and retry",
+      "status": "not_run",
+      "evidence": null,
+      "signoff_by": null
+    },
+    {
+      "step": "S3 EXE termination/reopen and disposable source before/after hash comparison",
+      "status": "not_run",
+      "evidence": null,
+      "signoff_by": null
+    }
+  ],
+  "residual_risks": [
+    "Combined S1-S3 Windows GUI acceptance is deferred by the user",
+    "Only disposable test repositories and generated sources are authorized",
+    "No important research data before the S7 backup/restore gate"
+  ],
+  "next_task_recommendation": "Run the documented combined Windows acceptance; do not merge or mark accepted without explicit user signoff.",
+  "report_followup": "head_sha identifies the tested executable source; the following commit updates evidence only."
+}

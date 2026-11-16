@@ -402,8 +402,10 @@
       ],
       "safety_gate": "本任务完成只能在隔离测试仓库中试用；S7 备份恢复演练通过前明确禁止重要真实科研数据入库。",
       "suggested_branch": "feat/s3-",
-      "current_status": "in_progress",
-      "execution_report": "S3_EXECUTION_REPORT.md"
+      "current_status": "manual_pending",
+      "execution_report": "S3_EXECUTION_REPORT.md",
+      "pr_url": "https://github.com/Devil-Jian/data-m/pull/46",
+      "machine_evidence": "S3_EXECUTION_REPORT.json"
     },
     {
       "id": "S4",
