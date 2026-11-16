@@ -63,7 +63,7 @@ function validateResult(request:TransferRequest,value:TransferResult):TransferRe
 }
 export const transferApi:TransferApi=async request=>{
   try{
-    const response:TransferResult=isTauri()?await invoke('asset_transfer',{request})
+    const response:TransferResult=isTauri()?await invoke<TransferResult>('asset_transfer',{request})
       :window.__S5_TRANSFER_MOCK__?await window.__S5_TRANSFER_MOCK__(request)
       :(()=>{throw new TransferError('UNKNOWN');})();
     return validateResult(request,response);
