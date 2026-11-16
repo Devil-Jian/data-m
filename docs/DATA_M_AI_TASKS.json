@@ -513,7 +513,7 @@
         13
       ],
       "initial_status": "prototype_only",
-      "evidence_snapshot": "Windows desktop shell #43845442075 SUCCESS at code SHA ad7eaeab2abc9bd5158ed18db6242384ebab1013: s5_ 8 passed, @S5 3 passed, complete Rust 69 passed, desktop E2E 29 passed, release EXE Artifact #14215881133 uploaded. Windows native WebView2 mouse/manual verification outstanding.",
+      "evidence_snapshot": "Stage development completed and user explicitly confirmed on 2026-11-16; CI #43847745981 success on 0c35e446 (s5_ 8/8; @S5 3/3; complete Rust 69/69; desktop E2E 29/29; Windows EXE #14217026532). Windows manual itemized evidence not provided; PR #49 still Draft/unmerged, so strict accepted remains pending.",
       "user_outcome": "同仓库把测试资产复制或移动到合法目标，样本数量/版本来源保持稳定。",
       "frontend_scope": [
         "复用右键、快捷键、拖动，展示目标、冲突和操作状态",
@@ -570,9 +570,13 @@
       "pr_url": "https://github.com/Devil-Jian/data-m/pull/49",
       "machine_status": "machine_passed",
       "human_status": "manual_pending",
-      "ci_run_url": "https://github.com/Devil-Jian/data-m/actions/runs/43845442075",
-      "ci_tested_sha": "ad7eaeab2abc9bd5158ed18db6242384ebab1013",
-      "exe_artifact_url": "https://github.com/Devil-Jian/data-m/actions/runs/43845442075/artifacts/14215881133"
+      "ci_run_url": "https://github.com/Devil-Jian/data-m/actions/runs/43847745981",
+      "ci_tested_sha": "0c35e4465c604eace5bffff1a52f465d9e498f91",
+      "exe_artifact_url": "https://github.com/Devil-Jian/data-m/actions/runs/43847745981/artifacts/14217026532",
+      "stage_status": "completed",
+      "stage_completion_confirmed_by_user": true,
+      "stage_completion_date": "2026-11-16",
+      "stage_completion_note": "User explicitly directed marking S5 as completed. Stage development delivered; formal accepted remains withheld because PR #49 is Draft/unmerged and full Windows WebView2 manual evidence has not been supplied."
     },
     {
       "id": "S6",
@@ -638,7 +642,11 @@
         "不实现磁盘级永久删除、Windows 回收站集成"
       ],
       "safety_gate": "强制禁止任何业务操作直接 unlink CAS objects；回收不是物理删除。",
-      "suggested_branch": "feat/s6-"
+      "suggested_branch": "feat/s6-rename-recycle",
+      "development_task_document": "S6_DEVELOPMENT_TASK.md",
+      "planning_status": "ready_for_development",
+      "current_status": "prototype_only",
+      "execution_note": "S6 specification ready on S5 branch. Start S6 coding only from latest feat/s5-asset-link-copy-move HEAD in new branch; S5 stage user-confirmed, PR #49 unmerged."
     },
     {
       "id": "S7",
