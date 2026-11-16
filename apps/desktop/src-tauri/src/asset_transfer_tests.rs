@@ -113,7 +113,12 @@ fn target_two() -> AssetScope {
 #[test]
 fn s5_ten_links_copy_cross_group_keeps_blob_sha_and_biological_n_after_reopen() {
     let (dir, path) = fixture();
-    let request = request("copy", "copy-ten", &(0..10).collect::<Vec<_>>(), target_two());
+    let request = request(
+        "copy",
+        "copy-ten",
+        &(0..10).collect::<Vec<_>>(),
+        target_two(),
+    );
     let result = execute_at(&path, request).unwrap();
     assert_eq!(result.links.len(), 10);
     assert!(result
@@ -163,7 +168,10 @@ fn s5_move_same_asset_between_samples_preserves_link_identity() {
             [],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )?;
-        assert_eq!((group.as_str(), replicate.as_str(), stage.as_str()), ("g1", "r3", "processed"));
+        assert_eq!(
+            (group.as_str(), replicate.as_str(), stage.as_str()),
+            ("g1", "r3", "processed")
+        );
         Ok(())
     })
     .unwrap();
@@ -184,7 +192,10 @@ fn s5_conflict_rejects_entire_multi_file_batch_without_partial_writes() {
     assert_eq!(count(&path, "audit_events"), 1);
     assert_eq!(count(&path, "s1_requests"), 1);
     let duplicate = request("copy", "duplicate", &[0, 0], target_two());
-    assert_eq!(execute_at(&path, duplicate).unwrap_err().code, "INVALID_REQUEST");
+    assert_eq!(
+        execute_at(&path, duplicate).unwrap_err().code,
+        "INVALID_REQUEST"
+    );
 }
 
 #[test]
