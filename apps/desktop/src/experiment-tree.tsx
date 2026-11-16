@@ -4,6 +4,8 @@ import {experimentApi,experimentMode,safeExperimentError,validateExperimentRespo
 import type {ExperimentApi,ExperimentKind,ExperimentRequest,ExperimentResponse,ExperimentStageId,ExperimentStageTarget} from './experiment-tree.ts';
 import {ImportJobsPanel} from './import-jobs.tsx';
 import {AssetBrowser} from './asset-browser.tsx';
+import {dropAssets,hasAssetDrag,safeTransferError,transferApi} from './asset-transfer.ts';
+import type {AssetScope} from './asset-transfer.ts';
 import type {ImportDropRegistrar,ImportTarget} from './import-jobs.ts';
 import './experiment-tree.css';
 
@@ -26,6 +28,7 @@ export function ExperimentTreeManager({assayId,assayName,api=experimentApi,onClo
   const [error,setError]=useState('');
   const [editor,setEditor]=useState<Editor|null>(null);
   const [importsOpen,setImportsOpen]=useState(false),[importLocked,setImportLocked]=useState(false);
+  const [transferNotice,setTransferNotice]=useState('');
   const navigationLocked=pending||importLocked;
   const alive=useRef(true),busy=useRef(false),dialog=useRef<HTMLDialogElement>(null);
   const groups=snapshot?.groups??[];
@@ -59,6 +62,20 @@ export function ExperimentTreeManager({assayId,assayName,api=experimentApi,onClo
     onTargetChange?.(targetAvailable?{assayId,stageId,...(stage?.scope==='replicate'?{replicateId:selectedReplicate!.id}:{})}:null);
   },[assayId,stageId,stage?.scope,selectedReplicate?.id,targetAvailable,onTargetChange]);
 
+  function allowAssetDrop(event:React.DragEvent<HTMLElement>){
+    if(hasAssetDrag()){event.preventDefault();event.dataTransfer.dropEffect=event.ctrlKey?'copy':event.shiftKey?'move':'none';}
+  }
+  async function acceptAssetDrop(event:React.DragEvent<HTMLElement>,dropStage:ExperimentStageId,groupId?:string,replicateId?:string){
+    if(!hasAssetDrag())return;
+    event.preventDefault();event.stopPropagation();
+    const target:AssetScope={assayId,stage:dropStage,groupId:groupId??null,replicateId:replicateId??null};
+    try{
+      const result=await dropAssets(event,target,transferApi);
+      setTransferNotice((result.action==='copy'?'复制':'移动')+'成功：'+result.links.length+' 条关联已写入 '+dropStage+'。');
+      setStageId(dropStage);
+      if(replicateId)setSelection({kind:'replicate',id:replicateId});
+    }catch(reason){setTransferNotice(safeTransferError(reason).message);}
+  }
   function open(value:Editor){setError('');setEditor(value);}
   function closeEditor(){if(!busy.current){setEditor(null);setError('');}}
   async function submit(){
@@ -93,6 +110,7 @@ export function ExperimentTreeManager({assayId,assayName,api=experimentApi,onClo
       {!importsOpen&&<Button disabled={navigationLocked||!snapshot} onClick={()=>setImportsOpen(true)}>安全导入（测试库）</Button>}
       <span role="status" aria-label="实验样本统计">{snapshot?`${groups.length} 个分组 · 生物学重复总数 n = ${snapshot.replicateCount}`:'样本统计尚未加载'}</span>
       {pending&&<span role="status">正在读取或提交…</span>}
+      {transferNotice&&<p className="dm-asset-feedback" aria-live="polite">{transferNotice}</p>}
     </div>
     {error&&!editor&&<p role="alert" className="dm-experiment-error">{error}</p>}
     <div className="dm-experiment-layout">
@@ -102,7 +120,10 @@ export function ExperimentTreeManager({assayId,assayName,api=experimentApi,onClo
           <div className="dm-experiment-group-row"><button type="button" disabled={navigationLocked} aria-label={`分组：${group.name}`}
             aria-current={selection?.kind==='group'&&selection.id===group.id?'true':undefined} onClick={()=>setSelection({kind:'group',id:group.id})}>{group.name}</button><span>n = {group.replicates.length}</span></div>
           <ul>{group.replicates.map(replicate=><li key={replicate.id}><button type="button" disabled={navigationLocked} aria-label={`样本：${replicate.label}`}
-            aria-current={selection?.kind==='replicate'&&selection.id===replicate.id?'true':undefined} onClick={()=>setSelection({kind:'replicate',id:replicate.id})}><span aria-hidden="true">○</span> {replicate.label}</button></li>)}</ul>
+            aria-current={selection?.kind==='replicate'&&selection.id===replicate.id?'true':undefined}
+            onDragOver={allowAssetDrop}
+            onDrop={event=>{void acceptAssetDrop(event,stageId==='raw'||stageId==='processed'?stageId:'raw',group.id,replicate.id);}}
+            onClick={()=>setSelection({kind:'replicate',id:replicate.id})}><span aria-hidden="true">○</span> {replicate.label}</button></li>)}</ul>
         </li>)}</ul>
         <p className="dm-experiment-count-note">n 仅统计生物学重复；文件数量和文件关联不计入 n。</p>
       </aside>
@@ -118,7 +139,10 @@ export function ExperimentTreeManager({assayId,assayName,api=experimentApi,onClo
         </section>
         <section className="dm-experiment-stages" aria-label="四阶段容器">
           <nav className="dm-experiment-stage-nav" aria-label="数据阶段">{snapshot?.stages.map(item=><button type="button" key={item.id}
-            disabled={navigationLocked} aria-current={stageId===item.id?'page':undefined} onClick={()=>setStageId(item.id)}>
+            disabled={navigationLocked} aria-current={stageId===item.id?'page':undefined}
+            onDragOver={allowAssetDrop}
+            onDrop={event=>{void acceptAssetDrop(event,item.id,item.scope==='replicate'?selectedGroup?.id:undefined,item.scope==='replicate'?selectedReplicate?.id:undefined);}}
+            onClick={()=>setStageId(item.id)}>
             {item.label} <small>{stageNames[item.id]}</small><span>{item.scope==='replicate'?'样本级':'实验级'}</span>
           </button>)}</nav>
           {stage&&<section className="dm-experiment-stage-body" aria-label="阶段内容" data-stage-id={stage.id} data-scope={stage.scope} data-replicate-id={stage.scope==='replicate'?selectedReplicate?.id:undefined}>
