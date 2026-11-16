@@ -1,43 +1,57 @@
-# S4 实施报告（未验收）
+# S4 实施与验收记录（2026-11-16 用户签收）
 
-- TASK_ID：S4
-- 分支：`feat/s4-real-asset-browser`
-- 基线：`main` @ `fbf84716871465a4fc3f230aa3c4009c80e35dc1`
-- 当前提交（初次 PR）：`29d767f0e5c40529e06c2b5d8cdb0376fd9ea5bd`
-- PR：[Draft #47](https://github.com/Devil-Jian/data-m/pull/47)
-- 状态：`in_progress`（不能标为 machine_passed / manual_pending / accepted）
+- TASK_ID：`S4`，真实文件浏览、搜索、选择。
+- 工作分支：`feat/s4-real-asset-browser`；基线：S3 已合并的 `main`。
+- 受测代码提交：`d8c2efe2b71601e3097c580e507c5418c87b43ac`（此后仅文档修订不代表重新测试）。
+- PR：[Draft #47](https://github.com/Devil-Jian/data-m/pull/47)，截至本次记录仍 **Open / Draft / 未合并 main**。
+- **用户阶段验收结果：合格 / 已签收（2026-11-16）**。用户在 Windows S4 EXE 中确认 100 张 ROS 模拟 PNG 文件导入无问题，并在会话中明确表示“S4验收合格，在文档中标记”。
+- **机器结果：PASS**。**正式任务状态：用户签收、待代码合并**；按 [AI 执行规范](AI_DEV_EXECUTION_SPEC.md) 的 `accepted` 严格定义，未合并前不标记为正式集成完成，不自动合并。
+- **范围限制**：本次阶段性签收不代表全量 S4 功能/回归项均有截图、哈希和跨视图证据；存在已知限制，见下文。用户允许按原计划进入 S5 开发。
 
-## 已实施
-- 新增 Rust `list_assets`、`get_asset` 只读查询逻辑；按 assay、stage、group、replicate 和名称过滤；名称/时间/大小稳定排序，最多每页 100 条。
-- 响应区分 `AssetId`、`AssetLinkId`、`AssetVersionId`，返回 SHA-256、大小、版本、引用标志而不返回源路径或 CAS 写路径。
-- 实验阶段视图接入文件浏览器；支持搜索、排序、分页、当前页 Shift/Ctrl、多选、文件详情。
-- Rust 测试 `s4_100_files_stable_pagination_and_detail`、`s4_filters_bad_cursor_and_context_identity`；浏览器 E2E `@S4` 明确使用 Mock。
-- Windows CI 新增 S4 筛选测试，要求非空。
+## 已实现的 S4 功能
 
-## 机器验收（严禁虚报）
+- 新增 Rust `list_assets`、`get_asset` 只读查询；按 Assay、Stage、Group、Replicate、名称过滤，提供稳定排序、分页与资产详情。
+- 区分 `AssetId`、`AssetLinkId`、`AssetVersionId`，对 UI 返回 SHA-256、大小、版本、引用标志，不返回用户源路径或 CAS 写入路径。
+- 正式项目管理中的实验阶段页接入真实文件列表；搜索、排序、分页、当前页 Ctrl/Shift 选择和详情可用。
+- 与仍为模拟数据的「演示工作区」保持隔离；**模拟 UI 不等于正式科研数据管理功能**。
 
-| 项目 | 命令 | 结果 |
+## 已验证机器证据
+
+| 检查项 | 结果 | 证据 |
 |---|---|---|
-| S4 Rust 集成 | `cargo test --no-default-features s4_` | 未执行/待 CI |
-| S4 浏览器 Mock | `npm run test:e2e:desktop -- --grep "@S4"` | 未执行/待 CI |
-| 完整 Rust | `cargo test --no-default-features` | 未执行/待 CI |
-| TypeScript & Vite | `npm run build:desktop` | 未执行/待 CI |
-| Rust 格式和 check | `cargo fmt --all -- --check`; `cargo check --locked` | 未执行/待 CI |
-| Windows EXE | `npm run tauri:build` | 未执行/待 CI |
+| Rust 格式检查 | PASS | Windows CI `cargo fmt --all -- --check` |
+| TypeScript/Vite、交互与桌面测试 | PASS | Windows CI 完整前端步骤 |
+| 桌面 Playwright E2E（含 `@S4`） | PASS | Windows CI S0–S4 浏览器回归 |
+| S4 Rust/SQLite 专项测试（非零用例） | PASS | `cargo test --locked --no-default-features s4_` |
+| S0–S3 Rust 专项 + 完整 Rust | PASS | `cargo test --locked --no-default-features` |
+| Rust 类型编译检查 | PASS | `cargo check --locked` |
+| Windows Release EXE 构建及上传 | PASS | `npm run tauri:build`、Artifact 上传 |
 
-以上没有运行证据，不代表成功。当前执行容器无 Cargo/rustfmt，且不能直连 GitHub 克隆仓库；使用已连接 GitHub API 写入分支。CI 完成后须记录真实 head_sha、命令、退出码、执行数量和构建链接。
+- [Windows desktop shell #43826786651](https://github.com/Devil-Jian/data-m/actions/runs/43826786651)：**completed / success**，全部步骤通过。
+- [Build UI demo variants #43826786640](https://github.com/Devil-Jian/data-m/actions/runs/43826786640)：**completed / success**。
+- [data-m-s4-unsigned-portable-windows Artifact #14207632088](https://github.com/Devil-Jian/data-m/actions/runs/43826786651/artifacts/14207632088)：含 `data-m-desktop.exe`，未签名便携测试版（非 Windows 安装器），GitHub Artifact 约 2026-11-30 到期。
+- 这些证据只覆盖上述提交与构建，不能代替所有 Windows GUI 人工测试或正式科研数据安全验收。
 
-## 未满足的机器验收项 / 风险
-- M1：Rust 使用 100 条 SQLite 测试插入，不等于 S3 真实导入 100 文件后 UI 计数；尚需端到端测试。
-- M2：已以 AssetLinkId 作为选择 ID，但跨容器拖拽及跨视图同资产多关联仍需专门回归。
-- M3：选择目前限定在当前分页；跨分页和框选/过滤逻辑全集的一致性尚未达到规范。
-- M4：分页和错误游标测试已编写，尚未运行；偏移游标在并发插入时可能发生漂移，需快照/键集机制。
-- 当前没有 Windows GUI 实测，也没有已验证 EXE 和 SHA。
-- 仍处于受控测试仓库阶段，S7 签收前禁止导入珍贵科研数据。
+## Windows 人工签收记录（据用户明确反馈）
 
-## Windows 11 人工验收记录模板
-1. 用 S3 从专门创建、可丢弃的文件夹向同一实验 Raw/Processed/Statistics/Display 导入 100 个测试文件。导入前后对比源目录文件数量、SHA-256 和修改时间。记录实际结果及截图。
-2. 重启 EXE，打开“项目管理 → 实验 → 分组与样本”，选择 Group / Replicate / Stage；检查每页 50 条、数量、排序、搜索和具体资产内容，不得混入演示数据。
-3. 两个阶段中建立同一 DataAsset 的不同 AssetLink（若有测试 fixture），核对所选 ID、详情上下文和文件版本；跨容器选择不串位。
-4. 验证 Ctrl、Shift、Ctrl+A、框选及分页/过滤后选择行为；任何不一致标记 failed，不当作通过。
-5. 记录 Windows 11 版本、DPI、EXE 文件 SHA、受测 commit、执行者和日期，以及错误截图/录屏。完成后人工签字。
+| 人工项 | 记录结果 | 证据边界 |
+|---|---|---|
+| 从 GitHub Actions 下载 S4 EXE 并启动测试 | 已由用户使用并反馈 | 未提供 Windows build / DPI / EXE SHA 记录 |
+| 100 张 `ROS001_raw.png` 至 `ROS100_raw.png` 模拟文件导入 | **用户确认导入无问题** | 未提供截图/原始源哈希前后对照 |
+| 用户对 S4 阶段签收 | **合格（2026-11-16）** | 用户明确声明；不等于剩余全部用例均单独提供证据 |
+| 50+50 分页、搜索、排序、重启后持久化 | 未单独提供结果证据 | 不据此宣称已人工通过 |
+| 同一资产多上下文、跨页选择、框选/跨视图 | 未满足完整规范或缺少实测 | 见遗留事项 |
+
+## 已知缺口、留待后续验收的项
+
+1. 真实 S3→S4 100 文件端到端导入/分页/列表总数对照没有完整自动化证据；Rust 中的 100 条 SQLite 测试是独立构造数据。用户已确认真实导入成功，但其他环节不能直接推定通过。
+2. 同一 DataAsset 的多 `AssetLinkId` 上下文选择与跨容器拖拽尚需针对性测试。
+3. 当前页多选已接入；跨分页选择、过滤全集选择与框选/拖拽一致性仍是已知差距。**S5 不得直接复用有歧义的选区作为写操作授权**，必须验证 ID 和目标作用域。
+4. 偏移游标在并发变更时可能漂移，后续需快照/键集分页或等效约束。
+5. 软件仍处于隔离测试仓库阶段。**S7 完整性校验、备份恢复及人工演练签收之前，不得导入珍贵/唯一科研原始数据**。
+
+## 下一阶段
+
+**TASK_ID=S5：资产复制与逻辑移动**，遵循 [AI 可执行开发规范 S5](AI_DEV_EXECUTION_SPEC.md) 以及 [DATA_M_AI_TASKS.json](DATA_M_AI_TASKS.json)。S5 新分支须基于已签收的 S4 最新代码与文档基线；如 S4 PR 尚未合并，可从 `feat/s4-real-asset-browser` 建分支并明确依赖，禁止未经授权合并 main。S5 必须完成真实 Rust 事务、幂等请求、原子回滚、审计和 `@S5`/ `s5_` 非零自动化测试及 Windows EXE 人工清单。
+
+**版本状态规则**：用户阶段签收与正式 `accepted`（需合并、完整证据）分开记录；本记录不隐瞒仍待补测项。
