@@ -513,7 +513,7 @@
         13
       ],
       "initial_status": "prototype_only",
-      "evidence_snapshot": "S5 implementation in dedicated branch stacked on signed-off S4 SHA 789bac6; machine and Windows GUI evidence pending.",
+      "evidence_snapshot": "Windows desktop shell #43845442075 SUCCESS at code SHA ad7eaeab2abc9bd5158ed18db6242384ebab1013: s5_ 8 passed, @S5 3 passed, complete Rust 69 passed, desktop E2E 29 passed, release EXE Artifact #14215881133 uploaded. Windows native WebView2 mouse/manual verification outstanding.",
       "user_outcome": "同仓库把测试资产复制或移动到合法目标，样本数量/版本来源保持稳定。",
       "frontend_scope": [
         "复用右键、快捷键、拖动，展示目标、冲突和操作状态",
@@ -565,9 +565,14 @@
       ],
       "safety_gate": "操作目标必须精确到 AssetLink/Version 的合法组合；不允许同一 Asset 在多上下文产生误删除。",
       "suggested_branch": "feat/s5-asset-link-copy-move",
-      "current_status": "in_progress",
+      "current_status": "manual_pending",
       "execution_report": "S5_EXECUTION_REPORT.md",
-      "pr_url": "https://github.com/Devil-Jian/data-m/pull/49"
+      "pr_url": "https://github.com/Devil-Jian/data-m/pull/49",
+      "machine_status": "machine_passed",
+      "human_status": "manual_pending",
+      "ci_run_url": "https://github.com/Devil-Jian/data-m/actions/runs/43845442075",
+      "ci_tested_sha": "ad7eaeab2abc9bd5158ed18db6242384ebab1013",
+      "exe_artifact_url": "https://github.com/Devil-Jian/data-m/actions/runs/43845442075/artifacts/14215881133"
     },
     {
       "id": "S6",
