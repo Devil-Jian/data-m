@@ -1,5 +1,7 @@
 # Data-M 产品需求、开发进度、后续计划与验收基线
 
+> **S5 进度更新（2026-11-16，优先于下方所有历史快照）**：在 S4 签收开发基线 `789bac6cc9757023aa58b67bc986bb2a65227235` 上创建 `feat/s5-asset-link-copy-move`；[Draft PR #49](https://github.com/Devil-Jian/data-m/pull/49) 以尚未合并的 S4 分支为 base，**未合并 main**。S5 真实资产关联复制/逻辑移动、SQLite 原子事务/回滚/请求幂等、正式项目管理工作区快捷键/右键/拖放接线已实现。Windows CI [#43845442075](https://github.com/Devil-Jian/data-m/actions/runs/43845442075) 对代码提交 `ad7eaeab2abc9bd5158ed18db6242384ebab1013` **SUCCESS**：`s5_` Rust 8 项、`@S5` Playwright 3 项、完整 Rust 69 项、桌面 E2E 29 项均通过，Release EXE [Artifact #14215881133](https://github.com/Devil-Jian/data-m/actions/runs/43845442075/artifacts/14215881133) 已生成；详见 [S5 执行报告](S5_EXECUTION_REPORT.md)。**S5 状态为 machine_passed / manual_pending，而非 accepted**：真实 Windows 11 WebView2 的 Ctrl/Shift 指针拖动、SHA/Blob/n、重启和异常路径仍需人工验收。CI 的拖放 E2E 使用 DOM DataTransfer 模拟，不能冒充原生鼠标验收。继续不开发 S6–S11，S7 恢复与安全门槛签收前禁止用珍贵/唯一真实科研数据测试。
+
 > **进度更新（2026-11-16，优先于下方 2026-11-15 历史快照）**：S0–S3 已有验收记录；**S4 Windows CI 和便携 EXE 构建通过，用户明确签收 S4 阶段验收合格**，受测代码 `d8c2efe2`，详见 [S4 执行报告](S4_EXECUTION_REPORT.md)、[Windows Actions #43826786651](https://github.com/Devil-Jian/data-m/actions/runs/43826786651)。[PR #47](https://github.com/Devil-Jian/data-m/pull/47) **仍 Draft、未合并 main**，故严格的正式任务 `accepted` 仍待合并；S4 跨页/框选、多上下文选择等缺口须留档，不将未实测项改写为通过。**按原执行规范下一阶段为 S5「资产复制与逻辑移动」**，在 S4 已签收开发分支基线上实现，不调整既定阶段顺序；S7 完整性/备份恢复签收前仍禁止珍贵真实科研数据用于开发测试。
 
 > S1 当前为 `manual_pending`：PR #44 的项目/主题/实验持久化已通过 Windows/Linux 机器验证，未人工签收、未合并；证据与人工清单见 [S1 报告](S1_EXECUTION_REPORT.md)。
