@@ -126,9 +126,23 @@ test('@S5 Ctrl+drag copies across stages and Shift+drag moves to another sample 
   const browser=page.getByRole('region',{name:'真实资产浏览器'});
   const nav=page.getByRole('navigation',{name:'数据阶段'});
   await expect(browser.getByRole('status')).toContainText('匹配 10 条');
+  await page.evaluate(()=>{
+    (window as any).__S5_DRAG_EVENTS__=[];
+    for (const type of ['dragstart','dragover','drop','dragend'])document.addEventListener(type,(event:Event)=>{
+      const drag=event as DragEvent;
+      const events=(window as any).__S5_DRAG_EVENTS__ as any[];
+      if(events.length<40)events.push({type,ctrl:drag.ctrlKey,shift:drag.shiftKey,
+        target:(drag.target as HTMLElement)?.getAttribute('aria-label')??(drag.target as HTMLElement)?.textContent?.slice(0,40)});
+    },true);
+  });
   await page.keyboard.down('Control');
   await browser.getByRole('button',{name:'选择 raw00.png'}).dragTo(nav.getByRole('button',{name:/Processed/}));
   await page.keyboard.up('Control');
+  console.log('S5 drag diagnostics',JSON.stringify(await page.evaluate(()=>({
+    events:(window as any).__S5_DRAG_EVENTS__,
+    requests:(window as any).__S5_TEST__.requests,
+    notices:[...document.querySelectorAll('.dm-asset-feedback')].map(x=>x.textContent)
+  }))));
   await expect(browser.getByRole('status')).toContainText('匹配 1 条');
   await expect(nav.getByRole('button',{name:/Processed/})).toHaveAttribute('aria-current','page');
   await page.keyboard.down('Shift');
