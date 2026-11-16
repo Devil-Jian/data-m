@@ -2,7 +2,7 @@
   "task_id": "S3",
   "base_sha": "faf94af537e03de57751accb74cc955683832d79",
   "head_sha": "095d52752b63eb13b8a88c265ef0dbea78dfc0f8",
-  "status": "manual_pending",
+  "status": "accepted",
   "pr_url": "https://github.com/Devil-Jian/data-m/pull/46",
   "machine_checks": [
     {
@@ -86,34 +86,34 @@
   "manual_checks": [
     {
       "step": "Combined S1 hierarchy persistence and guards",
-      "status": "not_run",
-      "evidence": null,
-      "signoff_by": null
+      "status": "pass",
+      "evidence": "User stated on 2026-11-16: S1-S3 人工验收通过，允许合并。",
+      "signoff_by": "user"
     },
     {
       "step": "Combined S2 groups, samples and four-stage scopes",
-      "status": "not_run",
-      "evidence": null,
-      "signoff_by": null
+      "status": "pass",
+      "evidence": "User stated on 2026-11-16: S1-S3 人工验收通过，允许合并。",
+      "signoff_by": "user"
     },
     {
       "step": "S3 native drop, explicit confirmation, progress, cancel and retry",
-      "status": "not_run",
-      "evidence": null,
-      "signoff_by": null
+      "status": "pass",
+      "evidence": "User stated on 2026-11-16: S1-S3 人工验收通过，允许合并。",
+      "signoff_by": "user"
     },
     {
       "step": "S3 EXE termination/reopen and disposable source before/after hash comparison",
-      "status": "not_run",
-      "evidence": null,
-      "signoff_by": null
+      "status": "pass",
+      "evidence": "User stated on 2026-11-16: S1-S3 人工验收通过，允许合并。 No screenshot or hash-report path was supplied or fabricated.",
+      "signoff_by": "user"
     }
   ],
   "residual_risks": [
-    "Combined S1-S3 Windows GUI acceptance is deferred by the user",
     "Only disposable test repositories and generated sources are authorized",
     "No important research data before the S7 backup/restore gate"
   ],
-  "next_task_recommendation": "Run the documented combined Windows acceptance; do not merge or mark accepted without explicit user signoff.",
-  "report_followup": "head_sha identifies the tested executable source; the following commit updates evidence only."
+  "next_task_recommendation": "Merge authorized PR #46; preserve the S7 backup/restore gate before important research data.",
+  "report_followup": "head_sha identifies the tested executable source; this document records later user signoff.",
+  "manual_acceptance_signed_off": "2026-11-16"
 }

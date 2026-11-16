@@ -2,7 +2,7 @@
   "task_id": "S2",
   "base_sha": "14eac0314e39276e8afb474d1ba4d8a6f1488dd2",
   "head_sha": "3742f70548ace31972cccccee6f4fa2ec01f56fa",
-  "status": "manual_pending",
+  "status": "accepted",
   "pr_url": "https://github.com/Devil-Jian/data-m/pull/45",
   "machine_checks": [
     {
@@ -93,27 +93,28 @@
   "manual_checks": [
     {
       "step": "H1 three groups of six samples, restart preserves n",
-      "status": "not_run",
-      "evidence": null,
-      "signoff_by": null
+      "status": "pass",
+      "evidence": "User stated on 2026-11-16: S1-S3 人工验收通过，允许合并。",
+      "signoff_by": "user"
     },
     {
       "step": "H2 four-stage scopes and empty views",
-      "status": "not_run",
-      "evidence": null,
-      "signoff_by": null
+      "status": "pass",
+      "evidence": "User stated on 2026-11-16: S1-S3 人工验收通过，允许合并。",
+      "signoff_by": "user"
     },
     {
       "step": "H3 scoped association and nonempty deletion guards",
-      "status": "not_run",
-      "evidence": null,
-      "signoff_by": null
+      "status": "pass",
+      "evidence": "User stated on 2026-11-16: S1-S3 人工验收通过，允许合并。",
+      "signoff_by": "user"
     }
   ],
   "residual_risks": [
-    "Combined S1-S3 manual acceptance deferred by user",
     "No production asset import before S7"
   ],
-  "next_task_recommendation": "Proceed S3 implementation per explicit user authorization; no automatic merge.",
-  "report_followup": "head_sha identifies tested executable source; next commit documents evidence only."
+  "next_task_recommendation": "Accepted and merged through PR #45; preserve the S7 production-data gate.",
+  "report_followup": "head_sha identifies tested executable source; this document records later user signoff.",
+  "manual_acceptance_signed_off": "2026-11-16",
+  "merge_commit": "edf477995369a9e45dfe6de944374aae2979c536"
 }
