@@ -4,7 +4,7 @@ use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AssetQuery {
     assay_id: String,
@@ -278,7 +278,7 @@ mod tests {
         let mut q = query();
         let mut found = vec![];
         loop {
-            let page = list_at(&path, q).unwrap();
+            let page = list_at(&path, q.clone()).unwrap();
             assert_eq!(page.total, 100);
             found.extend(page.items.into_iter().map(|a| a.asset_link_id));
             if let Some(next) = page.next_cursor {
