@@ -591,7 +591,7 @@
         6
       ],
       "initial_status": "prototype_only",
-      "evidence_snapshot": "S6 Rust/SQLite and real React UI implemented on feat/s6-rename-recycle with nonzero s6_ Rust and @S6 browser test suites. Windows CI is being verified; do not mark machine_passed until an explicit successful run on the code SHA. PR #50 Draft and Windows manual acceptance pending.",
+      "evidence_snapshot": "Windows desktop shell run #43895539113 completed SUCCESS for code SHA f591786df0d0d5a3049547cfc75612855bd16b0c. Rust native s6_ 11/11, @S6 Chromium 4/4 explicit browser mock, Rust full 80/80, desktop E2E full 33/33; S0-S5 native tests and Rust fmt/check + Windows Release EXE successful. Artifact #14240920142. PR #50 Draft/unmerged; real Windows WebView2/manual hash acceptance outstanding.",
       "user_outcome": "重命名归属名称、软删除并从回收视图恢复，引用文件版本不失效。",
       "frontend_scope": [
         "F2/右键重命名真实提交、删除确认、回收列表和恢复按钮",
@@ -644,16 +644,25 @@
       "safety_gate": "强制禁止任何业务操作直接 unlink CAS objects；回收不是物理删除。",
       "suggested_branch": "feat/s6-rename-recycle",
       "development_task_document": "S6_DEVELOPMENT_TASK.md",
-      "planning_status": "implemented_under_ci",
-      "current_status": "in_progress",
-      "execution_note": "User initiated TASK_ID=S6. Strict S0-S11 ordering retained, no S7-S11 code work or main merge. Work depends on S5 user-confirmed stage (formal accepted pending).",
-      "machine_status": "pending",
+      "planning_status": "implemented_machine_verified",
+      "current_status": "manual_pending",
+      "execution_note": "S6 Rust/SQLite, real UI, dedicated recycle view, 11 native tests and 4 mock renderer cases implemented on feat/s6-rename-recycle; Windows CI machine passed. Real Windows manual acceptance is not evidenced; keep PR Draft, do not merge main. S7-S11 not started in this branch.",
+      "machine_status": "machine_passed",
       "human_status": "manual_pending",
       "execution_report": "S6_EXECUTION_REPORT.md",
       "implementation_design": "S6_IMPLEMENTATION_DESIGN.md",
       "development_branch": "feat/s6-rename-recycle",
       "baseline_sha": "6a0da0253a4af6473a3dbb634bb764adba8f80c0",
-      "pr_url": "https://github.com/Devil-Jian/data-m/pull/50"
+      "pr_url": "https://github.com/Devil-Jian/data-m/pull/50",
+      "ci_run_url": "https://github.com/Devil-Jian/data-m/actions/runs/43895539113",
+      "ci_tested_sha": "f591786df0d0d5a3049547cfc75612855bd16b0c",
+      "exe_artifact_url": "https://github.com/Devil-Jian/data-m/actions/runs/43895539113/artifacts/14240920142",
+      "machine_test_counts": {
+        "s6_rust": 11,
+        "s6_browser_mock": 4,
+        "all_rust": 80,
+        "all_desktop_browser": 33
+      }
     },
     {
       "id": "S7",
