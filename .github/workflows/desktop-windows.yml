@@ -85,6 +85,15 @@ jobs:
         run: npm run test:e2e:desktop -- --grep "@S1"
       - name: S2 experiment structure browser mock E2E
         run: npm run test:e2e:desktop -- --grep "@S2"
+      - name: S3 import workflow browser mock E2E
+        run: npm run test:e2e:desktop -- --grep "@S3"
+      - name: S3 source protection and crash recovery
+        working-directory: apps/desktop/src-tauri
+        run: |
+          $discovered = cargo test --locked --no-default-features s3_ -- --list
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not ($discovered -match 's3_.*: test$')) { throw 'S3 Rust suite must contain tests' }
+          cargo test --locked --no-default-features s3_
       - name: S2 experiment persistence and sample identity
         working-directory: apps/desktop/src-tauri
         run: |
@@ -114,10 +123,10 @@ jobs:
         run: cargo check --locked
       - name: Build Windows executable (no installer yet)
         run: npm run tauri:build
-      - name: Upload unsigned portable S1 EXE for native WebView2 acceptance
+      - name: Upload unsigned portable S3 EXE for combined native acceptance
         uses: actions/upload-artifact@v4
         with:
-          name: data-m-s2-unsigned-portable-windows
+          name: data-m-s3-unsigned-portable-windows
           path: apps/desktop/src-tauri/target/release/data-m-desktop.exe
           if-no-files-found: error
           retention-days: 7

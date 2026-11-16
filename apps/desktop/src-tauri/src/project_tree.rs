@@ -5,8 +5,9 @@ use std::{path::Path, sync::Mutex, time::Duration};
 use tauri::Manager;
 
 const APPLICATION_ID: i64 = 0x444d5331;
-const MIGRATION: &str = include_str!("../migrations/0001_initial.sql");
-const REQUEST_SCHEMA: &str =
+pub(super) const MIGRATION: &str = include_str!("../migrations/0001_initial.sql");
+const MIGRATION_2: &str = include_str!("../migrations/0002_import_jobs.sql");
+pub(super) const REQUEST_SCHEMA: &str =
     "CREATE TABLE s1_requests(request_id TEXT PRIMARY KEY, payload TEXT NOT NULL) STRICT;";
 static ACCESS: Mutex<()> = Mutex::new(());
 
@@ -196,17 +197,20 @@ fn initialize(connection: &mut Connection) -> Result<(), TreeError> {
     tx.commit()?;
     Ok(())
 }
-fn recognized(connection: &Connection) -> Result<(), TreeError> {
+pub(super) fn recognized(connection: &Connection) -> Result<(), TreeError> {
     let result = (|| -> rusqlite::Result<bool> {
         let application: i64 =
             connection.pragma_query_value(None, "application_id", |r| r.get(0))?;
         let version: i64 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
-        if application != APPLICATION_ID || version != 1 {
+        if application != APPLICATION_ID || !matches!(version, 1 | 2) {
             return Ok(false);
         }
         let expected = Connection::open_in_memory()?;
         expected.execute_batch(MIGRATION)?;
         expected.execute_batch(REQUEST_SCHEMA)?;
+        if version == 2 {
+            expected.execute_batch(MIGRATION_2)?;
+        }
         if schema(connection)? != schema(&expected)? {
             return Ok(false);
         }
@@ -215,7 +219,7 @@ fn recognized(connection: &Connection) -> Result<(), TreeError> {
             [],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )?;
-        Ok(history == (1, 1, 1))
+        Ok(history == (version, 1, version))
     })();
     match result {
         Ok(true) => Ok(()),
@@ -261,7 +265,28 @@ fn open(path: &Path) -> Result<Connection, TreeError> {
     if !path.exists() {
         publish_new_database(path, initialize)?;
     }
-    {
+    validate_readonly(path)?;
+    let mut connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE)?;
+    connection.busy_timeout(Duration::from_secs(5))?;
+    // A second validation prevents using a replaced or partially initialized file.
+    recognized(&connection)?;
+    connection.pragma_update(None, "foreign_keys", "ON")?;
+    // Upgrade only a branded, fully recognized v1 repository. The transaction
+    // preserves every existing identifier and rolls back schema/history together.
+    if connection.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))? == 1 {
+        let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        // Another process may have upgraded while this connection waited.
+        recognized(&tx)?;
+        if tx.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))? == 1 {
+            tx.execute_batch(MIGRATION_2)?;
+            tx.pragma_update(None, "user_version", 2)?;
+        }
+        tx.commit()?;
+    }
+    Ok(connection)
+}
+
+pub(super) fn validate_readonly(path: &Path) -> Result<(), TreeError> {
         // immutable disables journaling/recovery and prevents sidecar creation during
         // recognition, even for an unfamiliar WAL database. Ours uses DELETE journals.
         let absolute = std::fs::canonicalize(path).map_err(|_| TreeError::unknown())?;
@@ -285,14 +310,7 @@ fn open(path: &Path) -> Result<Connection, TreeError> {
             OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
         )
         .map_err(|_| TreeError::unknown())?;
-        recognized(&readonly)?;
-    }
-    let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE)?;
-    connection.busy_timeout(Duration::from_secs(5))?;
-    // A second validation prevents using a replaced or partially initialized file.
-    recognized(&connection)?;
-    connection.pragma_update(None, "foreign_keys", "ON")?;
-    Ok(connection)
+        recognized(&readonly)
 }
 fn execute_at(path: &Path, request: TreeRequest) -> Result<TreeSnapshot, TreeError> {
     validate(&request)?;

@@ -1,4 +1,4 @@
-import React, {useEffect,useReducer,useRef,useState} from 'react';
+import React, {useCallback,useEffect,useReducer,useRef,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {Workbench} from '@data-m/core';
 import {getCurrentWebview} from '@tauri-apps/api/webview';
@@ -10,6 +10,7 @@ import '@data-m/core/style.css';
 import '@data-m/ui/style.css';
 import './desktop.css';
 import {ProjectTreeManager} from './project-tree.tsx';
+import type {ImportDropHandler,ImportDropRegistrar} from './import-jobs.ts';
 
 /** Native Windows drop adapter. Inspection is read-only; source paths never reach UI state. */
 function DesktopApp(){
@@ -17,6 +18,22 @@ function DesktopApp(){
   const [projectBusy,setProjectBusy]=useState(false);
   const [drop,dispatch]=useReducer(dropReducer,initialDropState);
   const dismissButtonRef=useRef<HTMLButtonElement>(null);
+  const importDropRef=useRef<ImportDropHandler|null>(null);
+  const registerImportDrop:ImportDropRegistrar=useCallback(handler=>{
+    importDropRef.current=handler;
+    if(handler)dispatch({type:'dismiss'});
+  },[]);
+  // Synthetic drops exist only for an explicitly injected browser test backend.
+  // A normal browser has no source-path entry or native import simulation.
+  useEffect(()=>{
+    if(isTauri()||!window.__S3_IMPORTS_MOCK__)return;
+    const onTestDrop=(event:Event)=>{
+      const paths=(event as CustomEvent<{paths?:unknown}>).detail?.paths;
+      if(Array.isArray(paths)&&paths.every(path=>typeof path==='string'))importDropRef.current?.(paths);
+    };
+    window.addEventListener('data-m-test-import-drop',onTestDrop);
+    return ()=>window.removeEventListener('data-m-test-import-drop',onTestDrop);
+  },[]);
   // Make the native drop preview dismissible with Escape, including during inspection.
   useEffect(()=>{
     if(drop.kind==='idle')return;
@@ -41,6 +58,14 @@ function DesktopApp(){
     let unlisten:(()=>void)|undefined;
     void getCurrentWebview().onDragDropEvent(event=>{
       if(disposed)return;
+      if(importDropRef.current){
+        if(event.payload.type==='drop'){
+          // Only the active S3 panel prepares these ephemeral OS paths. Its
+          // explicit confirmation is still required before any copying starts.
+          importDropRef.current(event.payload.paths);
+        }
+        return;
+      }
       switch(event.payload.type){
         case 'enter':
         case 'over':
@@ -78,7 +103,7 @@ function DesktopApp(){
       <span>{managingProjects?'Project / Theme / Assay':'演示数据与文件交互，不代表真实入库'}</span>
     </nav>
     <div className="dm-desktop-content">
-      {managingProjects?<ProjectTreeManager onBusyChange={setProjectBusy}/>:<Workbench ui={shadcnUI} variant="shadcn"/>}
+      {managingProjects?<ProjectTreeManager onBusyChange={setProjectBusy} registerImportDrop={registerImportDrop}/>:<Workbench ui={shadcnUI} variant="shadcn"/>}
     </div>
     {drop.kind!=='idle'&&<section
       className={'dm-native-drop '+(drop.kind==='over'?'is-over':'')}

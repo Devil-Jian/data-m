@@ -97,7 +97,7 @@
 | **S0** | 工程主线与唯一桌面 UI | 无 | `accepted`，用户签收并已合并 main，见 [执行报告](S0_EXECUTION_REPORT.md) | #8, #12, #4, #13 |
 | **S1** | 项目主题实验 CRUD | S0 | `manual_pending`，见 [执行报告](S1_EXECUTION_REPORT.md)，未验收 | #17, #14 |
 | **S2** | 分组样本与四阶段结构 | S1 | `manual_pending`，机器通过，见 [报告](S2_EXECUTION_REPORT.md)，统一人工验收待执行 | #17, #14 |
-| **S3** | 安全文件导入与任务恢复 | S2 | `prototype_only`，未验收 | #6, #15, #14 |
+| **S3** | 安全文件导入与任务恢复 | S2 | `in_progress`，见 [报告](S3_EXECUTION_REPORT.md)，统一人工验收待执行 | #6, #15, #14 |
 | **S4** | 真实文件浏览搜索与选择 | S3 | `prototype_only`，未验收 | #5, #13, #17 |
 | **S5** | 资产复制与逻辑移动 | S4 | `prototype_only`，未验收 | #6, #7, #13 |
 | **S6** | 重命名软删除与回收恢复 | S5 | `prototype_only`，未验收 | #7, #13, #6 |
