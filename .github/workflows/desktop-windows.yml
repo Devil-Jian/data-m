@@ -4,6 +4,7 @@ on:
     branches:
       - feat/tauri2-desktop-shell
       - chore/s0-development-baseline
+      - feat/s4-real-asset-browser
     paths:
       - 'apps/desktop/**'
       - 'packages/**'
@@ -14,6 +15,7 @@ on:
       - 'tests/**'
       - 'playwright*.config.ts'
       - '.github/workflows/desktop-windows.yml'
+  workflow_dispatch:
   pull_request:
     paths:
       - 'apps/desktop/**'
@@ -94,61 +96,7 @@ jobs:
         run: |
           $discovered = cargo test --locked --no-default-features s4_ -- --list
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (-not ($discovered -match 's4_.*: test
-        working-directory: apps/desktop/src-tauri
-        run: |
-          $discovered = cargo test --locked --no-default-features s3_ -- --list
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (-not ($discovered -match 's3_.*: test$')) { throw 'S3 Rust suite must contain tests' }
-          cargo test --locked --no-default-features s3_
-      - name: S2 experiment persistence and sample identity
-        working-directory: apps/desktop/src-tauri
-        run: |
-          $discovered = cargo test --locked --no-default-features s2_ -- --list
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (-not ($discovered -match 's2_.*: test$')) { throw 'S2 Rust suite must contain tests' }
-          cargo test --locked --no-default-features s2_
-      - name: S1 project tree persistence and validation
-        working-directory: apps/desktop/src-tauri
-        run: |
-          $discovered = cargo test --locked --no-default-features s1_ -- --list
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (-not ($discovered -match 's1_.*: test$')) { throw 'S1 Rust suite must contain tests' }
-          cargo test --locked --no-default-features s1_
-      - name: S0 read-only Rust tests
-        working-directory: apps/desktop/src-tauri
-        run: |
-          $discovered = cargo test --locked --no-default-features s0_ -- --list
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (-not ($discovered -match 's0_.*: test$')) { throw 'S0 Rust suite must contain tests' }
-          cargo test --locked --no-default-features s0_
-      - name: Rust tests
-        working-directory: apps/desktop/src-tauri
-        run: cargo test --locked --no-default-features
-      - name: Rust check
-        working-directory: apps/desktop/src-tauri
-        run: cargo check --locked
-      - name: Build Windows executable (no installer yet)
-        run: npm run tauri:build
-      - name: Upload unsigned portable S3 EXE for combined native acceptance
-        uses: actions/upload-artifact@v4
-        with:
-          name: data-m-s3-unsigned-portable-windows
-          path: apps/desktop/src-tauri/target/release/data-m-desktop.exe
-          if-no-files-found: error
-          retention-days: 7
-      - name: Export dependency lock corrections on failure
-        if: failure()
-        working-directory: apps/desktop/src-tauri
-        run: cargo generate-lockfile
-      - name: Upload Rust dependency lock
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: s1-cargo-lock
-          path: apps/desktop/src-tauri/Cargo.lock
-          if-no-files-found: warn
-)) { throw 'S4 Rust suite must contain tests' }
+          if (-not ($discovered -match 's4_.*: test$')) { throw 'S4 Rust suite must contain tests' }
           cargo test --locked --no-default-features s4_
       - name: S3 source protection and crash recovery
         working-directory: apps/desktop/src-tauri
@@ -186,13 +134,13 @@ jobs:
         run: cargo check --locked
       - name: Build Windows executable (no installer yet)
         run: npm run tauri:build
-      - name: Upload unsigned portable S3 EXE for combined native acceptance
+      - name: Upload unsigned portable S4 EXE for Windows acceptance
         uses: actions/upload-artifact@v4
         with:
-          name: data-m-s3-unsigned-portable-windows
+          name: data-m-s4-unsigned-portable-windows
           path: apps/desktop/src-tauri/target/release/data-m-desktop.exe
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 14
       - name: Export dependency lock corrections on failure
         if: failure()
         working-directory: apps/desktop/src-tauri
