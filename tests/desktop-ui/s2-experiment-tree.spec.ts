@@ -124,7 +124,7 @@ test('@S2 four empty stages enforce replicate and assay scopes without changing 
   for(const stage of ['Raw','Processed']){
     await page.getByRole('button',{name:new RegExp(`^${stage} `)}).click();
     await expect(page.getByRole('region',{name:'阶段内容'})).toContainText('生物学重复1');
-    await expect(page.getByRole('region',{name:'阶段内容'})).toContainText('暂无文件');
+    await expect(page.getByRole('region',{name:'阶段内容'})).toContainText('该范围尚无已入库文件');
   }
   for(const stage of ['Statistics','Display']){
     await page.getByRole('button',{name:new RegExp(`^${stage} `)}).click();
