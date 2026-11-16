@@ -260,7 +260,11 @@
         "不加入云端账户或协作"
       ],
       "safety_gate": "不得在已有未知 SQLite 文件上运行初始化迁移；没有真实 Tauri 存储时禁止声称闭环。",
-      "suggested_branch": "feat/s1-crud"
+      "suggested_branch": "feat/s1-crud",
+      "current_status": "manual_pending",
+      "execution_report": "S1_EXECUTION_REPORT.md",
+      "pr_url": "https://github.com/Devil-Jian/data-m/pull/44",
+      "machine_evidence": "S1_EXECUTION_REPORT.json"
     },
     {
       "id": "S2",

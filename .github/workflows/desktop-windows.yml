@@ -46,6 +46,21 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri -> target
+      - name: Rust fmt
+        working-directory: apps/desktop/src-tauri
+        run: cargo fmt --all -- --check
+      - name: Export rustfmt corrections on failure
+        if: failure()
+        run: |
+          cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --all
+          git diff --output=rustfmt.patch
+      - name: Upload rustfmt corrections
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s1-rustfmt-corrections
+          path: rustfmt.patch
+          if-no-files-found: warn
       - name: Install packages
         run: npm ci --no-audit --no-fund
       - name: S0 baseline contracts
@@ -66,6 +81,15 @@ jobs:
         run: npm run test:e2e:desktop -- --grep "@S0"
       - name: Desktop renderer CSS and keyboard E2E (port 5176)
         run: npm run test:e2e:desktop
+      - name: S1 project tree browser mock E2E
+        run: npm run test:e2e:desktop -- --grep "@S1"
+      - name: S1 project tree persistence and validation
+        working-directory: apps/desktop/src-tauri
+        run: |
+          $discovered = cargo test --locked --no-default-features s1_ -- --list
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not ($discovered -match 's1_.*: test$')) { throw 'S1 Rust suite must contain tests' }
+          cargo test --locked --no-default-features s1_
       - name: S0 read-only Rust tests
         working-directory: apps/desktop/src-tauri
         run: |
@@ -76,25 +100,26 @@ jobs:
       - name: Rust tests
         working-directory: apps/desktop/src-tauri
         run: cargo test --locked --no-default-features
-      - name: Rust fmt
-        working-directory: apps/desktop/src-tauri
-        run: cargo fmt --all -- --check
       - name: Rust check
         working-directory: apps/desktop/src-tauri
         run: cargo check --locked
       - name: Build Windows executable (no installer yet)
         run: npm run tauri:build
-      - name: Upload unsigned portable P1 EXE for native WebView2 acceptance
+      - name: Upload unsigned portable S1 EXE for native WebView2 acceptance
         uses: actions/upload-artifact@v4
         with:
-          name: data-m-p1-unsigned-portable-windows
+          name: data-m-s1-unsigned-portable-windows
           path: apps/desktop/src-tauri/target/release/data-m-desktop.exe
           if-no-files-found: error
           retention-days: 7
+      - name: Export dependency lock corrections on failure
+        if: failure()
+        working-directory: apps/desktop/src-tauri
+        run: cargo generate-lockfile
       - name: Upload Rust dependency lock
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: s0-cargo-lock
+          name: s1-cargo-lock
           path: apps/desktop/src-tauri/Cargo.lock
           if-no-files-found: warn
