@@ -1,0 +1,13 @@
+.dm-asset-browser{margin-top:12px;border:1px solid var(--dm-border,#dadde3);padding:12px;border-radius:10px;min-width:0}
+.dm-asset-browser header,.dm-asset-tools,.dm-asset-browser footer{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px}
+.dm-asset-browser header h3{margin:0;font-size:1rem}
+.dm-asset-tools input{min-width:170px;max-width:100%;padding:7px}
+.dm-asset-tools select,.dm-asset-tools button,.dm-asset-browser footer button{padding:7px;cursor:pointer}
+.dm-asset-list{max-height:360px;overflow:auto}
+.dm-asset-list [role=option]{display:grid;grid-template-columns:minmax(120px,1fr) 90px 90px 45px 55px;align-items:center;gap:6px;padding:6px;border-bottom:1px solid #ddd}
+.dm-asset-list [role=option].is-selected{background:#e9f0fe}
+.dm-asset-list [role=option] button:first-child{text-align:left;overflow-wrap:anywhere}
+.dm-asset-detail{margin-top:12px;padding:12px;border:1px solid #aaa;overflow-wrap:anywhere}
+.dm-asset-detail dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px}
+.dm-asset-detail dt{font-weight:600}
+.dm-asset-detail dd{margin:0}
