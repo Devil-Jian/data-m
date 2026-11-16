@@ -287,30 +287,30 @@ fn open(path: &Path) -> Result<Connection, TreeError> {
 }
 
 pub(super) fn validate_readonly(path: &Path) -> Result<(), TreeError> {
-        // immutable disables journaling/recovery and prevents sidecar creation during
-        // recognition, even for an unfamiliar WAL database. Ours uses DELETE journals.
-        let absolute = std::fs::canonicalize(path).map_err(|_| TreeError::unknown())?;
-        let absolute_text = absolute.to_string_lossy();
-        let path_text = absolute_text
-            .strip_prefix(r"\\?\")
-            .unwrap_or(&absolute_text)
-            .replace('\\', "/");
-        let encoded: String = path_text
-            .bytes()
-            .map(|b| {
-                if b.is_ascii_alphanumeric() || b"/:_-.".contains(&b) {
-                    (b as char).to_string()
-                } else {
-                    format!("%{b:02X}")
-                }
-            })
-            .collect();
-        let readonly = Connection::open_with_flags(
-            format!("file:{encoded}?immutable=1"),
-            OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
-        )
-        .map_err(|_| TreeError::unknown())?;
-        recognized(&readonly)
+    // immutable disables journaling/recovery and prevents sidecar creation during
+    // recognition, even for an unfamiliar WAL database. Ours uses DELETE journals.
+    let absolute = std::fs::canonicalize(path).map_err(|_| TreeError::unknown())?;
+    let absolute_text = absolute.to_string_lossy();
+    let path_text = absolute_text
+        .strip_prefix(r"\\?\")
+        .unwrap_or(&absolute_text)
+        .replace('\\', "/");
+    let encoded: String = path_text
+        .bytes()
+        .map(|b| {
+            if b.is_ascii_alphanumeric() || b"/:_-.".contains(&b) {
+                (b as char).to_string()
+            } else {
+                format!("%{b:02X}")
+            }
+        })
+        .collect();
+    let readonly = Connection::open_with_flags(
+        format!("file:{encoded}?immutable=1"),
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
+    )
+    .map_err(|_| TreeError::unknown())?;
+    recognized(&readonly)
 }
 fn execute_at(path: &Path, request: TreeRequest) -> Result<TreeSnapshot, TreeError> {
     validate(&request)?;
