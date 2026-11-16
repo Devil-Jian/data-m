@@ -261,7 +261,7 @@
       ],
       "safety_gate": "不得在已有未知 SQLite 文件上运行初始化迁移；没有真实 Tauri 存储时禁止声称闭环。",
       "suggested_branch": "feat/s1-crud",
-      "current_status": "manual_pending",
+      "current_status": "accepted",
       "execution_report": "S1_EXECUTION_REPORT.md",
       "pr_url": "https://github.com/Devil-Jian/data-m/pull/44",
       "machine_evidence": "S1_EXECUTION_REPORT.json"
@@ -330,7 +330,7 @@
       ],
       "safety_gate": "任何文件资产操作均不可改变真实 Replicate 数量；所有测试数据位于临时仓库。",
       "suggested_branch": "feat/s2-",
-      "current_status": "manual_pending",
+      "current_status": "accepted",
       "execution_report": "S2_EXECUTION_REPORT.md",
       "pr_url": "https://github.com/Devil-Jian/data-m/pull/45",
       "machine_evidence": "S2_EXECUTION_REPORT.json"
@@ -401,7 +401,11 @@
         "不对用户重要文件开放生产导入"
       ],
       "safety_gate": "本任务完成只能在隔离测试仓库中试用；S7 备份恢复演练通过前明确禁止重要真实科研数据入库。",
-      "suggested_branch": "feat/s3-"
+      "suggested_branch": "feat/s3-",
+      "current_status": "accepted",
+      "execution_report": "S3_EXECUTION_REPORT.md",
+      "pr_url": "https://github.com/Devil-Jian/data-m/pull/46",
+      "machine_evidence": "S3_EXECUTION_REPORT.json"
     },
     {
       "id": "S4",
@@ -960,6 +964,6 @@
   },
   "execution_authorization": {
     "date": "2026-11-16",
-    "source": "User explicitly authorized sequential S2/S3 development after machine-passed S1, with combined manual acceptance later. Keep accepted states unchanged and do not merge automatically."
+    "source": "On 2026-11-16 the user explicitly stated: S1-S3 人工验收通过，允许合并。 PR #44 and #45 were merged in dependency order; PR #46 was authorized for merge after recording this signoff."
   }
 }

@@ -3,13 +3,14 @@ import {shadcnUI} from '@data-m/ui/workbench-ui';
 import {projectTreeApi,projectTreeMode,safeProjectTreeError,validateProjectTreeResponse} from './project-tree.ts';
 import type {ProjectTreeApi,ProjectTreeKind,ProjectTreeNode,ProjectTreeRequest} from './project-tree.ts';
 import {ExperimentTreeManager} from './experiment-tree.tsx';
+import type {ImportDropRegistrar} from './import-jobs.ts';
 import './project-tree.css';
 
 const {Button,Input,Badge}=shadcnUI;
 const labels:Record<ProjectTreeKind,string>={project:'项目',theme:'主题',assay:'实验'};
 interface Editor {action:'create'|'rename'|'delete';kind:ProjectTreeKind;target?:ProjectTreeNode;parentId?:string;name:string;request?:ProjectTreeRequest}
 
-export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange}:{api?:ProjectTreeApi;onClose?:()=>void;onBusyChange?:(busy:boolean)=>void}){
+export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,registerImportDrop}:{api?:ProjectTreeApi;onClose?:()=>void;onBusyChange?:(busy:boolean)=>void;registerImportDrop?:ImportDropRegistrar}){
   const [nodes,setNodes]=useState<ProjectTreeNode[]>([]);
   const [selectedId,setSelectedId]=useState<string|null>(null);
   const [loaded,setLoaded]=useState(false);
@@ -86,7 +87,7 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange}:{ap
   }
 
   if(experiment)return <ExperimentTreeManager key={experiment.id} assayId={experiment.id} assayName={experiment.name}
-    onClose={()=>setExperiment(null)} onBusyChange={onBusyChange}/>;
+    onClose={()=>setExperiment(null)} onBusyChange={onBusyChange} registerImportDrop={registerImportDrop}/>;
 
   return <main className="dm-project-manager" aria-label="项目管理工作区" aria-busy={pending}>
     <header className="dm-project-header">

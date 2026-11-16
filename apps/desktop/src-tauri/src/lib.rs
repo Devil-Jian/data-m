@@ -7,6 +7,7 @@ mod cas_audit;
 mod domain_db;
 mod drop_preview;
 mod experiment_tree;
+mod import_jobs;
 mod project_tree;
 #[cfg(test)]
 mod s1_ipc_tests;
@@ -22,7 +23,8 @@ pub fn run() {
             shell_status,
             drop_preview::inspect_drop_paths,
             project_tree::project_tree,
-            experiment_tree::experiment_tree
+            experiment_tree::experiment_tree,
+            import_jobs::import_jobs
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Data-M desktop");

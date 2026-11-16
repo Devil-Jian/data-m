@@ -2,7 +2,7 @@
   "task_id": "S1",
   "base_sha": "8a7d2f9c5ed584caa13fbca64de69771da7d08c0",
   "head_sha": "de9644e7987c96d9aaa615f04ad0efafde45e05d",
-  "status": "manual_pending",
+  "status": "accepted",
   "verification_date": "2026-11-16",
   "pr_url": "https://github.com/Devil-Jian/data-m/pull/44",
   "machine_checks": [
@@ -115,21 +115,21 @@
   "manual_checks": [
     {
       "step": "H1 create two projects with multiple themes/assays, restart and compare",
-      "status": "not_run",
-      "evidence": null,
-      "signoff_by": null
+      "status": "pass",
+      "evidence": "User stated on 2026-11-16: S1-S3 人工验收通过，允许合并。",
+      "signoff_by": "user"
     },
     {
       "step": "H2 reject empty names and nonempty parent deletion without data loss",
-      "status": "not_run",
-      "evidence": null,
-      "signoff_by": null
+      "status": "pass",
+      "evidence": "User stated on 2026-11-16: S1-S3 人工验收通过，允许合并。",
+      "signoff_by": "user"
     },
     {
       "step": "H3 save Windows screenshots and inspect disposable test database",
-      "status": "not_run",
-      "evidence": null,
-      "signoff_by": null
+      "status": "pass",
+      "evidence": "User stated on 2026-11-16: S1-S3 人工验收通过，允许合并。 No screenshot paths were supplied or fabricated.",
+      "signoff_by": "user"
     }
   ],
   "artifact": {
@@ -138,11 +138,11 @@
     "local_path": "D:/paper/s1-artifacts-de9644e/data-m-desktop.exe"
   },
   "residual_risks": [
-    "Windows GUI/manual acceptance not executed",
-    "S1 not merged into main",
     "No real scientific data before S0-S7 and recovery acceptance"
   ],
-  "next_task_recommendation": "User authorized S2 then S3 development after machine validation; combined manual acceptance later, no automatic merge.",
+  "next_task_recommendation": "Accepted and merged through PR #44; preserve the S7 production-data gate.",
   "report_followup": "Subsequent commit updates documentation only; head_sha identifies tested executable source.",
-  "manual_acceptance_deferred_by_user": "2026-11-16"
+  "manual_acceptance_deferred_by_user": "2026-11-16",
+  "manual_acceptance_signed_off": "2026-11-16",
+  "merge_commit": "34350949872d07e368a27b24aa71ba89ad527ec2"
 }

@@ -46,7 +46,7 @@
 | 存储 | [PR #36](https://github.com/Devil-Jian/data-m/pull/36) Schema、[#37](https://github.com/Devil-Jian/data-m/pull/37) CAS staging、[#38](https://github.com/Devil-Jian/data-m/pull/38) audit 均是 Draft | 只允许原型/临时数据库，不存在正式导入闭环 |
 | 发布 | EXE 便携构建成功；`bundle.active=false` | 尚无可发布 NSIS/MSI 安装器 |
 
-**进度状态**：`not_started` 无实现；`prototype_only` 仅原型；`accepted` 正在开发；`machine_passed` 自动验证完成；`accepted` 自动验证通过而 Windows 人工未验收；`accepted` 合并、机器与人工均签收；`blocked` 有未解除依赖/风险。**禁止用主观百分比代替这些状态。**
+**进度状态**：`not_started` 无实现；`prototype_only` 仅原型；`in_progress` 正在开发；`machine_passed` 自动验证完成；`manual_pending` 自动验证通过而 Windows 人工未验收；`accepted` 合并、机器与人工均签收；`blocked` 有未解除依赖/风险。**禁止用主观百分比代替这些状态。**
 
 ## 3. 统一流水线与证据规则
 
@@ -86,7 +86,7 @@
 
 **机器通过**需要：本次 `head_sha`、真实执行命令、退出码 0、用例执行数大于 0、Rust/JS/Playwright 结果、Windows CI URL（适用时）、具名断言覆盖成功/失败/恢复；不得只写“应该通过”。
 
-**人工通过**需要：Windows 11 实际机器/VM、EXE/安装程序版本与 SHA、明确操作步骤及预期/实际结果、截图或录屏、原文件/仓库哈希对比（涉及文件时）、执行者和日期。AI 无法亲自操作 Windows GUI 时只能标记 `accepted`，提出手动验收清单。
+**人工通过**需要：Windows 11 实际机器/VM、EXE/安装程序版本与 SHA、明确操作步骤及预期/实际结果、截图或录屏、原文件/仓库哈希对比（涉及文件时）、执行者和日期。AI 无法亲自操作 Windows GUI 时只能标记 `manual_pending`，提出手动验收清单。
 
 **完成判定**：`accepted = 目标分支合并 + 相关机器测试全通过 + 必须的人工作业签字 + 安全边界明确 + 文档/Issue 更新`。缺其中一项不得关闭 Task/Issue。
 
@@ -95,9 +95,9 @@
 | ID | 功能包 | 依赖 | 当前开发进度 | Issue |
 |---|---|---|---|---|
 | **S0** | 工程主线与唯一桌面 UI | 无 | `accepted`，用户签收并已合并 main，见 [执行报告](S0_EXECUTION_REPORT.md) | #8, #12, #4, #13 |
-| **S1** | 项目主题实验 CRUD | S0 | `manual_pending`，见 [执行报告](S1_EXECUTION_REPORT.md)，未验收 | #17, #14 |
-| **S2** | 分组样本与四阶段结构 | S1 | `manual_pending`，机器通过，见 [报告](S2_EXECUTION_REPORT.md)，统一人工验收待执行 | #17, #14 |
-| **S3** | 安全文件导入与任务恢复 | S2 | `prototype_only`，未验收 | #6, #15, #14 |
+| **S1** | 项目主题实验 CRUD | S0 | `accepted`，用户联合签收，PR #44 已合并 main | #17, #14 |
+| **S2** | 分组样本与四阶段结构 | S1 | `accepted`，用户联合签收，PR #45 已合并 main | #17, #14 |
+| **S3** | 安全文件导入与任务恢复 | S2 | `accepted`，用户联合签收并授权合并 PR #46 | #6, #15, #14 |
 | **S4** | 真实文件浏览搜索与选择 | S3 | `prototype_only`，未验收 | #5, #13, #17 |
 | **S5** | 资产复制与逻辑移动 | S4 | `prototype_only`，未验收 | #6, #7, #13 |
 | **S6** | 重命名软删除与回收恢复 | S5 | `prototype_only`，未验收 | #7, #13, #6 |
@@ -153,9 +153,9 @@
 
 ### S1｜项目主题实验 CRUD
 
-**任务元数据**：`id=S1` · `priority=P1` · `depends_on=S0` · `status=manual_pending` · Issues：[#17](https://github.com/Devil-Jian/data-m/issues/17), [#14](https://github.com/Devil-Jian/data-m/issues/14)。
+**任务元数据**：`id=S1` · `priority=P1` · `depends_on=S0` · `status=accepted` · Issues：[#17](https://github.com/Devil-Jian/data-m/issues/17), [#14](https://github.com/Devil-Jian/data-m/issues/14)。
 
-**当前事实**：S1 候选 PR #44 已实现受控测试库的 Repository、结构化 IPC 与项目管理视图，并通过本次机器验收；Windows 人工验收尚未执行，状态 manual_pending。来源、SHA、命令与结果见 [S1 执行报告](S1_EXECUTION_REPORT.md)，不得视为已签收或生产文件管理能力。
+**当前事实**：S1 PR #44 已实现受控测试库的 Repository、结构化 IPC 与项目管理视图并通过机器验收；用户于 2026-11-16 明确确认 S1–S3 人工验收通过并授权合并，PR #44 已进入 main。来源、SHA、命令与签收记录见 [S1 执行报告](S1_EXECUTION_REPORT.md)。
 
 **用户结果**：在 UI 新建/重命名/软删除 Project → Theme → Assay，重启依然正确。
 
@@ -193,7 +193,7 @@
 
 ### S2｜分组样本与四阶段结构
 
-**任务元数据**：`id=S2` · `priority=P1` · `depends_on=S1` · `status=prototype_only` · Issues：[#17](https://github.com/Devil-Jian/data-m/issues/17), [#14](https://github.com/Devil-Jian/data-m/issues/14)。
+**任务元数据**：`id=S2` · `priority=P1` · `depends_on=S1` · `status=accepted` · Issues：[#17](https://github.com/Devil-Jian/data-m/issues/17), [#14](https://github.com/Devil-Jian/data-m/issues/14)。
 
 **当前事实**：S2 候选 PR #45 已实现真实受控库的 Group/Replicate CRUD 和四阶段视图，通过机器验证；人工统一验收待执行。证据见 [S2 报告](S2_EXECUTION_REPORT.md)。
 
@@ -233,7 +233,7 @@
 
 ### S3｜安全文件导入与任务恢复
 
-**任务元数据**：`id=S3` · `priority=P0` · `depends_on=S2` · `status=prototype_only` · Issues：[#6](https://github.com/Devil-Jian/data-m/issues/6), [#15](https://github.com/Devil-Jian/data-m/issues/15), [#14](https://github.com/Devil-Jian/data-m/issues/14)。
+**任务元数据**：`id=S3` · `priority=P0` · `depends_on=S2` · `status=accepted` · Issues：[#6](https://github.com/Devil-Jian/data-m/issues/6), [#15](https://github.com/Devil-Jian/data-m/issues/15), [#14](https://github.com/Devil-Jian/data-m/issues/14)。
 
 **当前事实**：已有 Windows 只读拖入、Rust CAS staging 和 SHA-256 原型；未注册真实导入 IPC，缺少 SQL 事务协同/崩溃恢复。
 
@@ -702,9 +702,9 @@ approved_to_merge: false  # 必须人工明确签收
 
 | 判定 | 条件 | AI 可以自行标记？ |
 |---|---|---|
-| `accepted` | 已实现部分功能或已有原型但未全测 | 是 |
+| `prototype_only` | 已实现部分功能或已有原型但未全测 | 是 |
 | `machine_passed` | task test + 相关全局测试通过；日志/非零用例数/sha 齐全 | 是，必须有证据 |
-| `accepted` | 自动化通过，缺少真实 Windows 人工截图/签字 | 是 |
+| `manual_pending` | 自动化通过，缺少真实 Windows 人工截图/签字 | 是 |
 | `accepted` | 合并已批准的正式主线 + 自动化 + 人工签收齐全 | 只能依据实际签收证据报告，不得自行代签 |
 | `blocked` | 有安全/依赖/环境风险无法满足 | 是，写明 blocker |
 
