@@ -1,25 +1,23 @@
 import {test,expect,Page} from '@playwright/test';
 import type {Locator} from '@playwright/test';
 
-/** Exercise native HTML5 drag gestures: Chromium needs several pointer moves
- * after the initial mouse-down to cross its drag-start threshold on Windows. */
-async function pointerDrag(page:Page,source:Locator,destination:Locator,modifier:'Control'|'Shift'){
-  const from=await source.boundingBox(),to=await destination.boundingBox();
-  if(!from||!to)throw new Error('S5 drag source or target was not visible');
-  const x=from.x+from.width/2,y=from.y+from.height/2;
-  await page.mouse.move(x,y);
-  await page.keyboard.down(modifier);
-  try{
-    await page.mouse.down();
-    await page.mouse.move(x+4,y+3,{steps:8});
-    await page.mouse.move(x+12,y+10,{steps:8});
-    await page.mouse.move(to.x+to.width/2,to.y+to.height/2,{steps:24});
-    await page.mouse.up();
-  }finally{
-    await page.keyboard.up(modifier);
-  }
+/** Chromium CI does not synthesize OS HTML5 dragstart from mouse gestures on
+ * Windows headless. Dispatch a full DOM DragEvent/DataTransfer lifecycle here.
+ * Genuine Windows WebView2 pointer acceptance is a separate manual gate. */
+async function domDrag(page:Page,source:Locator,destination:Locator,modifier:'Control'|'Shift'){
+  const from=await source.elementHandle(),to=await destination.elementHandle();
+  if(!from||!to)throw new Error('S5 drag source or target was not present');
+  await page.evaluate(({from,to,modifier})=>{
+    const dataTransfer=new DataTransfer();
+    const options={bubbles:true,cancelable:true,dataTransfer,
+      ctrlKey:modifier==='Control',shiftKey:modifier==='Shift'};
+    const drag=(element:Element,type:string)=>element.dispatchEvent(new DragEvent(type,options));
+    drag(from,'dragstart');
+    drag(to,'dragover');
+    drag(to,'drop');
+    drag(from,'dragend');
+  },{from,to,modifier});
 }
-
 
 async function setup(page:Page){
   await page.addInitScript(()=>{
@@ -141,30 +139,16 @@ test('@S5 right-click cut move and destination conflict are atomic (explicit bro
   expect(result.audit).toHaveLength(2);
   expect(result.records).toHaveLength(11);
 });
-test('@S5 Ctrl+drag copies across stages and Shift+drag moves to another sample (explicit browser mock)',async({page})=>{
+test('@S5 HTML5 DataTransfer Ctrl/Shift drag wiring (mock backend; WebView2 pointer manual)',async({page})=>{
   await setup(page);
   await page.getByRole('button',{name:'样本：R1'}).click();
   const browser=page.getByRole('region',{name:'真实资产浏览器'});
   const nav=page.getByRole('navigation',{name:'数据阶段'});
   await expect(browser.getByRole('status')).toContainText('匹配 10 条');
-  await page.evaluate(()=>{
-    (window as any).__S5_DRAG_EVENTS__=[];
-    for (const type of ['dragstart','dragover','drop','dragend'])document.addEventListener(type,(event:Event)=>{
-      const drag=event as DragEvent;
-      const events=(window as any).__S5_DRAG_EVENTS__ as any[];
-      if(events.length<40)events.push({type,ctrl:drag.ctrlKey,shift:drag.shiftKey,
-        target:(drag.target as HTMLElement)?.getAttribute('aria-label')??(drag.target as HTMLElement)?.textContent?.slice(0,40)});
-    },true);
-  });
-  await pointerDrag(page,browser.getByRole('button',{name:'选择 raw00.png'}),nav.getByRole('button',{name:/Processed/}),'Control');
-  console.log('S5 drag diagnostics',JSON.stringify(await page.evaluate(()=>({
-    events:(window as any).__S5_DRAG_EVENTS__,
-    requests:(window as any).__S5_TEST__.requests,
-    notices:[...document.querySelectorAll('.dm-asset-feedback')].map(x=>x.textContent)
-  }))));
+  await domDrag(page,browser.getByRole('button',{name:'选择 raw00.png'}),nav.getByRole('button',{name:/Processed/}),'Control');
   await expect(browser.getByRole('status')).toContainText('匹配 1 条');
   await expect(nav.getByRole('button',{name:/Processed/})).toHaveAttribute('aria-current','page');
-  await pointerDrag(page,browser.getByRole('button',{name:'选择 raw00.png'}),page.getByRole('button',{name:'样本：R2'}),'Shift');
+  await domDrag(page,browser.getByRole('button',{name:'选择 raw00.png'}),page.getByRole('button',{name:'样本：R2'}),'Shift');
   await expect(nav.getByRole('button',{name:/Processed/})).toHaveAttribute('aria-current','page');
   await expect(browser.getByRole('status')).toContainText('匹配 1 条');
   await expect(page.getByRole('button',{name:'样本：R2'})).toHaveAttribute('aria-current','true');
