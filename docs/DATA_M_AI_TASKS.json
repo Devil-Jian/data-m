@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
-  "doc_version": "2026-11-15.1",
-  "snapshot_date": "2026-11-15",
+  "doc_version": "2026-11-16.2",
+  "snapshot_date": "2026-11-16",
   "repository": "https://github.com/Devil-Jian/data-m",
   "base_branch": "main",
-  "candidate_branch": "refactor/p1-single-ui-package",
+  "candidate_branch": "feat/s4-real-asset-browser",
   "task_order": [
     "S0",
     "S1",
@@ -51,6 +51,10 @@
     {
       "claim": "Schema / CAS staging / 审计为 #36/#37/#38 Draft 原型，不是生产存储",
       "ref": "https://github.com/Devil-Jian/data-m/pull/38"
+    },
+    {
+      "claim": "S4 Windows EXE and all CI checks passed on d8c2efe; user signed off stage on 2026-11-16; PR #47 remains draft/unmerged; next task S5.",
+      "ref": "https://github.com/Devil-Jian/data-m/pull/47"
     }
   ],
   "global_checks": [
@@ -471,7 +475,30 @@
         "此任务为只读浏览，不实现文件移动或删除"
       ],
       "safety_gate": "允许渲染只读 hash/版本信息；选择/复制操作必须携带精确的作用域关联 ID。",
-      "suggested_branch": "feat/s4-"
+      "suggested_branch": "feat/s4-",
+      "current_status": "machine_passed",
+      "stage_user_acceptance": {
+        "result": "accepted_by_user",
+        "date": "2026-11-16",
+        "source": "User explicitly stated: S4验收合格，在文档中标记。 Previously confirmed successful local import of 100 generated ROS PNG test files.",
+        "qualification": "Stage-level user signoff only; no separate evidence for every S4 page/filter/restart/multi-context/marquee test."
+      },
+      "automation_evidence": {
+        "code_sha": "d8c2efe2b71601e3097c580e507c5418c87b43ac",
+        "windows_workflow_run": "https://github.com/Devil-Jian/data-m/actions/runs/43826786651",
+        "demo_workflow_run": "https://github.com/Devil-Jian/data-m/actions/runs/43826786640",
+        "artifact_url": "https://github.com/Devil-Jian/data-m/actions/runs/43826786651/artifacts/14207632088",
+        "result": "success",
+        "limits": "Verified on the pre-document-change code commit; user-sensitive files prohibited until S7."
+      },
+      "integration_status": "merge_pending_draft_pr_47",
+      "known_gaps": [
+        "S3 100 files -> S4 UI per-page 50+50 full E2E has no independent machine or documented manual count proof",
+        "Cross-context AssetLink selection/drag correctness not comprehensively verified",
+        "Current-page selection only; filtered-wide selection, cross-page and marquee parity need follow-up",
+        "Offset cursor can drift under concurrent writes"
+      ],
+      "next_task": "S5"
     },
     {
       "id": "S5",
@@ -964,6 +991,12 @@
   },
   "execution_authorization": {
     "date": "2026-11-16",
-    "source": "On 2026-11-16 the user explicitly stated: S1-S3 人工验收通过，允许合并。 PR #44 and #45 were merged in dependency order; PR #46 was authorized for merge after recording this signoff."
+    "source": "On 2026-11-16 the user explicitly stated: S1-S3 人工验收通过，允许合并。 PR #44 and #45 were merged in dependency order; PR #46 was authorized for merge after recording this signoff.",
+    "s4_user_signoff": {
+      "date": "2026-11-16",
+      "source": "S4验收合格，在文档中标记。然后给我开发下一阶段的指令。",
+      "permitted_action": "Start S5 development from S4 branch baseline, while keeping PR #47 unmerged unless explicitly authorized.",
+      "formal_accepted_requires": "PR merged to main, machine checks and formal manual evidence; report recorded in docs/S4_EXECUTION_REPORT.md"
+    }
   }
 }
