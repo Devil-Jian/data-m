@@ -65,7 +65,9 @@ fn failure(code: &'static str) -> TreeError {
         "INVALID_REQUEST" => "Choose 1 to 100 distinct, valid asset associations.",
         "INVALID_TARGET" => "Choose an active assay or an active group and sample in that assay.",
         "NOT_FOUND" => "The selected asset association no longer exists.",
-        "STALE_SELECTION" => "The selected association or its version changed. Refresh and reselect.",
+        "STALE_SELECTION" => {
+            "The selected association or its version changed. Refresh and reselect."
+        }
         "NAME_CONFLICT" => "The destination already contains one of these names.",
         "REQUEST_CONFLICT" => "This request ID belongs to a different operation.",
         _ => "The asset transfer could not be completed.",
@@ -275,11 +277,8 @@ fn execute_at(path: &Path, request: TransferRequest) -> Result<TransferResult, T
         let mut links = Vec::with_capacity(sources.len());
         for (item, source) in request.items.iter().zip(&sources) {
             let link_id = if request.action == "copy" {
-                let id: String = tx.query_row(
-                    "SELECT lower(hex(randomblob(16)))",
-                    [],
-                    |row| row.get(0),
-                )?;
+                let id: String =
+                    tx.query_row("SELECT lower(hex(randomblob(16)))", [], |row| row.get(0))?;
                 tx.execute(
                     "INSERT INTO asset_links
                      (id,asset_id,assay_id,group_id,replicate_id,stage,display_name)
