@@ -87,8 +87,8 @@ fn valid_scope(scope: &AssetScope) -> bool {
             scope.stage.as_str(),
             "raw" | "processed" | "statistics" | "display"
         )
-        && scope.group_id.as_deref().is_none_or(valid_id)
-        && scope.replicate_id.as_deref().is_none_or(valid_id)
+        && scope.group_id.as_deref().map_or(true, valid_id)
+        && scope.replicate_id.as_deref().map_or(true, valid_id)
         && match scope.stage.as_str() {
             "raw" | "processed" => scope.group_id.is_some() && scope.replicate_id.is_some(),
             _ => scope.group_id.is_none() && scope.replicate_id.is_none(),
