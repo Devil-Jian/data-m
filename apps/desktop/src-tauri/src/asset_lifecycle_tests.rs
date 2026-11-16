@@ -409,3 +409,48 @@ fn s6_stale_context_wrong_version_parent_deleted_and_recycle_state_rejected() {
         "INVALID_TARGET"
     );
 }
+
+#[test]
+fn s6_batch_restore_duplicate_recycle_names_rolls_back_and_records_before_state() {
+    let (_dir, path) = fixture();
+    execute_at(&path, action("soft_delete", "pre-two", &[0, 1], None)).unwrap();
+    with_database_at(&path, |c| {
+        c.execute(
+            "UPDATE asset_links SET display_name='raw0.png' WHERE id='link1' AND deleted_at IS NOT NULL",
+            [],
+        )?;
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(
+        execute_at(&path, action("restore", "double-name", &[0, 1], None))
+            .unwrap_err()
+            .code,
+        "NAME_CONFLICT"
+    );
+    assert_eq!(
+        count(
+            &path,
+            "SELECT count(*) FROM asset_links WHERE id IN ('link0','link1') AND deleted_at IS NOT NULL"
+        ),
+        2
+    );
+    let details: serde_json::Value = with_database_at(&path, |c| {
+        let s: String = c.query_row(
+            "SELECT details_json FROM audit_events WHERE id='s6:pre-two'",
+            [],
+            |r| r.get(0),
+        )?;
+        Ok(serde_json::from_str(&s).unwrap())
+    })
+    .unwrap();
+    assert_eq!(details["before"][0]["displayName"], "raw0.png");
+    assert_eq!(details["result"]["results"][0]["assetLinkId"], "link0");
+    assert_eq!(
+        count(
+            &path,
+            "SELECT count(*) FROM audit_events WHERE object_type='asset_link_lifecycle'"
+        ),
+        1
+    );
+}
