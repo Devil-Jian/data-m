@@ -92,7 +92,7 @@ fn list_at(path: &Path, request: AssetQuery) -> Result<AssetPage, TreeError> {
     with_database_at(path,|connection|{
         let exists:i64=connection.query_row("SELECT EXISTS(SELECT 1 FROM assays WHERE id=?1 AND deleted_at IS NULL)",[&request.assay_id],|r|r.get(0))?;
         if exists==0 {return Err(TreeError::new("NOT_FOUND","Assay does not exist."));}
-        let total:i64=connection.query_row(&format!("SELECT count(*) FROM asset_links l JOIN data_assets a ON a.id=l.asset_id WHERE {predicate}"),params![request.assay_id,request.stage,request.group_id,request.replicate_id,request.search],|r|r.get(0))?;
+        let total:i64=connection.query_row(&format!("SELECT count(*) FROM asset_links l JOIN data_assets a ON a.id=l.asset_id JOIN asset_versions v ON v.asset_id=a.id AND v.version_number=(SELECT MAX(v2.version_number) FROM asset_versions v2 WHERE v2.asset_id=a.id) JOIN blobs b ON b.sha256=v.blob_sha256 WHERE {predicate}"),params![request.assay_id,request.stage,request.group_id,request.replicate_id,request.search],|r|r.get(0))?;
         let items=sql_rows(connection,predicate,sort,&request,offset,limit)?;
         let next=offset.checked_add(items.len()).ok_or_else(input)?;
         Ok(AssetPage{items,next_cursor:if (next as i64)<total {Some(next.to_string())}else{None},total})
@@ -157,6 +157,21 @@ mod tests {
         assert_eq!(found.len(),100);let unique:std::collections::HashSet<_>=found.iter().collect();assert_eq!(unique.len(),100);
         let detail=detail_at(&path,AssetDetailQuery{asset_link_id:found[0].clone()}).unwrap();
         assert_eq!(detail.item.version_number,1);
+    }
+    #[test]
+    fn s4_total_excludes_unversioned_assets_and_never_returns_empty_next_page() {
+        let (_dir,path)=setup();
+        with_database_at(&path,|c|{
+            c.execute("INSERT INTO data_assets(id,name) VALUES('unversioned','unversioned')",[])?;
+            c.execute("INSERT INTO asset_links(id,asset_id,assay_id,group_id,replicate_id,stage,display_name) VALUES('unversioned_link','unversioned','a','g','r','raw','zzz-unversioned.png')",[])?;
+            Ok(())
+        }).unwrap();
+        let mut q=query();
+        q.limit=Some(100);
+        let page=list_at(&path,q).unwrap();
+        assert_eq!(page.total,100);
+        assert_eq!(page.items.len(),100);
+        assert!(page.next_cursor.is_none());
     }
     #[test]
     fn s4_filters_bad_cursor_and_context_identity() {
