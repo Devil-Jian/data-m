@@ -68,7 +68,7 @@ test('@S7 backup requires consent, exposes sealed manifest and verify (explicit 
  await root.getByRole('checkbox',{name:/设备内快照并非异地备份/}).check();
  await backup.click();
  await expect(root).toContainText('已封存快照');
- const list=root.getByRole('list').filter({has:root.getByRole('button',{name:'验证哈希'})});
+ const list=root.locator('.dm-safety-snapshots');
  await expect(list.getByRole('listitem')).toHaveCount(1);
  await list.getByRole('button',{name:'验证哈希'}).click();
  await expect(root).toContainText('数据库和 Blob 已核验');
