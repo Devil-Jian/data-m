@@ -49,7 +49,8 @@ const validScope=(v:AssetScope)=>validId(v.assayId)&&['raw','processed','statist
   &&(['raw','processed'].includes(v.stage)?validId(v.groupId)&&validId(v.replicateId):v.groupId==null&&v.replicateId==null);
 function validateResult(request:TransferRequest,value:TransferResult):TransferResult {
   if(!value||value.requestId!==request.requestId||value.action!==request.action||!Array.isArray(value.links)
-    ||value.links.length!==request.items.length||!value.target||JSON.stringify(value.target)!==JSON.stringify(request.target))throw new TransferError('INVALID_RESPONSE');
+    ||value.links.length!==request.items.length||!value.target||(value.target.assayId!==request.target.assayId||value.target.stage!==request.target.stage||
+      (value.target.groupId??null)!==(request.target.groupId??null)||(value.target.replicateId??null)!==(request.target.replicateId??null)))throw new TransferError('INVALID_RESPONSE');
   for(let i=0;i<value.links.length;i++){
     const link=value.links[i],source=request.items[i];
     if(!validId(link?.sourceLinkId)||!validId(link?.resultLinkId)||link.sourceLinkId!==source.assetLinkId
