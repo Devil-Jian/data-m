@@ -677,7 +677,7 @@
         15
       ],
       "initial_status": "prototype_only",
-      "evidence_snapshot": "有 SQLite/CAS 只读审计原型；无 WAL-safe 备份、重建验证、孤儿扫描、恢复 UI。",
+      "evidence_snapshot": "S7 native WAL-safe SQLite VACUUM INTO snapshots, official flat S3 CAS integrity audit, manifest, isolated restore and real React safety UI committed. Windows CI still in verification; user explicitly waived waiting for S6 manual acceptance, not the S7 safety gate.",
       "user_outcome": "对测试仓库核验、制作可验证快照，在空目录完整恢复文件和关系。",
       "frontend_scope": [
         "完整性检查/备份/恢复工作台，显示阶段进度、校验报告及风险提示",
@@ -729,7 +729,16 @@
         "不允许对被检测坏的 Blob 自动猜测修复"
       ],
       "safety_gate": "只有 S0–S7 全部通过且人工完成恢复演练，才可批准珍贵科研数据进入日常使用。",
-      "suggested_branch": "feat/s7-"
+      "suggested_branch": "feat/s7-",
+      "current_status": "in_progress",
+      "machine_status": "pending",
+      "human_status": "manual_pending",
+      "development_branch": "feat/s7-integrity-backup-restore",
+      "baseline_sha": "ce7c7dab933dbe4f09d98fe5c41acee00646de8a",
+      "pr_url": "https://github.com/Devil-Jian/data-m/pull/51",
+      "implementation_design": "S7_IMPLEMENTATION_DESIGN.md",
+      "execution_report": "S7_EXECUTION_REPORT.md",
+      "execution_note": "S7 implementation in progress from S6 latest HEAD. S6 remains machine_passed/manual_pending, no formal accepted; S7 Windows 11 recovery drill manual_pending. S8-S11 unmodified and no main merge."
     },
     {
       "id": "S8",
