@@ -275,3 +275,42 @@ fn s5_cross_assay_move_requires_valid_active_sample_and_survives_reopen() {
     assert_eq!(count(&path, "replicates"), 4);
     assert_eq!(count(&path, "blobs"), 10);
 }
+
+#[test]
+fn s5_sql_failure_after_partial_link_writes_rolls_back_every_link() {
+    let (_dir, path) = fixture();
+    with_database_at(&path, |c| {
+        c.execute(
+            "INSERT INTO audit_events(id,action,object_type,object_id)
+             VALUES('s5:audit-collision','previous','test','x')",
+            [],
+        )?;
+        Ok(())
+    })
+    .unwrap();
+    let failure = execute_at(
+        &path,
+        request("copy", "audit-collision", &[0, 1, 2], target_two()),
+    )
+    .unwrap_err();
+    assert_eq!(failure.code, "DATABASE_UNAVAILABLE");
+    // Audit insertion is the *last* mutating statement; all three link INSERTs
+    // must be rolled back by the enclosing SQLite IMMEDIATE transaction.
+    assert_eq!(count(&path, "asset_links"), 10);
+    assert_eq!(count(&path, "s1_requests"), 0);
+    assert_eq!(count(&path, "audit_events"), 1);
+    assert_eq!(count(&path, "blobs"), 10);
+    assert_eq!(count(&path, "replicates"), 3);
+}
+
+#[test]
+fn s5_move_replay_after_reopen_keeps_single_audit_and_original_link_id() {
+    let (_dir, path) = fixture();
+    let transfer = request("move", "move-replay", &[0], target_two());
+    let first = execute_at(&path, transfer.clone()).unwrap();
+    let again = execute_at(&path, transfer).unwrap();
+    assert_eq!(again, first);
+    assert_eq!(again.links[0].result_link_id, "link0");
+    assert_eq!(count(&path, "asset_links"), 10);
+    assert_eq!(count(&path, "audit_events"), 1);
+}
