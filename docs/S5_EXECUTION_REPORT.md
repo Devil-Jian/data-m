@@ -1,12 +1,18 @@
-# S5 执行报告：资产复制与逻辑移动（机器通过，人工待验收）
+# S5 执行报告：资产复制与逻辑移动（阶段完成，用户确认；正式集成待完成）
 
 - TASK_ID：S5，开发分支：`feat/s5-asset-link-copy-move`
 - 唯一 S4 开发基线：`789bac6cc9757023aa58b67bc986bb2a65227235`
 - 上游 PR：[S4 #47](https://github.com/Devil-Jian/data-m/pull/47)，仍 Draft，未合 main
 - 本阶段 Draft PR：[S5 #49](https://github.com/Devil-Jian/data-m/pull/49)，以 S4 分支为 base，不合并 main
 - 方案：[S5 实施设计](S5_IMPLEMENTATION_DESIGN.md)
-- 状态：`machine_passed / manual_pending`。**机器 CI 有实际成功记录，但 Windows 11 WebView2 人工验收尚未完成；不标记 accepted，不合并 main。**
+- 状态：**阶段开发 `completed`、用户阶段确认 `confirmed`、机器 `machine_passed`、人工逐项 `manual_pending`，正式 `accepted` 尚未达成**；不合并 main。
 
+## 阶段完成确认与下一阶段交接（2026-11-16）
+
+- **用户本次明确指令“标记为完成”**：据此将 **S5 阶段开发交付** 标记为 `completed`，阶段性用户确认标记为 `confirmed`，可进入下一阶段 S6 的开发准备。此前 S5 真实 Rust/SQLite 实现、正式 UI、测试及 Windows 便携构建已经交付。
+- **最终机器证据**：[Windows Actions #43847745981](https://github.com/Devil-Jian/data-m/actions/runs/43847745981) 对代码 SHA `0c35e4465c604eace5bffff1a52f465d9e498f91` 为 `completed/success`；S5 Rust 8/8、S5 Playwright 3/3、全 Rust 69/69、桌面 E2E 29/29；[最终 EXE Artifact #14217026532](https://github.com/Devil-Jian/data-m/actions/runs/43847745981/artifacts/14217026532)。此后追加的交接文档提交不改变已测试产品实现；不借此宣称新 HEAD 重新跑过机器测试。
+- **严格验收边界**：用户的“阶段完成”确认并未提供 Windows 原生 WebView2 拖拽、EXE SHA/原始文件 SHA、刷新重启等逐项手测证据，相关字段保持 `manual_pending`；PR #49 和上游 PR #47 仍 Draft 且未合并，所以依照 [AI_DEV_EXECUTION_SPEC.md](AI_DEV_EXECUTION_SPEC.md) 的严格定义，正式 `accepted` 仍未达成。**完成阶段开发 ≠ 通过所有人工测试 ≠ 已合入 main。**
+- **下一阶段**：[S6 开发任务文档](S6_DEVELOPMENT_TASK.md)：重命名、软删除与回收恢复。仅完成编制，尚未实施 S6 代码。启动开发时须以 S5 分支最新 HEAD 为基线，新建 S6 独立功能分支；不得未经授权合并 main。
 ## 实施范围
 
 1. 新增 `asset_transfer` Tauri IPC。每个来源携带并在事务中核验 `AssetLinkId`、`AssetId`、当前 `AssetVersionId` 及源作用域。
