@@ -23,6 +23,13 @@ fn snapshot_root(base: &Path, id: &str) -> Result<PathBuf, TreeError> {
 fn manifest_path(root: &Path) -> PathBuf {
     root.join("manifest.json")
 }
+fn unused_target(path: &Path) -> Result<bool, TreeError> {
+    match fs::symlink_metadata(path) {
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(true),
+        Ok(_) => Ok(false),
+        Err(_) => Err(failure("UNSAFE_PATH")),
+    }
+}
 fn summary(m: &Manifest) -> SnapshotSummary {
     SnapshotSummary {
         snapshot_id: m.snapshot_id.clone(),
@@ -225,7 +232,7 @@ fn backup_inner(
         return Err(failure("DISK_WRITE_FAILED"));
     }
     let final_path = snapshot_root(base, &id)?;
-    if final_path.exists() {
+    if !unused_target(&final_path)? {
         return Err(failure("DISK_WRITE_FAILED"));
     }
     let stage = tempfile::Builder::new()
@@ -294,7 +301,7 @@ fn backup_inner(
     drop(snapdb);
     inspect_snapshot(stage.path(), &m, progress)?;
     hook("before_publish")?;
-    if final_path.exists() {
+    if !unused_target(&final_path)? {
         return Err(failure("DISK_WRITE_FAILED"));
     }
     fs::rename(stage.path(), &final_path).map_err(map_write)?;
@@ -335,7 +342,7 @@ fn restore_inner(
     // Full preflight before even creating the recovery directory.
     let (manifest, _) = verify_snapshot(base, id, progress)?;
     let target = restore_base.join(label);
-    if target.exists() {
+    if !unused_target(&target)? {
         return Err(failure("RESTORE_CONFLICT"));
     }
     safe_directory(restore_base, true)?;
@@ -395,7 +402,7 @@ fn restore_inner(
     }
     drop(c);
     hook("before_restore_publish")?;
-    if target.exists() {
+    if !unused_target(&target)? {
         return Err(failure("RESTORE_CONFLICT"));
     }
     fs::rename(stage.path(), &target).map_err(map_write)?;
