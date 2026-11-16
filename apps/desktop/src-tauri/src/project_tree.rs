@@ -38,10 +38,10 @@ pub struct TreeError {
     pub message: &'static str,
 }
 impl TreeError {
-    fn new(code: &'static str, message: &'static str) -> Self {
+    pub(super) fn new(code: &'static str, message: &'static str) -> Self {
         Self { code, message }
     }
-    fn input() -> Self {
+    pub(super) fn input() -> Self {
         Self::new("INVALID_REQUEST", "The project tree request is invalid.")
     }
     fn unknown() -> Self {
@@ -65,9 +65,16 @@ pub fn project_tree<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     request: TreeRequest,
 ) -> Result<TreeSnapshot, TreeError> {
+    let path = database_path(&app)?;
+    execute_at(&path, request)
+}
+
+pub(super) fn database_path<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+) -> Result<std::path::PathBuf, TreeError> {
     #[cfg(test)]
     if let Some(path) = app.try_state::<TestDatabasePath>() {
-        return execute_at(&path.0, request);
+        return Ok(path.0.clone());
     }
     let path = app
         .path()
@@ -75,7 +82,7 @@ pub fn project_tree<R: tauri::Runtime>(
         .map_err(|_| TreeError::new("DATABASE_UNAVAILABLE", "The test workspace is unavailable."))?
         .join("s1-test-workspace")
         .join("project-tree.sqlite");
-    execute_at(&path, request)
+    Ok(path)
 }
 
 #[cfg(test)]
@@ -115,12 +122,12 @@ impl Kind {
 fn valid_text(value: &str, max: usize) -> bool {
     !value.trim().is_empty() && value.chars().count() <= max && !value.chars().any(|c| c.is_control() || matches!(c, '\u{200b}'..='\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2060}'..='\u{206f}' | '\u{feff}'))
 }
-fn required(value: Option<&str>, max: usize) -> Result<&str, TreeError> {
+pub(super) fn required(value: Option<&str>, max: usize) -> Result<&str, TreeError> {
     value
         .filter(|s| valid_text(s, max))
         .ok_or_else(TreeError::input)
 }
-fn required_name(value: Option<&str>) -> Result<&str, TreeError> {
+pub(super) fn required_name(value: Option<&str>) -> Result<&str, TreeError> {
     value.filter(|s| valid_text(s, 255)).ok_or_else(|| {
         TreeError::new(
             "INVALID_NAME",
@@ -289,6 +296,13 @@ fn open(path: &Path) -> Result<Connection, TreeError> {
 }
 fn execute_at(path: &Path, request: TreeRequest) -> Result<TreeSnapshot, TreeError> {
     validate(&request)?;
+    with_database_at(path, |connection| execute_request(connection, request))
+}
+
+pub(super) fn with_database_at<T>(
+    path: &Path,
+    operation: impl FnOnce(&mut Connection) -> Result<T, TreeError>,
+) -> Result<T, TreeError> {
     let _guard = ACCESS.lock().map_err(|_| {
         TreeError::new(
             "DATABASE_UNAVAILABLE",
@@ -296,6 +310,13 @@ fn execute_at(path: &Path, request: TreeRequest) -> Result<TreeSnapshot, TreeErr
         )
     })?;
     let mut connection = open(path)?;
+    operation(&mut connection)
+}
+
+fn execute_request(
+    connection: &mut Connection,
+    request: TreeRequest,
+) -> Result<TreeSnapshot, TreeError> {
     if request.action != "list" {
         let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let token = request.request_id.as_deref().ok_or_else(TreeError::input)?;
@@ -325,7 +346,7 @@ fn execute_at(path: &Path, request: TreeRequest) -> Result<TreeSnapshot, TreeErr
         }
         tx.commit()?;
     }
-    snapshot(&connection)
+    snapshot(connection)
 }
 fn active(connection: &Connection, table: &str, id: &str) -> Result<bool, TreeError> {
     Ok(connection.query_row(

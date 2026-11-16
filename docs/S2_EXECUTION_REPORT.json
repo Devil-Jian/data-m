@@ -1,0 +1,119 @@
+{
+  "task_id": "S2",
+  "base_sha": "14eac0314e39276e8afb474d1ba4d8a6f1488dd2",
+  "head_sha": "3742f70548ace31972cccccee6f4fa2ec01f56fa",
+  "status": "manual_pending",
+  "pr_url": "https://github.com/Devil-Jian/data-m/pull/45",
+  "machine_checks": [
+    {
+      "command": "npm run test:s0",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 3,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43735920859"
+    },
+    {
+      "command": "npm run test:interaction",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 28,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43735920859"
+    },
+    {
+      "command": "npm run test:assets",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 20,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43735920859"
+    },
+    {
+      "command": "npm run test:desktop",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 7,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43735920859"
+    },
+    {
+      "command": "npm run test:e2e:desktop",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 16,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43735920859"
+    },
+    {
+      "command": "npm run test:e2e:desktop -- --grep \"@S2\"",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 6,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43735920859"
+    },
+    {
+      "command": "npm run test:e2e",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": 29,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43735920859"
+    },
+    {
+      "command": "cargo test --locked --no-default-features s2_",
+      "cwd": "apps/desktop/src-tauri",
+      "exit_code": 0,
+      "tests_executed": 7,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43735920859"
+    },
+    {
+      "command": "cargo test --locked --no-default-features",
+      "cwd": "apps/desktop/src-tauri",
+      "exit_code": 0,
+      "tests_executed": 42,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43735920859"
+    },
+    {
+      "command": "cargo fmt --all -- --check",
+      "cwd": "apps/desktop/src-tauri",
+      "exit_code": 0,
+      "tests_executed": null,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43735920859"
+    },
+    {
+      "command": "cargo check --locked",
+      "cwd": "apps/desktop/src-tauri",
+      "exit_code": 0,
+      "tests_executed": null,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43735920859"
+    },
+    {
+      "command": "npm run tauri:build",
+      "cwd": ".",
+      "exit_code": 0,
+      "tests_executed": null,
+      "log_url": "https://github.com/Devil-Jian/data-m/actions/runs/43735920859"
+    }
+  ],
+  "manual_checks": [
+    {
+      "step": "H1 three groups of six samples, restart preserves n",
+      "status": "not_run",
+      "evidence": null,
+      "signoff_by": null
+    },
+    {
+      "step": "H2 four-stage scopes and empty views",
+      "status": "not_run",
+      "evidence": null,
+      "signoff_by": null
+    },
+    {
+      "step": "H3 scoped association and nonempty deletion guards",
+      "status": "not_run",
+      "evidence": null,
+      "signoff_by": null
+    }
+  ],
+  "residual_risks": [
+    "Combined S1-S3 manual acceptance deferred by user",
+    "No production asset import before S7"
+  ],
+  "next_task_recommendation": "Proceed S3 implementation per explicit user authorization; no automatic merge.",
+  "report_followup": "head_sha identifies tested executable source; next commit documents evidence only."
+}
