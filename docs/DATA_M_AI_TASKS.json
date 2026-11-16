@@ -4,7 +4,7 @@
   "snapshot_date": "2026-11-16",
   "repository": "https://github.com/Devil-Jian/data-m",
   "base_branch": "main",
-  "candidate_branch": "feat/s4-real-asset-browser",
+  "candidate_branch": "feat/s5-asset-link-copy-move",
   "task_order": [
     "S0",
     "S1",
@@ -513,7 +513,7 @@
         13
       ],
       "initial_status": "prototype_only",
-      "evidence_snapshot": "已存在 Ctrl/Shift/拖放/剪贴板意图；尚无 Rust 实际资产链接事务。",
+      "evidence_snapshot": "S5 implementation in dedicated branch stacked on signed-off S4 SHA 789bac6; machine and Windows GUI evidence pending.",
       "user_outcome": "同仓库把测试资产复制或移动到合法目标，样本数量/版本来源保持稳定。",
       "frontend_scope": [
         "复用右键、快捷键、拖动，展示目标、冲突和操作状态",
@@ -564,7 +564,10 @@
         "不修改原始 Blob 字节"
       ],
       "safety_gate": "操作目标必须精确到 AssetLink/Version 的合法组合；不允许同一 Asset 在多上下文产生误删除。",
-      "suggested_branch": "feat/s5-"
+      "suggested_branch": "feat/s5-asset-link-copy-move",
+      "current_status": "in_progress",
+      "execution_report": "S5_EXECUTION_REPORT.md",
+      "pr_url": "https://github.com/Devil-Jian/data-m/pull/49"
     },
     {
       "id": "S6",
