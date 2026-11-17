@@ -97,7 +97,7 @@ fn validate(r:&PaperRequest)->Result<(),TreeError>{
     if r.action=="metadata"{
       let st=r.status.as_deref().ok_or_else(invalid)?;
       let notes=r.notes.as_deref().ok_or_else(invalid)?;
-      if st.len()>80||st.trim().is_empty()||notes.len()>4000||st.chars().any(char::is_control)||notes.chars().any(|c|c=='\\0') {return Err(invalid())}
+      if st.len()>80||st.trim().is_empty()||notes.len()>4000||st.chars().any(char::is_control)||notes.chars().any(|c|c.is_control() && c!='\n' && c!='\t') {return Err(invalid())}
     }
     Ok(())
 }
@@ -165,6 +165,9 @@ fn mutate(c:&Connection,r:&PaperRequest)->Result<(),TreeError>{
         c.execute("INSERT INTO panel_asset_versions(panel_id,asset_version_id,usage) VALUES(?1,?2,?3)",params![panel,version,usage])?;
       }
     }else{
+      let used:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM representative_sources WHERE panel_id=?1 AND asset_version_id=?2)",params![panel,versions[0]],|row|row.get(0))?;
+      let another:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM panel_asset_versions WHERE panel_id=?1 AND asset_version_id=?2 AND usage<>?3)",params![panel,versions[0],usage],|row|row.get(0))?;
+      if used && !another{return Err(conflict("Clear the representative source before detaching its last Panel reference."))}
       let count=c.execute("DELETE FROM panel_asset_versions WHERE panel_id=?1 AND asset_version_id=?2 AND usage=?3",params![panel,versions[0],usage])?;
       if count==0{return Err(conflict("The association does not exist."))}
     }
