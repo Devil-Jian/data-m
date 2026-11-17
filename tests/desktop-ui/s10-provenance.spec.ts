@@ -52,7 +52,10 @@ test('@S10 formal asset detail reverse reference is project scoped (renderer IPC
   (window as any).__S1_PROJECT_TREE_MOCK__=async()=>({nodes});
   (window as any).__S2_EXPERIMENT_TREE_MOCK__=async()=>({
    assayId:'assay',groups:[{id:'group',name:'Control',replicates:[{id:'rep',label:'R1'}]}],
-   stages:[{id:'raw',label:'Raw',scope:'replicate'}],replicateCount:1
+   stages:[{id:'raw',label:'Raw',scope:'replicate'},
+     {id:'processed',label:'Processed',scope:'replicate'},
+     {id:'statistics',label:'Statistics',scope:'assay'},
+     {id:'display',label:'Display',scope:'assay'}],replicateCount:1
   });
   const row={assetId:'asset',assetLinkId:'link',assetVersionId:'v1',versionNumber:1,
    name:'sample_raw.tif',stage:'raw',groupId:'group',replicateId:'rep',
