@@ -283,13 +283,16 @@ fn export_figure_with_hooks(
     for item in items {
         let relative_path = format!("files/{}", item.sha);
         if !unique.contains_key(&item.sha) {
+            if cancelled() { return Err(error("CANCELLED")); }
             verified_copy(
                 &cas_root.join(&item.sha),
                 &files.join(&item.sha),
                 &item.sha,
                 item.size,
+                cancelled,
             )?;
             unique.insert(item.sha.clone(), relative_path.clone());
+            progress(unique.len(),total_files);
         }
         refs.push(ManifestEntry {
             panel_id: item.panel_id,
