@@ -22,5 +22,5 @@ test('@S9 native paper workspace uses persisted IPC rather than demo paper data'
  await expect(page.getByText('测试论文')).toBeVisible();
  await page.getByLabel('新增或修改名称').fill('Figure 1');
  await page.getByRole('button',{name:'+ Figure'}).click();
- await expect(page.getByText('Figure 1')).toBeVisible();
+ await expect(page.getByLabel('S9 真实论文管理工作区').locator('.s9-node strong').filter({hasText:'Figure 1'})).toBeVisible();
 });
