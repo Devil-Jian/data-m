@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {invoke} from '@tauri-apps/api/core';
+import {listen} from '@tauri-apps/api/event';
 import './paper-workspace.css';
 import {ProvenanceView} from './provenance-view';
 
@@ -11,6 +12,9 @@ type Paper={id:string;title:string;status:string;notes:string;figures:Figure[]};
 type Candidate={assetVersionId:string;assetId:string;versionNumber:number;name:string;sha256:string;stage:string;assayId:string;groupId:string|null;replicateId:string|null};
 type Snapshot={papers:Paper[];candidates:Candidate[];candidateTotalCount?:number;candidateTruncated?:boolean};
 type ProjectNode={id:string;kind:string;name:string};
+type ExportPreview={figureId:string;panelCount:number;referenceCount:number;uniqueFileCount:number;uniqueBytes:number};
+type ExportResult={status:string;preview:ExportPreview|null;folderPath:string|null;manifest:{status:string;referenceCount:number;physicalFileCount:number}|null};
+type ExportProgress={requestId:string;completed:number;total:number};
 const empty:Snapshot={papers:[],candidates:[]};
 type Kind='paper'|'figure'|'panel';
 type Action='create'|'rename'|'delete'|'reorder'|'attach'|'detach'|'representative'|'clearRepresentative'|'metadata';
@@ -38,6 +42,13 @@ export function PaperWorkspace({onClose}:{onClose?:()=>void}={}) {
  const [error,setError]=useState('');
  const [notice,setNotice]=useState('');
  const [ready,setReady]=useState(false);
+ const [exportFigureId,setExportFigureId]=useState('');
+ const [exportPreview,setExportPreview]=useState<ExportPreview|null>(null);
+ const [exportResult,setExportResult]=useState<ExportResult|null>(null);
+ const [exportError,setExportError]=useState('');
+ const [exportBusy,setExportBusy]=useState(false);
+ const [exportRequestId,setExportRequestId]=useState<string|null>(null);
+ const [exportProgress,setExportProgress]=useState<ExportProgress|null>(null);
  const refresh=useCallback(async(project:string)=>{
    if(!project){setSnapshot(empty);return}
    const current=await invoke<Snapshot>('paper_workspace',{request:{action:'list',projectId:project}});
@@ -50,7 +61,7 @@ export function PaperWorkspace({onClose}:{onClose?:()=>void}={}) {
      .catch(e=>{if(!cancelled){setError('无法连接真实项目数据库：'+errorText(e));setReady(true)}});
    return()=>{cancelled=true};
  },[]);
- useEffect(()=>{setError('');setSelectedPaper('');setSelectedPanel('');setReverseVersion('');setSelectedVersions([]);setSnapshot(empty);refresh(projectId).catch(e=>setError(errorText(e)))},[projectId,refresh]);
+ useEffect(()=>{setError('');setSelectedPaper('');setSelectedPanel('');setReverseVersion('');setSelectedVersions([]);setExportFigureId('');setExportPreview(null);setExportResult(null);setSnapshot(empty);refresh(projectId).catch(e=>setError(errorText(e)))},[projectId,refresh]);
  useEffect(()=>{setCandidateOffset(0)},[projectId,search,stage]);
  useEffect(()=>{
    let live=true;
@@ -85,11 +96,59 @@ export function PaperWorkspace({onClose}:{onClose?:()=>void}={}) {
    await mutate('create',{kind,name:name.trim(),...(parentId?{parentId}:{})});
  }
  const selectedFigure=paper?.figures.find(f=>f.panels.some(p=>p.id===selectedPanel));
+ const exportFigure=paper?.figures.find(f=>f.id===exportFigureId)||paper?.figures[0];
+ useEffect(()=>{
+   setExportPreview(null);setExportResult(null);setExportError('');
+ },[projectId,paper?.id,exportFigure?.id]);
+ useEffect(()=>{
+   if(!exportRequestId)return;
+   let cleanup:(()=>void)|undefined;
+   let disposed=false;
+   void listen<ExportProgress>('s10-figure-export-progress',event=>{
+     if(event.payload.requestId===exportRequestId)setExportProgress(event.payload);
+   }).then(unlisten=>{if(disposed)unlisten();else cleanup=unlisten})
+     .catch(()=>{});
+   return()=>{disposed=true;cleanup?.()};
+ },[exportRequestId]);
+ async function previewExport(){
+   if(!paper||!exportFigure)return;
+   setExportError('');setExportResult(null);setExportPreview(null);
+   try {
+     const result=await invoke<ExportResult>('figure_export',{request:{
+       action:'preview',projectId,paperId:paper.id,figureId:exportFigure.id
+     }});
+     if(result.status!=='preview'||!result.preview)throw Error('无法获取可信 Figure 导出范围');
+     setExportPreview(result.preview);
+   }catch(e){setExportError(errorText(e))}
+ }
+ async function beginExport(){
+   if(!paper||!exportFigure||!exportPreview||exportPreview.figureId!==exportFigure.id)return;
+   if(!window.confirm('将从固定版本 CAS 导出 '+exportPreview.uniqueFileCount+' 个文件（'+exportPreview.referenceCount+' 条引用），并逐文件校验 SHA-256。选择全新目标目录，是否继续？'))return;
+   const requestId=crypto.randomUUID();
+   setExportBusy(true);setExportRequestId(requestId);setExportError('');setExportResult(null);
+   setExportProgress({requestId,completed:0,total:exportPreview.uniqueFileCount});
+   try{
+     const result=await invoke<ExportResult>('figure_export',{request:{
+       action:'export',projectId,paperId:paper.id,figureId:exportFigure.id,confirm:true,requestId
+     }});
+     if(result.status!=='complete'||result.manifest?.status!=='complete')
+       throw Error('导出未获得完整 SHA 校验确认');
+     setExportResult(result);
+   }catch(e){setExportError(errorText(e))}
+   finally{setExportBusy(false);setExportRequestId(null)}
+ }
+ async function cancelExport(){
+   if(!exportRequestId)return;
+   try {
+     const accepted=await invoke<boolean>('figure_export_cancel',{requestId:exportRequestId});
+     if(accepted)setExportError('已请求取消，正在安全结束文件复制；未完成包不会正式发布。');
+   }catch(e){setExportError(errorText(e))}
+ }
  const grouped=candidates.reduce<Record<string,Candidate[]>>((out,c)=>{const k=c.assayId+' / '+(c.groupId||'未分组')+' / '+(c.replicateId||'未关联样本');(out[k]??=[]).push(c);return out},{});
  return <div className="s9-shell" aria-label="S9 真实论文管理工作区">
    <div className="s9-top"><div><h1>论文管理</h1><small>Paper / Figure / Panel · 固定 AssetVersion · 真实 SQLite 持久化</small></div>
-     {onClose&&<button onClick={onClose}>返回项目管理</button>}
-     <label>科研项目 <select aria-label="选择真实科研项目" value={projectId} onChange={e=>setProjectId(e.target.value)}>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+     {onClose&&<button disabled={exportBusy} onClick={onClose}>返回项目管理</button>}
+     <label>科研项目 <select disabled={exportBusy} aria-label="选择真实科研项目" value={projectId} onChange={e=>setProjectId(e.target.value)}>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
    </div>
    {error&&<div className="s9-error" role="alert">{error}</div>}
    {notice&&<div className="s9-notice" role="status">{notice}</div>}
@@ -100,7 +159,7 @@ export function PaperWorkspace({onClose}:{onClose?:()=>void}={}) {
      <div className="s9-new"><input aria-label="新增或修改名称" value={name} onChange={e=>setName(e.target.value)} placeholder="论文 / Figure / Panel 名称"/>
        <button disabled={busy} onClick={()=>create('paper')}>新建论文</button></div>
      {snapshot.papers.map(p=><div key={p.id} className="s9-tree-paper">
-       <button className={paper?.id===p.id?'s9-active':''} onClick={()=>{setSelectedPaper(p.id);setSelectedPanel('')}}>{p.title}</button>
+       <button className={paper?.id===p.id?'s9-active':''} onClick={()=>{setSelectedPaper(p.id);setSelectedPanel('');setExportFigureId(p.figures[0]?.id||'')}}>{p.title}</button>
        {paper?.id===p.id&&<>
          <label className="s9-meta">论文状态 <select aria-label="论文状态" value={paperStatus} onChange={e=>setPaperStatus(e.target.value)}>
            {['draft','in_progress','ready','submitted','published','archived'].map(status=><option key={status} value={status}>{status}</option>)}
@@ -121,7 +180,7 @@ export function PaperWorkspace({onClose}:{onClose?:()=>void}={}) {
            <button disabled={busy||f.panels.length>0} onClick={()=>mutate('delete',{kind:'figure',id:f.id})}>删除空组</button>
           </div>
           {f.panels.map((x,i)=><div key={x.id} className="s9-tree-panel">
-            <button className={panel?.id===x.id?'s9-active':''} onClick={()=>setSelectedPanel(x.id)}>{x.label} · {x.assets.length} 份</button>
+            <button className={panel?.id===x.id?'s9-active':''} onClick={()=>{setSelectedPanel(x.id);setExportFigureId(f.id)}}>{x.label} · {x.assets.length} 份</button>
             <div className="s9-actions">
              <button disabled={busy||!name.trim()} onClick={()=>mutate('rename',{kind:'panel',id:x.id,name})}>改名</button>
              <button disabled={busy||i===0} onClick={()=>mutate('reorder',{kind:'panel',parentId:f.id,orderIds:[...f.panels.slice(0,i-1).map(z=>z.id),x.id,f.panels[i-1].id,...f.panels.slice(i+1).map(z=>z.id)]})}>↑</button>
@@ -133,6 +192,24 @@ export function PaperWorkspace({onClose}:{onClose?:()=>void}={}) {
      </div>)}
     </section>
     <section className="s9-detail"><h3>{panel?panel.label:'选择 Panel'}</h3>
+     <section className="s9-asset" aria-label="S10 Figure 无损导出">
+       <h4>Figure 无损导出 · 固定版本</h4>
+       <label>选择 Figure <select aria-label="选择导出 Figure" value={exportFigure?.id||''}
+          disabled={exportBusy} onChange={e=>setExportFigureId(e.target.value)}>
+         {paper?.figures.map(f=><option key={f.id} value={f.id}>{f.label}</option>)}
+       </select></label>
+       <div className="s9-actions">
+        <button disabled={!paper||!exportFigure||exportBusy} onClick={()=>void previewExport()}>预览导出范围</button>
+        <button disabled={!exportPreview||exportPreview.figureId!==exportFigure?.id||exportPreview.uniqueFileCount===0||exportBusy}
+          onClick={()=>void beginExport()}>选择目录并无损导出</button>
+        <button disabled={!exportBusy||!exportRequestId} onClick={()=>void cancelExport()}>取消导出</button>
+       </div>
+       {exportPreview&&<p role="status">Panel {exportPreview.panelCount} 个 · 逻辑引用 {exportPreview.referenceCount} 条 · 唯一文件 {exportPreview.uniqueFileCount} 个 · {exportPreview.uniqueBytes} 字节（尚未验证原字节）</p>}
+       {exportBusy&&<p role="status">原生导出正在执行：已验证 {exportProgress?.completed??0} / {exportProgress?.total??0} 个文件。可取消。</p>}
+       {exportError&&<p role="alert" className="s9-error">{exportError}</p>}
+       {exportResult?.status==='complete'&&exportResult.manifest?.status==='complete'&&
+        <p role="status">无损导出完成：{exportResult.folderPath} · Manifest 记录 {exportResult.manifest.referenceCount} 条引用 / {exportResult.manifest.physicalFileCount} 个 SHA-256 已验证文件。</p>}
+     </section>
      <p className="s9-muted">{selectedFigure?.label||'从左侧选择具体 Panel'} · 关联只锁定文件版本 ID，重命名/移动不会替换版本。</p>
      {!panel?<p>选择 Panel 查看其固定文件版本与来源。</p>:<>
        {panel.assets.length===0&&<p>尚无版本关联，可从右侧选择文件。</p>}
