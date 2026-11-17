@@ -306,8 +306,7 @@ mod relative {
 
 #[cfg(windows)]
 fn export_relative_directory(parent: &File, name: &str) -> Result<File, TreeError> {
-    relative::open(parent, name, 0x81, 7, 1, true)
-        .map_err(|_| failure("UNSAFE_PATH"))
+    relative::open(parent, name, 0x81, 7, 1, true).map_err(|_| failure("UNSAFE_PATH"))
 }
 #[cfg(not(windows))]
 fn export_relative_directory(_: &File, _: &str) -> Result<File, TreeError> {
