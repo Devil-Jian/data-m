@@ -239,6 +239,9 @@ fn verified_copy(
         written += n as u64;
     }
     output.sync_all().map_err(|_| error("DISK_WRITE_FAILED"))?;
+    // Windows refuses to rename a directory while a child file is held open
+    // without FILE_SHARE_DELETE. Close the manifest handle before publication.
+    drop(output);
     if written != size as u64 || format!("{:x}", hash.finalize()) != sha {
         return Err(error("BLOB_CORRUPT"));
     }
