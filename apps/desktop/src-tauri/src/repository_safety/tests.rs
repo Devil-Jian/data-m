@@ -550,7 +550,8 @@ fn s10_i1_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
     // The S7 fixture already has an immutable CAS asset version and one Panel.
     // Expand it to a complete disposable I1 statistical/paper topology.
     with_database_at(&f.database, |c| {
-        c.execute_batch("
+        c.execute_batch(
+            "
           INSERT INTO replicates(id,group_id,label) VALUES
              ('r2','g','R2'),('r3','g','R3'),('r4','g','R4'),
              ('r5','g','R5'),('r6','g','R6');
@@ -577,46 +578,85 @@ fn s10_i1_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
           UPDATE statistical_analyses SET frozen_at='2026-01-02'
              WHERE id IN ('an5','an6');
           UPDATE asset_links SET deleted_at='2026-01-03' WHERE id='link';
-        ")?;
+        ",
+        )?;
         Ok(())
-    }).unwrap();
+    })
+    .unwrap();
     let before = std::fs::read(&f.source).unwrap();
     let snap_id = backup(&f);
-    let check=execute(&f,req("verify",Some(&snap_id),None,None)).unwrap();
-    assert_eq!(check.status,"verified");
-    let restore=execute(&f,req("restore",Some(&snap_id),Some("combined-v3"),Some(true))).unwrap();
-    assert_eq!(restore.status,"restored");
-    let restored=f.restore_root.join("combined-v3");
-    let db=open_recognized(&restored.join("project-tree.sqlite")).unwrap();
-    assert_eq!(counts(&db).unwrap()["figures"],2);
-    assert_eq!(counts(&db).unwrap()["panels"],6);
-    assert_eq!(counts(&db).unwrap()["analysis_asset_versions"],2);
-    assert_eq!(counts(&db).unwrap()["analysis_samples"],11);
-    assert_eq!(counts(&db).unwrap()["panel_asset_versions"],7);
-    for (analysis,count) in [("an5",5),("an6",6)] {
-        let found:i64=db.query_row(
-           "SELECT count(*) FROM analysis_samples WHERE analysis_id=?1 AND included=1",
-           [analysis],|r|r.get(0)).unwrap();
-        assert_eq!(found,count);
-        let frozen:bool=db.query_row(
-           "SELECT frozen_at IS NOT NULL FROM statistical_analyses WHERE id=?1",
-           [analysis],|r|r.get(0)).unwrap();
+    let check = execute(&f, req("verify", Some(&snap_id), None, None)).unwrap();
+    assert_eq!(check.status, "verified");
+    let restore = execute(
+        &f,
+        req("restore", Some(&snap_id), Some("combined-v3"), Some(true)),
+    )
+    .unwrap();
+    assert_eq!(restore.status, "restored");
+    let restored = f.restore_root.join("combined-v3");
+    let db = open_recognized(&restored.join("project-tree.sqlite")).unwrap();
+    assert_eq!(counts(&db).unwrap()["figures"], 2);
+    assert_eq!(counts(&db).unwrap()["panels"], 6);
+    assert_eq!(counts(&db).unwrap()["analysis_asset_versions"], 2);
+    assert_eq!(counts(&db).unwrap()["analysis_samples"], 11);
+    assert_eq!(counts(&db).unwrap()["panel_asset_versions"], 7);
+    for (analysis, count) in [("an5", 5), ("an6", 6)] {
+        let found: i64 = db
+            .query_row(
+                "SELECT count(*) FROM analysis_samples WHERE analysis_id=?1 AND included=1",
+                [analysis],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(found, count);
+        let frozen: bool = db
+            .query_row(
+                "SELECT frozen_at IS NOT NULL FROM statistical_analyses WHERE id=?1",
+                [analysis],
+                |r| r.get(0),
+            )
+            .unwrap();
         assert!(frozen);
     }
-    let distinct:i64=db.query_row(
-        "SELECT count(DISTINCT asset_version_id) FROM panel_asset_versions",[],
-        |r|r.get(0)).unwrap();
-    assert_eq!(distinct,1);
-    let raw=fs::read(restored.join("cas").join("objects").join(&f.sha)).unwrap();
-    assert_eq!(raw,before);
-    assert_eq!(crate::cas::hash_file(&restored.join("cas").join("objects").join(&f.sha))
-        .unwrap().0,f.sha);
-    let reversed=crate::provenance_trace::execute_at(
+    let distinct: i64 = db
+        .query_row(
+            "SELECT count(DISTINCT asset_version_id) FROM panel_asset_versions",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(distinct, 1);
+    let raw = fs::read(restored.join("cas").join("objects").join(&f.sha)).unwrap();
+    assert_eq!(raw, before);
+    assert_eq!(
+        crate::cas::hash_file(&restored.join("cas").join("objects").join(&f.sha))
+            .unwrap()
+            .0,
+        f.sha
+    );
+    let reversed = crate::provenance_trace::execute_at(
         &restored.join("project-tree.sqlite"),
         serde_json::from_value(serde_json::json!({
             "projectId":"p","action":"version","id":"version"
-        })).unwrap()).unwrap();
-    assert_eq!(reversed.total_count,9);
-    assert_eq!(reversed.edges.iter().filter(|x|x.panel_id.is_some()).count(),7);
-    assert_eq!(reversed.edges.iter().filter(|x|x.analysis_id.is_some()).count(),2);
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(reversed.total_count, 9);
+    assert_eq!(
+        reversed
+            .edges
+            .iter()
+            .filter(|x| x.panel_id.is_some())
+            .count(),
+        7
+    );
+    assert_eq!(
+        reversed
+            .edges
+            .iter()
+            .filter(|x| x.analysis_id.is_some())
+            .count(),
+        2
+    );
 }
