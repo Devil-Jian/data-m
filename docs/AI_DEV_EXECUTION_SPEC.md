@@ -1,3 +1,5 @@
+> **S8 开发状态（2026-11-17）**：在 `feat/s8-statistics-sample-inclusion` 从 S7 `15e784a6bf939cf509254aacdea33bb120cf9165` 堆叠实现 Schema v3 迁移、独立统计分析 Rust IPC、冻结审计与正式项目管理 UI；新增 `s8_` Rust / `@S8` Playwright 测试。当前为 `in_progress`，机器 CI 与 Windows EXE 尚待实际验证，不得标记 `machine_passed` 或 `accepted`。S7 仍为 `machine_passed / manual_pending`，S8 人工验收同样未执行。详见 [S8 设计](S8_IMPLEMENTATION_DESIGN.md) 与 [S8 报告](S8_EXECUTION_REPORT.md)。
+
 # Data-M｜AI 可执行开发规范（按功能闭环）
 
 > **使用对象**：有 GitHub/本地代码执行能力的 AI 开发代理 + Windows 人工验收者。  
