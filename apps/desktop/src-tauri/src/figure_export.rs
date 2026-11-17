@@ -1226,6 +1226,35 @@ mod tests {
         assert_eq!(fs::read_dir(&dest).unwrap().count(), no_published);
         assert_eq!(fs::read(objects.join(&sha)).unwrap(), original);
         assert_eq!(fs::read(objects.join(&second_sha)).unwrap(), second_bytes);
+        // Inject a deterministic filesystem write collision after the first
+        // fully verified blob. This exercises the real production error path
+        // without relying on available disk space or Windows ACL defaults.
+        let before_failure = fs::read_dir(&dest).unwrap().count();
+        let failed_copy = export_figure_with_hooks(
+            &db,
+            "p",
+            "paper",
+            "fig",
+            &dest,
+            &|| false,
+            &|done, _| {
+                if done == 1 {
+                    let stage = fs::read_dir(&dest)
+                        .unwrap()
+                        .filter_map(Result::ok)
+                        .find(|entry| {
+                            entry.file_name().to_string_lossy().starts_with(".data-m-figure-stage-")
+                        })
+                        .unwrap();
+                    fs::create_dir(stage.path().join("files").join(&second_sha)).unwrap();
+                }
+            },
+            None,
+        );
+        assert_eq!(failed_copy.unwrap_err().code, "DISK_WRITE_FAILED");
+        assert_eq!(fs::read_dir(&dest).unwrap().count(), before_failure);
+        assert_eq!(fs::read(objects.join(&sha)).unwrap(), original);
+        assert_eq!(fs::read(objects.join(&second_sha)).unwrap(), second_bytes);
         let before_count = fs::read_dir(&dest).unwrap().count();
         assert_eq!(
             export_figure_with_hooks(&db, "p", "paper", "fig", &dest, &|| true, &|_, _| {}, None)
