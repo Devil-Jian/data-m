@@ -903,4 +903,85 @@ mod tests {
             "BLOB_CORRUPT"
         );
     }
+    #[test]
+    fn s10_durable_at_most_once_claim_survives_reopening_sqlite() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = dir.path().join("state.sqlite");
+        let token = "12345678-1234-1234-1234-123456789abc";
+        assert!(claim_export_request(&db, token, "p", "paper", "figure").is_ok());
+        // with_database_at independently reopens the database and commits
+        // the claim. A retry cannot silently produce a second export.
+        assert_eq!(
+            claim_export_request(&db, token, "p", "paper", "figure")
+                .unwrap_err().code,
+            "REQUEST_REPLAY_BLOCKED"
+        );
+        assert_eq!(
+            claim_export_request(&db, token, "other", "paper", "figure")
+                .unwrap_err().code,
+            "REQUEST_REPLAY_BLOCKED"
+        );
+        assert_eq!(
+            claim_export_request(&db, "../invalid", "p", "paper", "figure")
+                .unwrap_err().code,
+            "INVALID_REQUEST"
+        );
+        let count: i64 = with_database_at(&db, |c| {
+            Ok(c.query_row(
+                "SELECT count(*) FROM s1_requests WHERE request_id LIKE 's10-figure-export-%'",
+                [],
+                |r| r.get(0),
+            )?)
+        }).unwrap();
+        assert_eq!(count, 1);
+        assert!(claim_export_request(
+            &db, "f2345678-1234-1234-1234-123456789abc",
+            "p", "paper", "figure"
+        ).is_ok());
+    }
+
+    #[test]
+    fn s10_copy_cancel_midstream_preserves_original_and_never_marks_complete() {
+        use sha2::{Digest, Sha256};
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let dir = tempfile::tempdir().unwrap();
+        let original = vec![0x5A_u8; 3 * 1024 * 1024];
+        let source = dir.path().join("source");
+        let output = dir.path().join("partial");
+        fs::write(&source, &original).unwrap();
+        let sha = format!("{:x}", Sha256::digest(&original));
+        let checks = AtomicUsize::new(0);
+        let error = verified_copy(
+            &source, &output, &sha, original.len() as i64,
+            &|| checks.fetch_add(1, Ordering::SeqCst) >= 1
+        ).unwrap_err();
+        assert_eq!(error.code, "CANCELLED");
+        assert_eq!(fs::read(&source).unwrap(), original);
+        assert!(fs::metadata(&output).unwrap().len() < original.len() as u64);
+        // The caller's TempDir must be dropped on this failure.
+    }
+
+    #[test]
+    fn s10_invalid_digest_missing_blob_and_symlink_are_rejected() {
+        use sha2::{Digest, Sha256};
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("src");
+        let dst = dir.path().join("dst");
+        fs::write(&src, b"ABC").unwrap();
+        let sha = format!("{:x}", Sha256::digest(b"ABC"));
+        assert_eq!(
+            verified_copy(&src, &dst, "not-a-sha", 3, &|| false)
+                .unwrap_err().code, "INVALID_BLOB"
+        );
+        assert_eq!(
+            verified_copy(&dir.path().join("absent"), &dst, &sha, 3, &|| false)
+                .unwrap_err().code, "BLOB_MISSING"
+        );
+        assert_eq!(
+            verified_copy(&src, &dst, &sha, 200, &|| false)
+                .unwrap_err().code, "BLOB_CORRUPT"
+        );
+        assert!(!dst.exists());
+    }
+
 }
