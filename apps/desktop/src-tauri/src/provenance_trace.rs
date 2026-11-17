@@ -166,25 +166,27 @@ fn execute(c: &Connection, r: TraceRequest) -> Result<TraceResult, TreeError> {
              WHERE l.asset_id=?1 AND t.project_id=?2
              ORDER BY l.id",
         )?;
-        edge.sources = links.query_map(params![edge.asset_id, r.project_id], |row| {
-            Ok(TraceSource {
-                link_id: row.get(0)?,
-                assay_id: row.get(1)?,
-                group_id: row.get(2)?,
-                replicate_id: row.get(3)?,
-                stage: row.get(4)?,
-                display_name: row.get(5)?,
-                deleted: row.get(6)?,
-            })
-        })?.collect::<rusqlite::Result<Vec<_>>>()?;
+        edge.sources = links
+            .query_map(params![edge.asset_id, r.project_id], |row| {
+                Ok(TraceSource {
+                    link_id: row.get(0)?,
+                    assay_id: row.get(1)?,
+                    group_id: row.get(2)?,
+                    replicate_id: row.get(3)?,
+                    stage: row.get(4)?,
+                    display_name: row.get(5)?,
+                    deleted: row.get(6)?,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
         if let Some(panel) = &edge.panel_id {
             let mut reps = c.prepare(
                 "SELECT replicate_id FROM representative_sources
-                 WHERE panel_id=?1 AND asset_version_id=?2 ORDER BY replicate_id"
+                 WHERE panel_id=?1 AND asset_version_id=?2 ORDER BY replicate_id",
             )?;
-            edge.representative_replicate_ids = reps.query_map(
-                params![panel, edge.asset_version_id], |row| row.get(0)
-            )?.collect::<rusqlite::Result<Vec<String>>>()?;
+            edge.representative_replicate_ids = reps
+                .query_map(params![panel, edge.asset_version_id], |row| row.get(0))?
+                .collect::<rusqlite::Result<Vec<String>>>()?;
         }
         if let Some(analysis_id) = &edge.analysis_id {
             let mut included = c.prepare("SELECT replicate_id FROM analysis_samples WHERE analysis_id=?1 AND included=1 ORDER BY replicate_id")?;
