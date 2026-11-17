@@ -577,6 +577,12 @@ fn s10_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
              VALUES ('an5','version','input'),('an6','version','result');
           UPDATE statistical_analyses SET frozen_at='2026-01-02'
              WHERE id IN ('an5','an6');
+          INSERT INTO asset_versions(id,asset_id,version_number,blob_sha256,source_name)
+             SELECT 'version-v2',asset_id,2,blob_sha256,'v2-renamed.tif'
+             FROM asset_versions WHERE id='version';
+          INSERT INTO asset_links(id,asset_id,assay_id,stage,display_name)
+             SELECT 'link-copy',asset_id,assay_id,'processed','v2 moved'
+             FROM asset_links WHERE id='link';
           UPDATE asset_links SET deleted_at='2026-01-03' WHERE id='link';
         ",
         )?;
@@ -631,6 +637,29 @@ fn s10_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
         )
         .unwrap();
     assert_eq!(distinct, 1);
+    assert_eq!(counts(&db).unwrap()["asset_versions"], 2);
+    let pinned: i64 = db.query_row(
+        "SELECT count(*) FROM panel_asset_versions WHERE asset_version_id='version-v2'",
+        [], |r| r.get(0)
+    ).unwrap();
+    assert_eq!(pinned, 0);
+    let historical: i64 = db.query_row(
+        "SELECT count(*) FROM asset_links WHERE asset_id IN
+           (SELECT asset_id FROM asset_versions WHERE id='version')
+           AND deleted_at IS NOT NULL",
+        [], |r| r.get(0)
+    ).unwrap();
+    assert_eq!(historical, 1);
+    for analysis in ["an5","an6"] {
+        assert!(db.execute(
+            "UPDATE analysis_samples SET included=0 WHERE analysis_id=?1",
+            [analysis]
+        ).is_err());
+        assert!(db.execute(
+            "DELETE FROM analysis_asset_versions WHERE analysis_id=?1",
+            [analysis]
+        ).is_err());
+    }
     let raw = fs::read(restored.join("cas").join("objects").join(&f.sha)).unwrap();
     assert_eq!(raw, before);
     assert_eq!(
