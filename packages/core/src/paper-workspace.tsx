@@ -75,7 +75,7 @@ export function PaperWorkspace() {
  const selectedFigure=paper?.figures.find(f=>f.panels.some(p=>p.id===selectedPanel));
  const grouped=candidates.reduce<Record<string,Candidate[]>>((out,c)=>{const k=c.assayId+' / '+(c.groupId||'未分组')+' / '+(c.replicateId||'未关联样本');(out[k]??=[]).push(c);return out},{});
  return <div className="s9-shell" aria-label="S9 真实论文管理工作区">
-   <div className="s9-top"><div><strong>论文 / Figure / Panel</strong><small>固定 AssetVersion · 真实 SQLite 持久化</small></div>
+   <div className="s9-top"><div><h1>论文管理</h1><small>Paper / Figure / Panel · 固定 AssetVersion · 真实 SQLite 持久化</small></div>
      <label>科研项目 <select aria-label="选择真实科研项目" value={projectId} onChange={e=>setProjectId(e.target.value)}>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
    </div>
    {error&&<div className="s9-error" role="alert">{error}</div>}
