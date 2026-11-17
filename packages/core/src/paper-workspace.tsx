@@ -9,7 +9,7 @@ type Panel={id:string;label:string;assets:Asset[];representatives:Rep[]};
 type Figure={id:string;label:string;panels:Panel[]};
 type Paper={id:string;title:string;status:string;notes:string;figures:Figure[]};
 type Candidate={assetVersionId:string;assetId:string;versionNumber:number;name:string;sha256:string;stage:string;assayId:string;groupId:string|null;replicateId:string|null};
-type Snapshot={papers:Paper[];candidates:Candidate[]};
+type Snapshot={papers:Paper[];candidates:Candidate[];candidateTotalCount?:number;candidateTruncated?:boolean};
 type ProjectNode={id:string;kind:string;name:string};
 const empty:Snapshot={papers:[],candidates:[]};
 type Kind='paper'|'figure'|'panel';
@@ -28,6 +28,8 @@ export function PaperWorkspace({onClose}:{onClose?:()=>void}={}) {
  const [name,setName]=useState('');
  const [search,setSearch]=useState('');
  const [stage,setStage]=useState('');
+ const [candidateOffset,setCandidateOffset]=useState(0);
+ const [candidateLoading,setCandidateLoading]=useState(false);
  const [usage,setUsage]=useState('display');
  const [paperStatus,setPaperStatus]=useState('draft');
  const [paperNotes,setPaperNotes]=useState('');
@@ -52,13 +54,24 @@ export function PaperWorkspace({onClose}:{onClose?:()=>void}={}) {
    return()=>{cancelled=true};
  },[]);
  useEffect(()=>{setError('');setSelectedPaper('');setSelectedPanel('');setReverseVersion('');setSelectedVersions([]);refresh(projectId).catch(e=>setError(errorText(e)))},[projectId,refresh]);
+ useEffect(()=>{setCandidateOffset(0)},[projectId,search,stage]);
+ useEffect(()=>{
+   let live=true;
+   if(!projectId)return;
+   setCandidateLoading(true);
+   void invoke<Snapshot>('paper_workspace',{request:{action:'candidates',projectId,
+     candidateQuery:search.trim(),...(stage?{candidateStage:stage}:{}),
+     candidateOffset,candidateLimit:100}})
+    .then(data=>{if(live)setSnapshot(old=>({...old,candidates:data.candidates,
+       candidateTotalCount:data.candidateTotalCount,candidateTruncated:data.candidateTruncated}));})
+    .catch(e=>{if(live)setError(errorText(e))})
+    .finally(()=>{if(live)setCandidateLoading(false)});
+   return()=>{live=false};
+ },[projectId,search,stage,candidateOffset]);
  const paper=snapshot.papers.find(p=>p.id===selectedPaper)||snapshot.papers[0];
  const panel=paper?.figures.flatMap(f=>f.panels).find(p=>p.id===selectedPanel);
  useEffect(()=>{setPaperStatus(paper?.status||'draft');setPaperNotes(paper?.notes||'')},[paper?.id,paper?.status,paper?.notes]);
- const candidates=useMemo(()=>snapshot.candidates.filter(c=>
-    (!search||[c.name,c.assayId,c.assetVersionId,c.replicateId||''].some(v=>v.toLowerCase().includes(search.toLowerCase())))&&
-    (!stage||c.stage===stage)
- ),[snapshot.candidates,search,stage]);
+ const candidates=useMemo(()=>snapshot.candidates,[snapshot.candidates]);
  const mutate=useCallback(async(action:Action,more:Record<string,unknown>)=>{
    if(!projectId)return;
    setBusy(true);setError('');setNotice('');
@@ -153,13 +166,17 @@ export function PaperWorkspace({onClose}:{onClose?:()=>void}={}) {
       <label>引用用途 <select aria-label="选择引用用途" value={usage} onChange={e=>setUsage(e.target.value)}>
        {['display','statistics','source','other'].map(s=><option key={s}>{s}</option>)}
       </select></label>
-      {snapshot.candidates.length >= 500 && <p role="status" className="s9-error">候选列表仅显示最多 500 条，可能已截断；筛选仅作用于已加载候选项，不能视为项目全部文件。</p>}
+      <p role="status">服务端筛选：共 {snapshot.candidateTotalCount??'…'} 条候选，当前第 {candidateOffset+1} 条起；每页最多 100 条。{candidateLoading?'正在查询…':''}</p>
       <div className="s9-candidates">
        {Object.entries(grouped).map(([group,items])=><div key={group}><h4>{group}</h4>
         {items.map(c=><label className="s9-candidate" key={c.assetVersionId+'-'+group}>
          <input type="checkbox" checked={selectedVersions.includes(c.assetVersionId)} onChange={e=>setSelectedVersions(old=>e.target.checked?[...new Set([...old,c.assetVersionId])]:old.filter(v=>v!==c.assetVersionId))}/>
          <span><strong>{c.name}</strong><small>{c.stage} · v{c.versionNumber} · {c.assetVersionId.slice(0,12)}</small></span>
         </label>)}</div>)}
+      </div>
+      <div className="s9-actions">
+       <button disabled={candidateLoading||candidateOffset===0} onClick={()=>setCandidateOffset(v=>Math.max(0,v-100))}>上一页候选</button>
+       <button disabled={candidateLoading||!snapshot.candidateTruncated} onClick={()=>setCandidateOffset(v=>v+100)}>下一页候选</button>
       </div>
       <button className="s9-commit" disabled={busy||!panel||selectedVersions.length===0} onClick={()=>{
         if(!panel)return;void mutate('attach',{id:panel.id,versionIds:selectedVersions,usage});
