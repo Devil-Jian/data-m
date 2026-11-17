@@ -721,8 +721,10 @@ fn s10_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
             .collect::<Vec<_>>(),
         vec!["version", "version-v3"]
     );
-    assert!(panel3_forward.edges.iter().all(|edge| {
-        edge.sources.len() == 2 && edge.sources.iter().any(|s| s.deleted)
+    let json = serde_json::to_value(&panel3_forward).unwrap();
+    assert!(json["edges"].as_array().unwrap().iter().all(|edge| {
+        edge["sources"].as_array().unwrap().len() == 2
+            && edge["sources"].as_array().unwrap().iter().any(|s| s["deleted"] == true)
     }));
     assert_eq!(
         reversed
