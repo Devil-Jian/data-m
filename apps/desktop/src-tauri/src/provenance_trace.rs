@@ -234,5 +234,33 @@ mod tests {
             execute(&c, req("version", "other")).unwrap_err().code,
             "NOT_FOUND"
         );
+        // A second historical location is not another physical reference.
+        // New versions do not inherit old Paper/Analysis pins.
+        c.execute_batch(
+            "INSERT INTO asset_links(id,asset_id,assay_id,group_id,replicate_id,stage,display_name)
+                VALUES('l2','d','a','g','r','processed','derived.tif');
+             INSERT INTO asset_versions(id,asset_id,version_number,blob_sha256,source_name)
+                SELECT 'v2',asset_id,2,blob_sha256,'derived-v2.tif'
+                FROM asset_versions WHERE id='v1';
+             INSERT INTO projects(id,name) VALUES('unrelated','Other');",
+        )
+        .unwrap();
+        assert_eq!(execute(&c, req("version", "v1")).unwrap().total_count, 2);
+        assert_eq!(execute(&c, req("asset", "d")).unwrap().total_count, 2);
+        assert_eq!(execute(&c, req("version", "v2")).unwrap().total_count, 0);
+        let mut other = req("version", "v1");
+        other.project_id = "unrelated".into();
+        assert_eq!(execute(&c, other).unwrap_err().code, "NOT_FOUND");
+        let mut page = req("version", "v1");
+        page.limit = Some(1);
+        let first = execute(&c, page).unwrap();
+        assert_eq!(first.total_count, 2);
+        assert!(first.truncated);
+        let mut next = req("version", "v1");
+        next.limit = Some(1);
+        next.offset = Some(1);
+        let last = execute(&c, next).unwrap();
+        assert!(!last.truncated);
+        assert_ne!(first.edges[0].panel_id, last.edges[0].panel_id);
     }
 }
