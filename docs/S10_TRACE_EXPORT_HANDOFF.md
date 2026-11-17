@@ -17,3 +17,7 @@ S11 cannot rely on this proposal until implemented, hashed, tested, and proven b
 
 ## Added partial API (code not CI-accepted)
 S9 `paper_workspace` action `candidates` accepts optional `candidateQuery`, `candidateStage`, `candidateOffset`, `candidateLimit`; response includes `candidateTotalCount` and `candidateTruncated`. Figure native exporter is deliberately **not** published as a Tauri IPC until a trusted directory authorization and Windows handle-level safety implementation exists. No user-facing production manifest or successful S10 EXE can be claimed.
+
+## Real UI entry points (unaccepted)
+- Paper Panel detail: forward pinned-version provenance and version reverse references.
+- File detail in project AssetBrowser: derive Project from Assay→Theme→Project, then query all referenced versions with action `asset`. Missing Project ancestry fails closed. Full navigation to Analysis and export still pending.
