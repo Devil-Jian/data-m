@@ -616,7 +616,25 @@ mod tests {
         assert_eq!(fs::read(root.join("files").join(&sha)).unwrap(), original);
         let raw = fs::read(root.join("figure-manifest.json")).unwrap();
         assert!(raw.windows(2).any(|x| x == b"v1"));
-        fs::write(objects.join(&sha), b"tampered").unwrap();
+        // A future version is not substituted for a historically pinned v1.
+        with_database_at(&db, |c| {
+            c.execute("INSERT INTO asset_versions(id,asset_id,version_number,blob_sha256,source_name)
+                       VALUES('v2','asset',2,?1,'x-v2.png')",[&sha])?;
+            Ok(())
+        }).unwrap();
+        let (_next,next_manifest)=export_figure_at(&db,"p","paper","fig",&dest).unwrap();
+        assert!(next_manifest.references.iter().all(|r|r.asset_version_id=="v1"));
+        assert_eq!(export_figure_at(&db,"wrong-project","paper","fig",&dest)
+            .unwrap_err().code,"NOT_FOUND");
+        assert_eq!(export_figure_at(&db,"p","paper","fig",db.parent().unwrap())
+            .unwrap_err().code,"UNSAFE_PATH");
+        assert_eq!(export_figure_at(&db,"p","paper","fig",Path::new("relative"))
+            .unwrap_err().code,"UNSAFE_PATH");
+        let before_count=fs::read_dir(&dest).unwrap().count();
+        assert_eq!(export_figure_with_hooks(&db,"p","paper","fig",&dest,
+            &||true,&|_,_|{}).unwrap_err().code,"CANCELLED");
+        assert_eq!(fs::read_dir(&dest).unwrap().count(),before_count);
+        fs::write(objects.join(&sha), vec![b'X';original.len()]).unwrap();
         assert_eq!(
             export_figure_at(&db, "p", "paper", "fig", &dest)
                 .unwrap_err()
