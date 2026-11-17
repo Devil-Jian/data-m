@@ -766,7 +766,6 @@ fn s3_tauri_ipc_imports_through_the_registered_async_command() {
     assert!(!completed.to_string().contains("sourcePath"));
 }
 
-
 #[test]
 fn s11_inflight_import_blocks_backup_then_restores_frozen_and_pinned_records() {
     use std::sync::atomic::{AtomicBool, Ordering};
@@ -826,7 +825,10 @@ fn s11_inflight_import_blocks_backup_then_restores_frozen_and_pinned_records() {
     .err()
     .expect("S7 must refuse an in-flight S3 import");
     assert_eq!(refused.code, "BACKUP_BUSY");
-    assert!(!backups.exists(), "failed snapshot must not publish anything");
+    assert!(
+        !backups.exists(),
+        "failed snapshot must not publish anything"
+    );
     release_tx.send(()).unwrap();
     let finished = wait(&repo, &prepared.id);
     assert_eq!(finished.status, "completed");
@@ -884,7 +886,10 @@ fn s11_inflight_import_blocks_backup_then_restores_frozen_and_pinned_records() {
         &|_| {},
     )
     .unwrap();
-    assert_eq!(serde_json::to_value(verified).unwrap()["status"], "verified");
+    assert_eq!(
+        serde_json::to_value(verified).unwrap()["status"],
+        "verified"
+    );
     let restored = crate::repository_safety::execute_at(
         &database,
         &backups,
@@ -898,7 +903,10 @@ fn s11_inflight_import_blocks_backup_then_restores_frozen_and_pinned_records() {
         &|_| {},
     )
     .unwrap();
-    assert_eq!(serde_json::to_value(restored).unwrap()["status"], "restored");
+    assert_eq!(
+        serde_json::to_value(restored).unwrap()["status"],
+        "restored"
+    );
     let restored_db = restores.join("s11-isolated").join("project-tree.sqlite");
     with_database_at(&restored_db, |connection| {
         for (table, expected) in [
@@ -909,11 +917,10 @@ fn s11_inflight_import_blocks_backup_then_restores_frozen_and_pinned_records() {
             ("panel_asset_versions", 1),
             ("analysis_asset_versions", 1),
         ] {
-            let found: i64 = connection.query_row(
-                &format!("SELECT count(*) FROM {table}"),
-                [],
-                |row| row.get(0),
-            )?;
+            let found: i64 =
+                connection.query_row(&format!("SELECT count(*) FROM {table}"), [], |row| {
+                    row.get(0)
+                })?;
             assert_eq!(found, expected, "{table}");
         }
         let expected_version: String = connection.query_row(
