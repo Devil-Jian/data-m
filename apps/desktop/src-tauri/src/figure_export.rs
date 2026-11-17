@@ -8,7 +8,10 @@ use std::collections::{BTreeMap, HashMap};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex, OnceLock};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex, OnceLock,
+};
 use tauri::Emitter;
 
 fn error(code: &'static str) -> TreeError {
@@ -189,7 +192,13 @@ fn safe_dir(path: &Path) -> Result<PathBuf, TreeError> {
     }
     Ok(canonical)
 }
-fn verified_copy(source: &Path, target: &Path, sha: &str, size: i64, cancelled: &dyn Fn() -> bool) -> Result<(), TreeError> {
+fn verified_copy(
+    source: &Path,
+    target: &Path,
+    sha: &str,
+    size: i64,
+    cancelled: &dyn Fn() -> bool,
+) -> Result<(), TreeError> {
     use sha2::{Digest, Sha256};
     if sha.len() != 64
         || !sha
@@ -216,7 +225,9 @@ fn verified_copy(source: &Path, target: &Path, sha: &str, size: i64, cancelled: 
     let mut written = 0u64;
     let mut buf = [0u8; 1024 * 1024];
     loop {
-        if cancelled() { return Err(error("CANCELLED")); }
+        if cancelled() {
+            return Err(error("CANCELLED"));
+        }
         let n = input.read(&mut buf).map_err(|_| error("BLOB_UNREADABLE"))?;
         if n == 0 {
             break;
@@ -240,13 +251,30 @@ fn verified_copy(source: &Path, target: &Path, sha: &str, size: i64, cancelled: 
 /// This intentionally has no Tauri command. Destination authorization and
 /// Windows directory handle/reparse protection must be integrated first.
 pub(crate) fn export_figure_at(
-    database: &Path, project: &str, paper: &str, figure: &str, destination: &Path
+    database: &Path,
+    project: &str,
+    paper: &str,
+    figure: &str,
+    destination: &Path,
 ) -> Result<(PathBuf, FigureManifest), TreeError> {
-    export_figure_with_hooks(database, project, paper, figure, destination, &|| false, &|_,_| {})
+    export_figure_with_hooks(
+        database,
+        project,
+        paper,
+        figure,
+        destination,
+        &|| false,
+        &|_, _| {},
+    )
 }
 fn export_figure_with_hooks(
-    database: &Path, project: &str, paper: &str, figure: &str, destination: &Path,
-    cancelled: &dyn Fn() -> bool, progress: &dyn Fn(usize,usize)
+    database: &Path,
+    project: &str,
+    paper: &str,
+    figure: &str,
+    destination: &Path,
+    cancelled: &dyn Fn() -> bool,
+    progress: &dyn Fn(usize, usize),
 ) -> Result<(PathBuf, FigureManifest), TreeError> {
     required(Some(project), 128)?;
     required(Some(paper), 128)?;
@@ -279,11 +307,17 @@ fn export_figure_with_hooks(
     fs::create_dir(&files).map_err(|_| error("DISK_WRITE_FAILED"))?;
     let mut unique = BTreeMap::<String, String>::new();
     let mut refs = Vec::new();
-    let total_files=items.iter().map(|x|x.sha.as_str()).collect::<std::collections::BTreeSet<_>>().len();
+    let total_files = items
+        .iter()
+        .map(|x| x.sha.as_str())
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
     for item in items {
         let relative_path = format!("files/{}", item.sha);
         if !unique.contains_key(&item.sha) {
-            if cancelled() { return Err(error("CANCELLED")); }
+            if cancelled() {
+                return Err(error("CANCELLED"));
+            }
             verified_copy(
                 &cas_root.join(&item.sha),
                 &files.join(&item.sha),
@@ -292,7 +326,7 @@ fn export_figure_with_hooks(
                 cancelled,
             )?;
             unique.insert(item.sha.clone(), relative_path.clone());
-            progress(unique.len(),total_files);
+            progress(unique.len(), total_files);
         }
         refs.push(ManifestEntry {
             panel_id: item.panel_id,
@@ -342,7 +376,9 @@ fn export_figure_with_hooks(
     if fs::symlink_metadata(&target).is_ok() {
         return Err(error("TARGET_CONFLICT"));
     }
-    if cancelled() { return Err(error("CANCELLED")); }
+    if cancelled() {
+        return Err(error("CANCELLED"));
+    }
     #[cfg(windows)]
     destination_guard.validate()?;
     let staging_path = stage.keep();
@@ -355,9 +391,8 @@ fn export_figure_with_hooks(
     }
 }
 
-
 #[derive(Debug, Deserialize)]
-#[serde(rename_all="camelCase",deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FigureExportRequest {
     action: String,
     project_id: String,
@@ -367,7 +402,7 @@ pub struct FigureExportRequest {
     request_id: Option<String>,
 }
 #[derive(Debug, Serialize)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all = "camelCase")]
 pub struct FigureExportPreview {
     figure_id: String,
     panel_count: i64,
@@ -376,7 +411,7 @@ pub struct FigureExportPreview {
     unique_bytes: i64,
 }
 #[derive(Debug, Serialize)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all = "camelCase")]
 pub struct FigureExportResponse {
     status: String,
     preview: Option<FigureExportPreview>,
@@ -384,161 +419,221 @@ pub struct FigureExportResponse {
     manifest: Option<FigureManifest>,
 }
 #[derive(Debug, Clone, Serialize)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all = "camelCase")]
 pub struct FigureExportProgress {
     request_id: String,
     completed: usize,
     total: usize,
 }
-static IN_FLIGHT: OnceLock<Mutex<HashMap<String,Arc<AtomicBool>>>> = OnceLock::new();
-fn active_exports() -> &'static Mutex<HashMap<String,Arc<AtomicBool>>> {
-    IN_FLIGHT.get_or_init(||Mutex::new(HashMap::new()))
+static IN_FLIGHT: OnceLock<Mutex<HashMap<String, Arc<AtomicBool>>>> = OnceLock::new();
+fn active_exports() -> &'static Mutex<HashMap<String, Arc<AtomicBool>>> {
+    IN_FLIGHT.get_or_init(|| Mutex::new(HashMap::new()))
 }
-fn preview_at(database:&Path,project:&str,paper:&str,figure:&str)
-    ->Result<FigureExportPreview,TreeError>{
-    with_database_at(database,|c|{
-        let (items,_)=planned(c,project,paper,figure)?;
-        let panel_count=c.query_row(
-            "SELECT count(*) FROM panels WHERE figure_id=?1",[figure],|r|r.get(0)
+fn preview_at(
+    database: &Path,
+    project: &str,
+    paper: &str,
+    figure: &str,
+) -> Result<FigureExportPreview, TreeError> {
+    with_database_at(database, |c| {
+        let (items, _) = planned(c, project, paper, figure)?;
+        let panel_count = c.query_row(
+            "SELECT count(*) FROM panels WHERE figure_id=?1",
+            [figure],
+            |r| r.get(0),
         )?;
-        let mut bytes=BTreeMap::new();
-        for item in &items {bytes.entry(&item.sha).or_insert(item.size);}
+        let mut bytes = BTreeMap::new();
+        for item in &items {
+            bytes.entry(&item.sha).or_insert(item.size);
+        }
         Ok(FigureExportPreview {
-            figure_id:figure.into(),panel_count,reference_count:items.len(),
-            unique_file_count:bytes.len(),unique_bytes:bytes.values().sum(),
+            figure_id: figure.into(),
+            panel_count,
+            reference_count: items.len(),
+            unique_file_count: bytes.len(),
+            unique_bytes: bytes.values().sum(),
         })
     })
 }
 #[tauri::command]
-pub fn figure_export_cancel(request_id:String)->Result<bool,TreeError>{
-    required(Some(&request_id),128)?;
-    let map=active_exports().lock().map_err(|_|error("EXPORT_BUSY"))?;
-    if let Some(flag)=map.get(&request_id){
-        flag.store(true,Ordering::SeqCst);
+pub fn figure_export_cancel(request_id: String) -> Result<bool, TreeError> {
+    required(Some(&request_id), 128)?;
+    let map = active_exports().lock().map_err(|_| error("EXPORT_BUSY"))?;
+    if let Some(flag) = map.get(&request_id) {
+        flag.store(true, Ordering::SeqCst);
         Ok(true)
-    }else{
+    } else {
         Ok(false)
     }
 }
 #[tauri::command]
-pub async fn figure_export<R:tauri::Runtime>(
-    app:tauri::AppHandle<R>,request:FigureExportRequest
-)->Result<FigureExportResponse,TreeError>{
+pub async fn figure_export<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    request: FigureExportRequest,
+) -> Result<FigureExportResponse, TreeError> {
     use crate::project_tree::database_path;
-    required(Some(&request.project_id),128)?;
-    required(Some(&request.paper_id),128)?;
-    required(Some(&request.figure_id),128)?;
-    let database=database_path(&app)?;
-    if request.action=="preview" {
-        if request.confirm.is_some()||request.request_id.is_some(){
+    required(Some(&request.project_id), 128)?;
+    required(Some(&request.paper_id), 128)?;
+    required(Some(&request.figure_id), 128)?;
+    let database = database_path(&app)?;
+    if request.action == "preview" {
+        if request.confirm.is_some() || request.request_id.is_some() {
             return Err(error("INVALID_REQUEST"));
         }
-        let preview=preview_at(
-            &database,&request.project_id,&request.paper_id,&request.figure_id
+        let preview = preview_at(
+            &database,
+            &request.project_id,
+            &request.paper_id,
+            &request.figure_id,
         )?;
-        return Ok(FigureExportResponse{
-            status:"preview".into(),preview:Some(preview),
-            folder_path:None,manifest:None,
+        return Ok(FigureExportResponse {
+            status: "preview".into(),
+            preview: Some(preview),
+            folder_path: None,
+            manifest: None,
         });
     }
-    if request.action!="export"||request.confirm!=Some(true){
+    if request.action != "export" || request.confirm != Some(true) {
         return Err(error("INVALID_REQUEST"));
     }
-    let token=required(request.request_id.as_deref(),128)?.to_owned();
-    let flag=Arc::new(AtomicBool::new(false));
+    let token = required(request.request_id.as_deref(), 128)?.to_owned();
+    let flag = Arc::new(AtomicBool::new(false));
     {
-        let mut map=active_exports().lock().map_err(|_|error("EXPORT_BUSY"))?;
-        if map.contains_key(&token){return Err(error("REQUEST_CONFLICT"));}
-        map.insert(token.clone(),flag.clone());
+        let mut map = active_exports().lock().map_err(|_| error("EXPORT_BUSY"))?;
+        if map.contains_key(&token) {
+            return Err(error("REQUEST_CONFLICT"));
+        }
+        map.insert(token.clone(), flag.clone());
     }
-    let emit_app=app.clone();
-    let result=tauri::async_runtime::spawn_blocking(move||{
-        let operation=||{
-            let destination=pick_native_folder()?;
-            if flag.load(Ordering::SeqCst){return Err(error("CANCELLED"));}
-            let progress=|completed:usize,total:usize|{
-                let _=emit_app.emit("s10-figure-export-progress",FigureExportProgress{
-                    request_id:token.clone(),completed,total,
-                });
+    let emit_app = app.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let operation = || {
+            let destination = pick_native_folder()?;
+            if flag.load(Ordering::SeqCst) {
+                return Err(error("CANCELLED"));
+            }
+            let progress = |completed: usize, total: usize| {
+                let _ = emit_app.emit(
+                    "s10-figure-export-progress",
+                    FigureExportProgress {
+                        request_id: token.clone(),
+                        completed,
+                        total,
+                    },
+                );
             };
-            let (folder,manifest)=export_figure_with_hooks(
-                &database,&request.project_id,&request.paper_id,&request.figure_id,
-                &destination,&||flag.load(Ordering::SeqCst),&progress
+            let (folder, manifest) = export_figure_with_hooks(
+                &database,
+                &request.project_id,
+                &request.paper_id,
+                &request.figure_id,
+                &destination,
+                &|| flag.load(Ordering::SeqCst),
+                &progress,
             )?;
-            Ok(FigureExportResponse{
-                status:"complete".into(),preview:None,
-                folder_path:Some(folder.to_string_lossy().into_owned()),
-                manifest:Some(manifest),
+            Ok(FigureExportResponse {
+                status: "complete".into(),
+                preview: None,
+                folder_path: Some(folder.to_string_lossy().into_owned()),
+                manifest: Some(manifest),
             })
         };
-        let result=operation();
-        if let Ok(mut map)=active_exports().lock(){map.remove(&token);}
+        let result = operation();
+        if let Ok(mut map) = active_exports().lock() {
+            map.remove(&token);
+        }
         result
-    }).await.map_err(|_|error("EXPORT_FAILED"))?;
+    })
+    .await
+    .map_err(|_| error("EXPORT_FAILED"))?;
     result
 }
 #[cfg(not(windows))]
-fn pick_native_folder()->Result<PathBuf,TreeError>{
+fn pick_native_folder() -> Result<PathBuf, TreeError> {
     Err(error("UNSUPPORTED_PLATFORM"))
 }
 #[cfg(windows)]
-fn pick_native_folder()->Result<PathBuf,TreeError>{
+fn pick_native_folder() -> Result<PathBuf, TreeError> {
     // A dedicated STA thread is required by the Windows Shell dialog.
-    std::thread::Builder::new().name("data-m-figure-picker".into())
-        .spawn(win32_pick_folder).map_err(|_|error("PICKER_UNAVAILABLE"))?
-        .join().map_err(|_|error("PICKER_UNAVAILABLE"))?
+    std::thread::Builder::new()
+        .name("data-m-figure-picker".into())
+        .spawn(win32_pick_folder)
+        .map_err(|_| error("PICKER_UNAVAILABLE"))?
+        .join()
+        .map_err(|_| error("PICKER_UNAVAILABLE"))?
 }
 #[cfg(windows)]
-fn win32_pick_folder()->Result<PathBuf,TreeError>{
+fn win32_pick_folder() -> Result<PathBuf, TreeError> {
     use std::ffi::c_void;
     use std::os::windows::ffi::OsStringExt;
     #[repr(C)]
     struct BrowseInfo {
-        owner:*mut c_void,
-        root:*const c_void,
-        display_name:*mut u16,
-        title:*const u16,
-        flags:u32,
-        callback:*const c_void,
-        lparam:isize,
-        image:i32,
+        owner: *mut c_void,
+        root: *const c_void,
+        display_name: *mut u16,
+        title: *const u16,
+        flags: u32,
+        callback: *const c_void,
+        lparam: isize,
+        image: i32,
     }
-    #[link(name="shell32")]
+    #[link(name = "shell32")]
     extern "system" {
-        fn SHBrowseForFolderW(info:*mut BrowseInfo)->*mut c_void;
-        fn SHGetPathFromIDListEx(pidl:*const c_void,path:*mut u16,length:u32,flags:u32)->i32;
+        fn SHBrowseForFolderW(info: *mut BrowseInfo) -> *mut c_void;
+        fn SHGetPathFromIDListEx(
+            pidl: *const c_void,
+            path: *mut u16,
+            length: u32,
+            flags: u32,
+        ) -> i32;
     }
-    #[link(name="ole32")]
+    #[link(name = "ole32")]
     extern "system" {
-        fn CoInitializeEx(reserved:*mut c_void,flags:u32)->i32;
+        fn CoInitializeEx(reserved: *mut c_void, flags: u32) -> i32;
         fn CoUninitialize();
-        fn CoTaskMemFree(pointer:*mut c_void);
+        fn CoTaskMemFree(pointer: *mut c_void);
     }
-    let hr=unsafe{CoInitializeEx(std::ptr::null_mut(),2|4)};
-    if hr<0{return Err(error("PICKER_UNAVAILABLE"));}
-    let selected=(||{
-        let mut display=[0u16;260];
-        let title:Vec<u16>="Data-M: choose Figure export folder".encode_utf16()
-            .chain(std::iter::once(0)).collect();
-        let mut info=BrowseInfo{
-            owner:std::ptr::null_mut(),root:std::ptr::null(),
-            display_name:display.as_mut_ptr(),title:title.as_ptr(),
-            flags:0x1|0x40,callback:std::ptr::null(),lparam:0,image:0,
+    let hr = unsafe { CoInitializeEx(std::ptr::null_mut(), 2 | 4) };
+    if hr < 0 {
+        return Err(error("PICKER_UNAVAILABLE"));
+    }
+    let selected = (|| {
+        let mut display = [0u16; 260];
+        let title: Vec<u16> = "Data-M: choose Figure export folder"
+            .encode_utf16()
+            .chain(std::iter::once(0))
+            .collect();
+        let mut info = BrowseInfo {
+            owner: std::ptr::null_mut(),
+            root: std::ptr::null(),
+            display_name: display.as_mut_ptr(),
+            title: title.as_ptr(),
+            flags: 0x1 | 0x40,
+            callback: std::ptr::null(),
+            lparam: 0,
+            image: 0,
         };
-        let pidl=unsafe{SHBrowseForFolderW(&mut info)};
-        if pidl.is_null(){return Err(error("CANCELLED"));}
-        let mut chars=vec![0u16;32768];
-        let valid=unsafe{
-            let result=SHGetPathFromIDListEx(pidl,chars.as_mut_ptr(),chars.len() as u32,0);
+        let pidl = unsafe { SHBrowseForFolderW(&mut info) };
+        if pidl.is_null() {
+            return Err(error("CANCELLED"));
+        }
+        let mut chars = vec![0u16; 32768];
+        let valid = unsafe {
+            let result = SHGetPathFromIDListEx(pidl, chars.as_mut_ptr(), chars.len() as u32, 0);
             CoTaskMemFree(pidl);
-            result!=0
+            result != 0
         };
-        if !valid{return Err(error("UNSAFE_PATH"));}
-        let end=chars.iter().position(|c|*c==0).ok_or_else(||error("UNSAFE_PATH"))?;
-        let selected=std::ffi::OsString::from_wide(&chars[..end]);
+        if !valid {
+            return Err(error("UNSAFE_PATH"));
+        }
+        let end = chars
+            .iter()
+            .position(|c| *c == 0)
+            .ok_or_else(|| error("UNSAFE_PATH"))?;
+        let selected = std::ffi::OsString::from_wide(&chars[..end]);
         Ok(PathBuf::from(selected))
     })();
-    unsafe{CoUninitialize()};
+    unsafe { CoUninitialize() };
     selected
 }
 
@@ -618,23 +713,46 @@ mod tests {
         assert!(raw.windows(2).any(|x| x == b"v1"));
         // A future version is not substituted for a historically pinned v1.
         with_database_at(&db, |c| {
-            c.execute("INSERT INTO asset_versions(id,asset_id,version_number,blob_sha256,source_name)
-                       VALUES('v2','asset',2,?1,'x-v2.png')",[&sha])?;
+            c.execute(
+                "INSERT INTO asset_versions(id,asset_id,version_number,blob_sha256,source_name)
+                       VALUES('v2','asset',2,?1,'x-v2.png')",
+                [&sha],
+            )?;
             Ok(())
-        }).unwrap();
-        let (_next,next_manifest)=export_figure_at(&db,"p","paper","fig",&dest).unwrap();
-        assert!(next_manifest.references.iter().all(|r|r.asset_version_id=="v1"));
-        assert_eq!(export_figure_at(&db,"wrong-project","paper","fig",&dest)
-            .unwrap_err().code,"NOT_FOUND");
-        assert_eq!(export_figure_at(&db,"p","paper","fig",db.parent().unwrap())
-            .unwrap_err().code,"UNSAFE_PATH");
-        assert_eq!(export_figure_at(&db,"p","paper","fig",Path::new("relative"))
-            .unwrap_err().code,"UNSAFE_PATH");
-        let before_count=fs::read_dir(&dest).unwrap().count();
-        assert_eq!(export_figure_with_hooks(&db,"p","paper","fig",&dest,
-            &||true,&|_,_|{}).unwrap_err().code,"CANCELLED");
-        assert_eq!(fs::read_dir(&dest).unwrap().count(),before_count);
-        fs::write(objects.join(&sha), vec![b'X';original.len()]).unwrap();
+        })
+        .unwrap();
+        let (_next, next_manifest) = export_figure_at(&db, "p", "paper", "fig", &dest).unwrap();
+        assert!(next_manifest
+            .references
+            .iter()
+            .all(|r| r.asset_version_id == "v1"));
+        assert_eq!(
+            export_figure_at(&db, "wrong-project", "paper", "fig", &dest)
+                .unwrap_err()
+                .code,
+            "NOT_FOUND"
+        );
+        assert_eq!(
+            export_figure_at(&db, "p", "paper", "fig", db.parent().unwrap())
+                .unwrap_err()
+                .code,
+            "UNSAFE_PATH"
+        );
+        assert_eq!(
+            export_figure_at(&db, "p", "paper", "fig", Path::new("relative"))
+                .unwrap_err()
+                .code,
+            "UNSAFE_PATH"
+        );
+        let before_count = fs::read_dir(&dest).unwrap().count();
+        assert_eq!(
+            export_figure_with_hooks(&db, "p", "paper", "fig", &dest, &|| true, &|_, _| {})
+                .unwrap_err()
+                .code,
+            "CANCELLED"
+        );
+        assert_eq!(fs::read_dir(&dest).unwrap().count(), before_count);
+        fs::write(objects.join(&sha), vec![b'X'; original.len()]).unwrap();
         assert_eq!(
             export_figure_at(&db, "p", "paper", "fig", &dest)
                 .unwrap_err()
