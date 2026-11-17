@@ -777,6 +777,10 @@ mod tests {
             c.execute_batch("
               INSERT INTO panel_asset_versions(panel_id,asset_version_id,usage)
                 VALUES('a','v1','display'),('b','v1','source');
+              INSERT INTO representative_sources(panel_id,replicate_id,asset_version_id)
+                VALUES('a','r1','v1');
+              INSERT INTO audit_events(id,action,object_type,object_id,details_json)
+                VALUES('audit-paper','paper_metadata','paper','paper','{}');
               INSERT INTO analysis_asset_versions(analysis_id,asset_version_id,role)
                 VALUES('analysis-a','v1','input'),('analysis-b','v1','input');
               UPDATE statistical_analyses SET frozen_at='2026-01-02'
@@ -791,6 +795,11 @@ mod tests {
         assert_eq!(m.reference_count, 2);
         assert_eq!(m.physical_file_count, 1);
         assert_eq!(m.analyses.len(), 2);
+        assert_eq!(m.panels.len(), 2);
+        assert_eq!(m.panels[0].panel_id, "a");
+        assert_eq!(m.panels[0].representatives.len(), 1);
+        assert_eq!(m.panels[0].representatives[0].replicate_id, "r1");
+        assert_eq!(m.audit_event_ids, vec!["audit-paper"]);
         assert_eq!(m.analyses[0].included_replicate_ids.len(), 5);
         assert_eq!(m.analyses[1].included_replicate_ids.len(), 6);
         assert_eq!(m.references[0].asset_version_id, "v1");
