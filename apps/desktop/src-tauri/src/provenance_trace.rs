@@ -11,35 +11,35 @@ pub struct TraceRequest {
     project_id: String,
     action: String,
     id: String,
-    offset: Option<u32>,
-    limit: Option<u32>,
+    pub(crate) offset: Option<u32>,
+    pub(crate) limit: Option<u32>,
 }
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TraceEdge {
-    paper_id: Option<String>,
-    figure_id: Option<String>,
-    panel_id: Option<String>,
-    usage: Option<String>,
-    analysis_id: Option<String>,
-    analysis_role: Option<String>,
-    frozen_at: Option<String>,
-    included_replicate_ids: Vec<String>,
-    asset_id: String,
-    asset_version_id: String,
-    version_number: i64,
-    blob_sha256: String,
-    size_bytes: i64,
-    asset_deleted: bool,
+    pub(crate) paper_id: Option<String>,
+    pub(crate) figure_id: Option<String>,
+    pub(crate) panel_id: Option<String>,
+    pub(crate) usage: Option<String>,
+    pub(crate) analysis_id: Option<String>,
+    pub(crate) analysis_role: Option<String>,
+    pub(crate) frozen_at: Option<String>,
+    pub(crate) included_replicate_ids: Vec<String>,
+    pub(crate) asset_id: String,
+    pub(crate) asset_version_id: String,
+    pub(crate) version_number: i64,
+    pub(crate) blob_sha256: String,
+    pub(crate) size_bytes: i64,
+    pub(crate) asset_deleted: bool,
 }
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TraceResult {
-    edges: Vec<TraceEdge>,
-    total_count: i64,
-    offset: u32,
-    limit: u32,
-    truncated: bool,
+    pub(crate) edges: Vec<TraceEdge>,
+    pub(crate) total_count: i64,
+    pub(crate) offset: u32,
+    pub(crate) limit: u32,
+    pub(crate) truncated: bool,
 }
 fn invalid_scope() -> TreeError {
     TreeError::new(
