@@ -222,6 +222,26 @@ fn safe_dir(path: &Path) -> Result<PathBuf, TreeError> {
     fs::canonicalize(path).map_err(|_| error("UNSAFE_PATH"))
 }
 
+#[cfg(windows)]
+fn pin_export_destination(path: &Path) -> Result<File, TreeError> {
+    use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
+    use windows_sys::Win32::Storage::FileSystem::{
+        FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_LIST_DIRECTORY,
+        FILE_READ_ATTRIBUTES, FILE_SHARE_READ, FILE_SHARE_WRITE,
+    };
+    let handle = OpenOptions::new()
+        .read(true)
+        .access_mode(FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES)
+        .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE)
+        .custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT)
+        .open(path)
+        .map_err(|_| error("UNSAFE_PATH"))?;
+    let meta = handle.metadata().map_err(|_| error("UNSAFE_PATH"))?;
+    if !meta.is_dir() || meta.file_attributes() & 0x400 != 0 {
+        return Err(error("UNSAFE_PATH"));
+    }
+    Ok(handle)
+}
 fn verified_copy(
     source: &Path,
     target: &Path,
@@ -345,6 +365,11 @@ fn export_figure_with_hooks(
     let destination = safe_dir(destination)?;
     #[cfg(windows)]
     let destination_guard = crate::import_jobs::filesystem::Directories::hold_export(&destination)?;
+    // Keep an additional no-delete-sharing handle on the selected leaf.
+    // Other ancestry handles share DELETE so publishing a child works, but
+    // the authorized destination itself cannot be renamed/replaced mid-copy.
+    #[cfg(windows)]
+    let _destination_rename_pin = pin_export_destination(&destination)?;
     #[cfg(windows)]
     let _source_guard = crate::import_jobs::filesystem::Directories::hold_export(&cas_root)?;
     if destination.starts_with(&repository) || repository.starts_with(&destination) {
