@@ -10,7 +10,7 @@ use std::{
 };
 use tauri::{Emitter, Manager};
 
-mod filesystem;
+pub(crate) mod filesystem;
 mod worker;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
