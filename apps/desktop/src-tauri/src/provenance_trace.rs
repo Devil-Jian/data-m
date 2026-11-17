@@ -141,3 +141,57 @@ pub fn provenance_trace<R: tauri::Runtime>(
 ) -> Result<TraceResult, TreeError> {
     execute_at(&database_path(&app)?, request)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn s10_exact_version_forward_reverse_and_frozen_snapshot() {
+        let c = Connection::open_in_memory().unwrap();
+        c.pragma_update(None, "foreign_keys", "ON").unwrap();
+        c.execute_batch(crate::project_tree::MIGRATION).unwrap();
+        c.execute_batch(include_str!("../migrations/0002_import_jobs.sql")).unwrap();
+        c.execute_batch(include_str!("../migrations/0003_statistics.sql")).unwrap();
+        let sha = "a".repeat(64);
+        c.execute_batch(&format!("
+          INSERT INTO projects(id,name) VALUES('p','Project');
+          INSERT INTO themes(id,project_id,name) VALUES('t','p','Theme');
+          INSERT INTO assays(id,theme_id,name) VALUES('a','t','Assay');
+          INSERT INTO experiment_groups(id,assay_id,name) VALUES('g','a','Group');
+          INSERT INTO replicates(id,group_id,label) VALUES('r','g','Sample');
+          INSERT INTO blobs(sha256,size_bytes) VALUES('{sha}',3);
+          INSERT INTO data_assets(id,name) VALUES('d','original.tif');
+          INSERT INTO asset_versions(id,asset_id,version_number,blob_sha256,source_name)
+            VALUES('v1','d',1,'{sha}','original.tif');
+          INSERT INTO asset_links(id,asset_id,assay_id,group_id,replicate_id,stage,display_name)
+            VALUES('l','d','a','g','r','raw','original.tif');
+          INSERT INTO papers(id,project_id,title) VALUES('paper','p','Paper');
+          INSERT INTO figures(id,paper_id,label) VALUES('figure','paper','Figure 1');
+          INSERT INTO panels(id,figure_id,label) VALUES('panel','figure','A');
+          INSERT INTO panel_asset_versions(panel_id,asset_version_id,usage)
+            VALUES('panel','v1','display');
+          INSERT INTO statistical_analyses(id,assay_id,name,notes,updated_at)
+            VALUES('analysis','a','A','','2026-01-01');
+          INSERT INTO analysis_samples(analysis_id,replicate_id,included)
+            VALUES('analysis','r',1);
+          INSERT INTO analysis_asset_versions(analysis_id,asset_version_id,role)
+            VALUES('analysis','v1','input');
+          UPDATE statistical_analyses SET frozen_at='2026-01-01' WHERE id='analysis';
+          UPDATE asset_links SET deleted_at='2026-02-01' WHERE id='l';
+        ")).unwrap();
+        let req = |action: &str, id: &str| TraceRequest {
+            project_id: "p".into(), action: action.into(), id: id.into(),
+            offset: None, limit: Some(50),
+        };
+        let forward = execute(&c, req("panel", "panel")).unwrap();
+        assert_eq!(forward.total_count, 1);
+        assert_eq!(forward.edges[0].asset_version_id, "v1");
+        let reverse = execute(&c, req("version", "v1")).unwrap();
+        assert_eq!(reverse.total_count, 2);
+        assert!(reverse.edges.iter().any(|e| e.panel_id.as_deref() == Some("panel")));
+        assert!(reverse.edges.iter().any(|e| e.analysis_id.as_deref() == Some("analysis")
+            && e.frozen_at.as_deref() == Some("2026-01-01")));
+        assert_eq!(execute(&c, req("asset", "d")).unwrap().total_count, 2);
+        assert_eq!(execute(&c, req("version", "other")).unwrap_err().code, "NOT_FOUND");
+    }
+}
