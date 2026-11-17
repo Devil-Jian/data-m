@@ -18,8 +18,7 @@ fn error(code: &'static str) -> TreeError {
     TreeError::new(
         code,
         "Figure export could not be verified or safely published.",
-    )
-}
+    )}
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ManifestEntry {
@@ -539,7 +538,8 @@ fn claim_export_request(
     let payload = serde_json::json!({
         "action": "figure_export", "projectId": project, "paperId": paper,
         "figureId": figure
-    }).to_string();
+    })
+    .to_string();
     with_database_at(database, |c| {
         // Single SQLite constraint handles racing processes as well as restarts.
         let inserted = c.execute(
@@ -653,7 +653,10 @@ pub async fn figure_export<R: tauri::Runtime>(
             // the picker does not consume a token. A crash after this claim
             // requires a fresh token and an explicit inspection of the target.
             claim_export_request(
-                &database, &token, &request.project_id, &request.paper_id,
+                &database,
+                &token,
+                &request.project_id,
+                &request.paper_id,
                 &request.figure_id,
             )?;
             let (folder, manifest) = export_figure_with_hooks(
@@ -941,17 +944,20 @@ mod tests {
         // the claim. A retry cannot silently produce a second export.
         assert_eq!(
             claim_export_request(&db, token, "p", "paper", "figure")
-                .unwrap_err().code,
+                .unwrap_err()
+                .code,
             "REQUEST_REPLAY_BLOCKED"
         );
         assert_eq!(
             claim_export_request(&db, token, "other", "paper", "figure")
-                .unwrap_err().code,
+                .unwrap_err()
+                .code,
             "REQUEST_REPLAY_BLOCKED"
         );
         assert_eq!(
             claim_export_request(&db, "../invalid", "p", "paper", "figure")
-                .unwrap_err().code,
+                .unwrap_err()
+                .code,
             "INVALID_REQUEST"
         );
         let count: i64 = with_database_at(&db, |c| {
@@ -960,12 +966,17 @@ mod tests {
                 [],
                 |r| r.get(0),
             )?)
-        }).unwrap();
+        })
+        .unwrap();
         assert_eq!(count, 1);
         assert!(claim_export_request(
-            &db, "f2345678-1234-1234-1234-123456789abc",
-            "p", "paper", "figure"
-        ).is_ok());
+            &db,
+            "f2345678-1234-1234-1234-123456789abc",
+            "p",
+            "paper",
+            "figure"
+        )
+        .is_ok());
     }
 
     #[test]
@@ -979,10 +990,10 @@ mod tests {
         fs::write(&source, &original).unwrap();
         let sha = format!("{:x}", Sha256::digest(&original));
         let checks = AtomicUsize::new(0);
-        let error = verified_copy(
-            &source, &output, &sha, original.len() as i64,
-            &|| checks.fetch_add(1, Ordering::SeqCst) >= 1
-        ).unwrap_err();
+        let error = verified_copy(&source, &output, &sha, original.len() as i64, &|| {
+            checks.fetch_add(1, Ordering::SeqCst) >= 1
+        })
+        .unwrap_err();
         assert_eq!(error.code, "CANCELLED");
         assert_eq!(fs::read(&source).unwrap(), original);
         assert!(fs::metadata(&output).unwrap().len() < original.len() as u64);
@@ -999,15 +1010,21 @@ mod tests {
         let sha = format!("{:x}", Sha256::digest(b"ABC"));
         assert_eq!(
             verified_copy(&src, &dst, "not-a-sha", 3, &|| false)
-                .unwrap_err().code, "INVALID_BLOB"
+                .unwrap_err()
+                .code,
+            "INVALID_BLOB"
         );
         assert_eq!(
             verified_copy(&dir.path().join("absent"), &dst, &sha, 3, &|| false)
-                .unwrap_err().code, "BLOB_MISSING"
+                .unwrap_err()
+                .code,
+            "BLOB_MISSING"
         );
         assert_eq!(
             verified_copy(&src, &dst, &sha, 200, &|| false)
-                .unwrap_err().code, "BLOB_CORRUPT"
+                .unwrap_err()
+                .code,
+            "BLOB_CORRUPT"
         );
         assert!(!dst.exists());
     }
