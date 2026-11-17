@@ -300,4 +300,80 @@ mod tests {
  let mut a=request("attach",None,Some(xid),None,None,Some("attach2"));a.version_id=Some("v1".into());a.usage=Some("display".into());execute_at(&path,a.clone()).unwrap();a.request_id=Some("attach3".into());assert!(execute_at(&path,a).is_err());
  let mut other=request("rename",Some("panel"),Some(xid),None,Some("bad"),Some("bad1"));other.project_id="other".into();assert!(execute_at(&path,other).is_err());
  }
+ #[test]fn s9_transactional_order_and_failed_permutation_rollback(){
+  let (_d,path)=fixture();
+  let p=execute_at(&path,request("create",Some("paper"),None,None,Some("Order"),Some("ordpaper"))).unwrap();
+  let pid=&p.papers[0].id;
+  let x=execute_at(&path,request("create",Some("figure"),None,Some(pid),Some("F1"),Some("ord1"))).unwrap();
+  let first=x.papers[0].figures[0].id.clone();
+  let x=execute_at(&path,request("create",Some("figure"),None,Some(pid),Some("F2"),Some("ord2"))).unwrap();
+  let second=x.papers[0].figures[1].id.clone();
+  let mut sort=request("reorder",Some("figure"),None,Some(pid),None,Some("sortvalid"));
+  sort.order_ids=Some(vec![second.clone(),first.clone()]);
+  execute_at(&path,sort).unwrap();
+  let mut invalid=request("reorder",Some("figure"),None,Some(pid),None,Some("sortinvalid"));
+  invalid.order_ids=Some(vec![first.clone(),first.clone()]);
+  assert!(execute_at(&path,invalid).is_err());
+  let out=execute_at(&path,request("list",None,None,None,None,None)).unwrap();
+  assert_eq!(out.papers[0].figures[0].id,second);
+  assert_eq!(out.papers[0].figures[1].id,first);
+ }
+ #[test]fn s9_atomic_bulk_attach_and_representative_guard(){
+  let (_d,path)=fixture();
+  let p=execute_at(&path,request("create",Some("paper"),None,None,Some("Study"),Some("bulkpaper"))).unwrap();
+  let pid=&p.papers[0].id;
+  let x=execute_at(&path,request("create",Some("figure"),None,Some(pid),Some("F"),Some("bulkfig"))).unwrap();
+  let fid=&x.papers[0].figures[0].id;
+  let x=execute_at(&path,request("create",Some("panel"),None,Some(fid),Some("Panel"),Some("bulkpanel"))).unwrap();
+  let panel=&x.papers[0].figures[0].panels[0].id;
+  let mut bulk=request("attach",None,Some(panel),None,None,Some("bulkfail"));
+  bulk.version_ids=Some(vec!["v1".into(),"missing".into()]);bulk.usage=Some("source".into());
+  assert!(execute_at(&path,bulk).is_err());
+  let count=with_database_at(&path,|c|Ok(c.query_row("SELECT count(*) FROM panel_asset_versions",[],|row|row.get::<_,i64>(0))?)).unwrap();
+  assert_eq!(count,0);
+  let mut valid=request("attach",None,Some(panel),None,None,Some("bulkok"));
+  valid.version_ids=Some(vec!["v1".into()]);valid.usage=Some("source".into());
+  execute_at(&path,valid).unwrap();
+  let mut rep=request("representative",None,Some(panel),None,None,Some("bulkrep"));
+  rep.replicate_id=Some("r".into());rep.version_id=Some("v1".into());
+  execute_at(&path,rep).unwrap();
+  let mut detach=request("detach",None,Some(panel),None,None,Some("bulkdetach"));
+  detach.version_id=Some("v1".into());detach.usage=Some("source".into());
+  assert!(execute_at(&path,detach.clone()).is_err());
+  let mut clear=request("clearRepresentative",None,Some(panel),None,None,Some("bulkclear"));
+  clear.replicate_id=Some("r".into());
+  execute_at(&path,clear).unwrap();
+  execute_at(&path,detach).unwrap();
+  assert_eq!(with_database_at(&path,|c|Ok(c.query_row("SELECT count(*) FROM asset_versions",[],|row|row.get::<_,i64>(0))?)).unwrap(),1);
+ }
+ #[test]fn s9_rename_copy_links_do_not_change_version_or_n(){
+  let (_d,path)=fixture();
+  let p=execute_at(&path,request("create",Some("paper"),None,None,Some("Paper"),Some("rp1"))).unwrap();
+  let x=execute_at(&path,request("create",Some("figure"),None,Some(&p.papers[0].id),Some("F"),Some("rf1"))).unwrap();
+  let x=execute_at(&path,request("create",Some("panel"),None,Some(&x.papers[0].figures[0].id),Some("Panel"),Some("rpanel"))).unwrap();
+  let panel=x.papers[0].figures[0].panels[0].id.clone();
+  let mut a=request("attach",None,Some(&panel),None,None,Some("rattach"));a.usage=Some("display".into());a.version_id=Some("v1".into());
+  execute_at(&path,a).unwrap();
+  with_database_at(&path,|c|{
+    c.execute("UPDATE asset_links SET display_name='renamed.tif' WHERE id='link'",[])?;
+    c.execute("INSERT INTO asset_links(id,asset_id,assay_id,group_id,replicate_id,stage,display_name) VALUES('copy','asset','a','g','r','processed','copy.tif')",[])?;
+    c.execute("UPDATE asset_links SET stage='display' WHERE id='copy'",[])?;
+    Ok(())
+  }).unwrap();
+  let x=execute_at(&path,request("list",None,None,None,None,None)).unwrap();
+  assert_eq!(x.papers[0].figures[0].panels[0].assets[0].asset_version_id,"v1");
+  let n=with_database_at(&path,|c|Ok(c.query_row("SELECT count(*) FROM replicates",[],|row|row.get::<_,i64>(0))?)).unwrap();
+  assert_eq!(n,1);
+ }
+ #[test]fn s9_paper_metadata_persists_in_existing_audit_schema(){
+  let (_d,path)=fixture();
+  let p=execute_at(&path,request("create",Some("paper"),None,None,Some("Paper"),Some("mpaper"))).unwrap();
+  let mut metadata=request("metadata",None,Some(&p.papers[0].id),None,None,Some("m1"));
+  metadata.status=Some("submitted".into());metadata.notes=Some("Revision 1".into());
+  execute_at(&path,metadata).unwrap();
+  let loaded=execute_at(&path,request("list",None,None,None,None,None)).unwrap();
+  assert_eq!(loaded.papers[0].status,"submitted");
+  assert_eq!(loaded.papers[0].notes,"Revision 1");
+ }
+
 }
