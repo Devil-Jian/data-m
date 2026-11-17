@@ -1243,7 +1243,10 @@ mod tests {
                         .unwrap()
                         .filter_map(Result::ok)
                         .find(|entry| {
-                            entry.file_name().to_string_lossy().starts_with(".data-m-figure-stage-")
+                            entry
+                                .file_name()
+                                .to_string_lossy()
+                                .starts_with(".data-m-figure-stage-")
                         })
                         .unwrap();
                     fs::create_dir(stage.path().join("files").join(&second_sha)).unwrap();
