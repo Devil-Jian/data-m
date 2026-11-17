@@ -40,11 +40,8 @@ export function PaperWorkspace({onClose}:{onClose?:()=>void}={}) {
  const [ready,setReady]=useState(false);
  const refresh=useCallback(async(project:string)=>{
    if(!project){setSnapshot(empty);return}
-   const [current,candidates]=await Promise.all([
-     invoke<Snapshot>('paper_workspace',{request:{action:'list',projectId:project}}),
-     invoke<Snapshot>('paper_workspace',{request:{action:'candidates',projectId:project}})
-   ]);
-   setSnapshot({papers:current.papers,candidates:candidates.candidates});
+   const current=await invoke<Snapshot>('paper_workspace',{request:{action:'list',projectId:project}});
+   setSnapshot(old=>({...old,papers:current.papers}));
  },[]);
  useEffect(()=>{
    let cancelled=false;
@@ -53,7 +50,7 @@ export function PaperWorkspace({onClose}:{onClose?:()=>void}={}) {
      .catch(e=>{if(!cancelled){setError('无法连接真实项目数据库：'+errorText(e));setReady(true)}});
    return()=>{cancelled=true};
  },[]);
- useEffect(()=>{setError('');setSelectedPaper('');setSelectedPanel('');setReverseVersion('');setSelectedVersions([]);refresh(projectId).catch(e=>setError(errorText(e)))},[projectId,refresh]);
+ useEffect(()=>{setError('');setSelectedPaper('');setSelectedPanel('');setReverseVersion('');setSelectedVersions([]);setSnapshot(empty);refresh(projectId).catch(e=>setError(errorText(e)))},[projectId,refresh]);
  useEffect(()=>{setCandidateOffset(0)},[projectId,search,stage]);
  useEffect(()=>{
    let live=true;
