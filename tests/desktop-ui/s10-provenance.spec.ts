@@ -14,6 +14,13 @@ test('@S10 formal Paper Panel provenance and exact-version reverse navigation (r
     calls.push(command);
     if(command==='project_tree')return {nodes:[{id:'project',kind:'project',parentId:null,name:'研究项目'}]};
     if(command==='paper_workspace')return {papers:[paper],candidates:[]};
+    if(command==='figure_export'){
+      if(args.request.action==='preview')return {
+        status:'preview',preview:{figureId:'figure',panelCount:1,referenceCount:1,
+         uniqueFileCount:1,uniqueBytes:3},folderPath:null,manifest:null
+      };
+      throw {code:'BLOB_CORRUPT',message:'Source hash mismatch'};
+    }
     if(command==='provenance_trace'){
      if(args.request.projectId!=='project')throw Error('Wrong project');
      const first={paperId:'paper',figureId:'figure',panelId:'panel',usage:'display',
@@ -40,6 +47,12 @@ test('@S10 formal Paper Panel provenance and exact-version reverse navigation (r
  await expect(page.getByRole('region',{name:'S10 版本溯源'})).toHaveCount(2);
  await expect(page.getByText('历史纳入 n=1')).toBeVisible();
  await expect(page.getByText('尚未建立统计分析关联')).toHaveCount(0);
+ await page.getByRole('button',{name:'预览导出范围'}).click();
+ await expect(page.getByText(/唯一文件 1 个/)).toBeVisible();
+ page.once('dialog',dialog=>{void dialog.accept()});
+ await page.getByRole('button',{name:'选择目录并无损导出'}).click();
+ await expect(page.getByRole('alert').filter({hasText:'Source hash mismatch'})).toBeVisible();
+ await expect(page.getByText('无损导出完成')).toHaveCount(0);
 });
 
 test('@S10 formal asset detail reverse reference is project scoped (renderer IPC mock)',async({page})=>{
