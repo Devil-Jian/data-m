@@ -545,7 +545,7 @@ fn s8_sealed_schema_v2_snapshot_still_verifies_and_restores() {
 }
 
 #[test]
-fn s10_i1_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
+fn s10_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
     let f = fixture();
     // The S7 fixture already has an immutable CAS asset version and one Panel.
     // Expand it to a complete disposable I1 statistical/paper topology.
@@ -589,11 +589,11 @@ fn s10_i1_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
     assert_eq!(check.status, "verified");
     let restore = execute(
         &f,
-        req("restore", Some(&snap_id), Some("combined-v3"), Some(true)),
+        req("restore", Some(&snap_id), Some("safe-v3-restore"), Some(true)),
     )
     .unwrap();
     assert_eq!(restore.status, "restored");
-    let restored = f.restore_root.join("combined-v3");
+    let restored = f.restore_root.join("safe-v3-restore");
     let db = open_recognized(&restored.join("project-tree.sqlite")).unwrap();
     assert_eq!(counts(&db).unwrap()["figures"], 2);
     assert_eq!(counts(&db).unwrap()["panels"], 6);
