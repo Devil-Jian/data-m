@@ -822,3 +822,67 @@ fn s10_g0_01_v1_and_v2_upgrade_to_v3_preserve_pinned_references_and_reject_futur
         assert_eq!(fs::read(&path).unwrap(), before);
     }
 }
+
+#[test]
+fn s10_g0_01_invalid_cross_assay_v2_migration_rolls_back_before_v3() {
+    let temp = tempfile::tempdir().unwrap();
+    let db = temp.path().join("invalid-v2.sqlite");
+    {
+        let c = Connection::open(&db).unwrap();
+        c.pragma_update(None, "foreign_keys", "ON").unwrap();
+        c.execute_batch(include_str!("../../migrations/0001_initial.sql"))
+            .unwrap();
+        c.execute_batch(crate::project_tree::REQUEST_SCHEMA)
+            .unwrap();
+        c.execute_batch(include_str!("../../migrations/0002_import_jobs.sql"))
+            .unwrap();
+        c.execute_batch(
+            "INSERT INTO projects(id,name) VALUES('p','Project');
+             INSERT INTO themes(id,project_id,name) VALUES('t','p','Theme');
+             INSERT INTO assays(id,theme_id,name) VALUES
+                ('assay-a','t','A'),('assay-b','t','B');
+             INSERT INTO experiment_groups(id,assay_id,name)
+                VALUES('group-b','assay-b','Group B');
+             INSERT INTO replicates(id,group_id,label)
+                VALUES('rep-b','group-b','R1');
+             INSERT INTO statistical_analyses(id,assay_id,name)
+                VALUES('analysis-a','assay-a','Analysis A');
+             INSERT INTO analysis_samples(analysis_id,replicate_id,included)
+                VALUES('analysis-a','rep-b',1);",
+        )
+        .unwrap();
+        c.pragma_update(None, "application_id", 0x444d5331_i64)
+            .unwrap();
+        c.pragma_update(None, "user_version", 2).unwrap();
+    }
+    // This v2 schema is valid and all foreign keys exist, but the scientific
+    // Assay scope is invalid. The v3 migrator must reject without upgrading.
+    let failure = with_database_at(&db, |_c| Ok(()))
+        .unwrap_err();
+    assert_eq!(failure.code, "INVALID_ANALYSIS_RELATION");
+    let c = Connection::open(&db).unwrap();
+    assert_eq!(
+        c.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
+            .unwrap(),
+        2
+    );
+    assert_eq!(
+        c.query_row("SELECT count(*) FROM schema_migrations", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        2
+    );
+    assert_eq!(
+        c.query_row("SELECT count(*) FROM analysis_samples", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        c.query_row(
+            "SELECT count(*) FROM sqlite_master WHERE type='table'
+             AND name='analysis_asset_versions'",
+            [],
+            |r| r.get::<_, i64>(0)
+        ).unwrap(),
+        0
+    );
+}
