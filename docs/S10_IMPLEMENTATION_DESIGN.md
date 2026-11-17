@@ -14,3 +14,8 @@ Authoritative manifest v1 must include Figure/Panel order, logical use edges, ex
 
 ## Outstanding gates
 G0-01–07 combined native/SQLite/CAS and UI regression; all S10-01–14 tests; integrated Figure exporter, picker/confirm/progress/cancel, forward/reverse UI and server-side candidate pagination, Windows cargo fmt/check/test, Chromium/desktop Playwright and Release EXE. Do not mark machine_passed without successful exact SHA Actions evidence.
+
+## Implemented partial Figure export core and candidate fix (unverified)
+The Figure export core queries exact `panel_asset_versions` and immutable CAS digest and file size, stages per SHA under an existing absolute destination, writes `figure-manifest.json`, and publishes only on full verification. Source names are preserved as JSON metadata; SHA-only physical filenames avoid Windows reserved names and collisions. Exact matching Analysis version references and their historical included Replicate IDs are emitted as associated references, **not** proof of a causal Panel→Analysis relationship. Native directory picker authorization, Windows handle-based TOCTOU defense, cancel/request-id tracking, UI confirmation and progress are still outstanding, so core is not exposed via user IPC.
+
+S9 candidate query now supports `candidateQuery`, `candidateStage`, `candidateOffset`, `candidateLimit` (1–200), returns `candidateTotalCount` and `candidateTruncated`, stable order and filtered total, replacing `LIMIT 500`. A native 605-version test has been added, not yet verified by CI.
