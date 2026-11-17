@@ -290,7 +290,7 @@ fn export_figure_with_hooks(
     #[cfg(windows)]
     let destination_guard = crate::import_jobs::filesystem::Directories::hold_export(&destination)?;
     #[cfg(windows)]
-    let _source_guard = crate::import_jobs::filesystem::Directories::hold(&cas_root, false)?;
+    let _source_guard = crate::import_jobs::filesystem::Directories::hold_export(&cas_root)?;
     if destination.starts_with(&repository) || repository.starts_with(&destination) {
         return Err(error("UNSAFE_PATH"));
     }
