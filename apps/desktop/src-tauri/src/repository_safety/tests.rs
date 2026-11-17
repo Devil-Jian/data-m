@@ -504,7 +504,7 @@ fn s8_sealed_schema_v2_snapshot_still_verifies_and_restores() {
     assert_eq!(execute_at(&db,&backups,&restores,req("verify",Some(&id),None,None),&nop).unwrap().status,"verified");
     let restored=execute_at(&db,&backups,&restores,req("restore",Some(&id),Some("legacy-v2"),Some(true)),&nop).unwrap();
     assert_eq!(restored.status,"restored");
-    let v2=restores.join("legacy-v2").join("database.sqlite");
+    let v2=restores.join("legacy-v2").join("project-tree.sqlite");
     let c=Connection::open_with_flags(v2,OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
     assert_eq!(c.pragma_query_value(None,"user_version",|r|r.get::<_,i64>(0)).unwrap(),2);
 }
