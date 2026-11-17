@@ -610,7 +610,8 @@ fn s10_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
             [],
         )?;
         Ok(())
-    }).unwrap();
+    })
+    .unwrap();
     let before = std::fs::read(&f.source).unwrap();
     let snap_id = backup(&f);
     let check = execute(&f, req("verify", Some(&snap_id), None, None)).unwrap();
@@ -713,18 +714,27 @@ fn s10_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
         &restored.join("project-tree.sqlite"),
         serde_json::from_value(serde_json::json!({
             "projectId":"p","action":"panel","id":"panel3"
-        })).unwrap(),
-    ).unwrap();
+        }))
+        .unwrap(),
+    )
+    .unwrap();
     assert_eq!(panel3_forward.total_count, 2);
     assert_eq!(
-        panel3_forward.edges.iter().map(|edge| edge.asset_version_id.as_str())
+        panel3_forward
+            .edges
+            .iter()
+            .map(|edge| edge.asset_version_id.as_str())
             .collect::<Vec<_>>(),
         vec!["version", "version-v3"]
     );
     let json = serde_json::to_value(&panel3_forward).unwrap();
     assert!(json["edges"].as_array().unwrap().iter().all(|edge| {
         edge["sources"].as_array().unwrap().len() == 2
-            && edge["sources"].as_array().unwrap().iter().any(|s| s["deleted"] == true)
+            && edge["sources"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|s| s["deleted"] == true)
     }));
     assert_eq!(
         reversed
@@ -764,11 +774,19 @@ fn s10_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
     assert_eq!(manifest.analyses[0].included_replicate_ids.len(), 5);
     assert_eq!(manifest.analyses[1].included_replicate_ids.len(), 6);
     assert_eq!(
-        manifest.references.iter().filter(|e| e.asset_version_id == "version").count(),
+        manifest
+            .references
+            .iter()
+            .filter(|e| e.asset_version_id == "version")
+            .count(),
         4
     );
     assert_eq!(
-        manifest.references.iter().filter(|e| e.asset_version_id == "version-v3").count(),
+        manifest
+            .references
+            .iter()
+            .filter(|e| e.asset_version_id == "version-v3")
+            .count(),
         1
     );
     assert!(manifest.references.iter().all(|e| {
@@ -803,11 +821,15 @@ fn s10_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
         "paper",
         "fig2",
         &export_dest,
-    ).unwrap();
+    )
+    .unwrap();
     assert_eq!(other_figure.panels.len(), 3);
     assert_eq!(other_figure.reference_count, 3);
     assert_eq!(other_figure.physical_file_count, 1);
-    assert!(other_figure.references.iter().all(|e| e.asset_version_id == "version"));
+    assert!(other_figure
+        .references
+        .iter()
+        .all(|e| e.asset_version_id == "version"));
     assert!(!other_root.join("files").join(&second_sha).exists());
     let disk_manifest: crate::figure_export::FigureManifest =
         serde_json::from_slice(&fs::read(export_root.join("figure-manifest.json")).unwrap())
@@ -926,8 +948,7 @@ fn s10_g0_01_invalid_cross_assay_v2_migration_rolls_back_before_v3() {
     }
     // This v2 schema is valid and all foreign keys exist, but the scientific
     // Assay scope is invalid. The v3 migrator must reject without upgrading.
-    let failure = with_database_at(&db, |_c| Ok(()))
-        .unwrap_err();
+    let failure = with_database_at(&db, |_c| Ok(())).unwrap_err();
     assert_eq!(failure.code, "INVALID_ANALYSIS_RELATION");
     let c = Connection::open(&db).unwrap();
     assert_eq!(
@@ -936,12 +957,14 @@ fn s10_g0_01_invalid_cross_assay_v2_migration_rolls_back_before_v3() {
         2
     );
     assert_eq!(
-        c.query_row("SELECT count(*) FROM schema_migrations", [], |r| r.get::<_, i64>(0))
+        c.query_row("SELECT count(*) FROM schema_migrations", [], |r| r
+            .get::<_, i64>(0))
             .unwrap(),
         2
     );
     assert_eq!(
-        c.query_row("SELECT count(*) FROM analysis_samples", [], |r| r.get::<_, i64>(0))
+        c.query_row("SELECT count(*) FROM analysis_samples", [], |r| r
+            .get::<_, i64>(0))
             .unwrap(),
         1
     );
@@ -951,7 +974,8 @@ fn s10_g0_01_invalid_cross_assay_v2_migration_rolls_back_before_v3() {
              AND name='analysis_asset_versions'",
             [],
             |r| r.get::<_, i64>(0)
-        ).unwrap(),
+        )
+        .unwrap(),
         0
     );
 }
