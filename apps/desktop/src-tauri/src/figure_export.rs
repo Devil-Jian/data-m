@@ -189,24 +189,34 @@ fn planned(
     Ok((items, analyses))
 }
 fn safe_dir(path: &Path) -> Result<PathBuf, TreeError> {
-    if !path.is_absolute() {
-        return Err(error("UNSAFE_PATH"));
+    use std::path::Component;
+    if !path.is_absolute() { return Err(error("UNSAFE_PATH")); }
+    // Check each lexical ancestor BEFORE canonicalization. Otherwise a
+    // junction/symlink in the parent chain gets erased by canonicalize.
+    let mut cursor=PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::Prefix(_) | Component::RootDir | Component::Normal(_) => {
+                cursor.push(component.as_os_str());
+            }
+            _ => return Err(error("UNSAFE_PATH")),
+        }
+        if matches!(component, Component::Prefix(_)) { continue; }
+        let meta=fs::symlink_metadata(&cursor).map_err(|_|error("UNSAFE_PATH"))?;
+        if !meta.file_type().is_dir() || meta.file_type().is_symlink() {
+            return Err(error("UNSAFE_PATH"));
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::MetadataExt;
+            if meta.file_attributes() & 0x400 != 0 {
+                return Err(error("UNSAFE_PATH"));
+            }
+        }
     }
-    let meta = fs::symlink_metadata(path).map_err(|_| error("UNSAFE_PATH"))?;
-    if !meta.file_type().is_dir() || meta.file_type().is_symlink() {
-        return Err(error("UNSAFE_PATH"));
-    }
-    let canonical = fs::canonicalize(path).map_err(|_| error("UNSAFE_PATH"))?;
-    // The destination must already exist and not be changed into a symlink.
-    if fs::symlink_metadata(&canonical)
-        .map_err(|_| error("UNSAFE_PATH"))?
-        .file_type()
-        .is_symlink()
-    {
-        return Err(error("UNSAFE_PATH"));
-    }
-    Ok(canonical)
+    fs::canonicalize(path).map_err(|_|error("UNSAFE_PATH"))
 }
+
 fn verified_copy(
     source: &Path,
     target: &Path,
@@ -1279,6 +1289,23 @@ mod tests {
             recover_stale_stages_at(&db,&dest,std::time::Duration::ZERO).unwrap(),0
         );
         assert_eq!(fs::read(finished.join("figure-manifest.json")).unwrap(),b"KEEP");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn s10_windows_directory_reparse_ancestors_cannot_authorize_export() {
+        let dir=tempfile::tempdir().unwrap();
+        let real=dir.path().join("real");
+        fs::create_dir(&real).unwrap();
+        let child=real.join("child");
+        fs::create_dir(&child).unwrap();
+        let link=dir.path().join("redirect");
+        // Windows runner must actually create the adversarial fixture.
+        std::os::windows::fs::symlink_dir(&real,&link)
+            .expect("Windows CI must support native symlink security fixtures");
+        assert_eq!(safe_dir(&link).unwrap_err().code,"UNSAFE_PATH");
+        assert_eq!(safe_dir(&link.join("child")).unwrap_err().code,"UNSAFE_PATH");
+        assert!(safe_dir(&child).is_ok());
     }
 
 }
