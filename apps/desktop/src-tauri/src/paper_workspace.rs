@@ -139,14 +139,22 @@ fn valid_version(c: &Connection, project: &str, version: &str) -> Result<String,
 fn validate(r: &PaperRequest) -> Result<(), TreeError> {
     id(Some(&r.project_id))?;
     if r.action == "candidates" {
-        if r.candidate_query.as_ref().is_some_and(|q| q.chars().count()>160 || q.chars().any(char::is_control))
-            || r.candidate_stage.as_ref().is_some_and(|s| !matches!(s.as_str(),"raw"|"processed"|"statistics"|"display"))
-            || r.candidate_offset.unwrap_or(0)>1_000_000
-            || !(1..=200).contains(&r.candidate_limit.unwrap_or(100)) {
+        if r.candidate_query
+            .as_ref()
+            .is_some_and(|q| q.chars().count() > 160 || q.chars().any(char::is_control))
+            || r.candidate_stage.as_ref().is_some_and(|s| {
+                !matches!(s.as_str(), "raw" | "processed" | "statistics" | "display")
+            })
+            || r.candidate_offset.unwrap_or(0) > 1_000_000
+            || !(1..=200).contains(&r.candidate_limit.unwrap_or(100))
+        {
             return Err(invalid());
         }
-    } else if r.candidate_query.is_some() || r.candidate_stage.is_some()
-        || r.candidate_offset.is_some() || r.candidate_limit.is_some() {
+    } else if r.candidate_query.is_some()
+        || r.candidate_stage.is_some()
+        || r.candidate_offset.is_some()
+        || r.candidate_limit.is_some()
+    {
         return Err(invalid());
     }
     match r.action.as_str() {
@@ -526,7 +534,7 @@ fn query(
     let mut candidate_truncated = false;
     if request.action == "candidates" {
         let search = request.candidate_query.as_deref().unwrap_or("").trim();
-        let pattern = format!("%{}%",search);
+        let pattern = format!("%{}%", search);
         let stage = request.candidate_stage.as_deref().unwrap_or("");
         let offset = request.candidate_offset.unwrap_or(0);
         let limit = request.candidate_limit.unwrap_or(100);
@@ -545,31 +553,44 @@ fn query(
         let columns = "v.id,v.asset_id,v.version_number,l.display_name,v.blob_sha256,
                        l.stage,l.assay_id,l.group_id,l.replicate_id";
         let count_sql = format!("SELECT count(*) FROM (SELECT DISTINCT {columns} {source})");
-        candidate_total_count = c.query_row(&count_sql,
-            params![project,search,pattern,stage],|row|row.get(0))?;
-        let sql=format!("SELECT DISTINCT {columns} {source}
+        candidate_total_count = c.query_row(
+            &count_sql,
+            params![project, search, pattern, stage],
+            |row| row.get(0),
+        )?;
+        let sql = format!(
+            "SELECT DISTINCT {columns} {source}
           ORDER BY l.display_name COLLATE NOCASE,v.version_number DESC,
                    v.id,l.assay_id,l.group_id,l.replicate_id
-          LIMIT ?5 OFFSET ?6");
+          LIMIT ?5 OFFSET ?6"
+        );
         let mut stmt = c.prepare(&sql)?;
-        candidates = stmt.query_map(
-            params![project,search,pattern,stage,limit,offset], |row| {
-                Ok(Candidate {
-                    asset_version_id: row.get(0)?,
-                    asset_id: row.get(1)?,
-                    version_number: row.get(2)?,
-                    name: row.get(3)?,
-                    sha256: row.get(4)?,
-                    stage: row.get(5)?,
-                    assay_id: row.get(6)?,
-                    group_id: row.get(7)?,
-                    replicate_id: row.get(8)?,
-                })
-            }
-        )?.collect::<rusqlite::Result<Vec<_>>>()?;
-        candidate_truncated=i64::from(offset)+(candidates.len() as i64)<candidate_total_count;
+        candidates = stmt
+            .query_map(
+                params![project, search, pattern, stage, limit, offset],
+                |row| {
+                    Ok(Candidate {
+                        asset_version_id: row.get(0)?,
+                        asset_id: row.get(1)?,
+                        version_number: row.get(2)?,
+                        name: row.get(3)?,
+                        sha256: row.get(4)?,
+                        stage: row.get(5)?,
+                        assay_id: row.get(6)?,
+                        group_id: row.get(7)?,
+                        replicate_id: row.get(8)?,
+                    })
+                },
+            )?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        candidate_truncated = i64::from(offset) + (candidates.len() as i64) < candidate_total_count;
     }
-    Ok(PaperSnapshot { papers, candidates, candidate_total_count, candidate_truncated })
+    Ok(PaperSnapshot {
+        papers,
+        candidates,
+        candidate_total_count,
+        candidate_truncated,
+    })
 }
 pub(super) fn execute_at(path: &Path, r: PaperRequest) -> Result<PaperSnapshot, TreeError> {
     validate(&r)?;
@@ -662,7 +683,7 @@ mod tests {
     }
     #[test]
     fn s10_candidate_pages_are_server_filtered_and_counted_beyond_old_cap() {
-        let (_dir,path)=fixture();
+        let (_dir, path) = fixture();
         with_database_at(&path,|c|{
             let tx=c.transaction()?;
             for n in 2..=605 {
@@ -675,23 +696,23 @@ mod tests {
             tx.commit()?;
             Ok(())
         }).unwrap();
-        let mut req=request("candidates",None,None,None,None,None);
-        req.candidate_offset=Some(0);
-        req.candidate_limit=Some(100);
-        let first=execute_at(&path,req.clone()).unwrap();
-        assert_eq!(first.candidate_total_count,605);
-        assert_eq!(first.candidates.len(),100);
+        let mut req = request("candidates", None, None, None, None, None);
+        req.candidate_offset = Some(0);
+        req.candidate_limit = Some(100);
+        let first = execute_at(&path, req.clone()).unwrap();
+        assert_eq!(first.candidate_total_count, 605);
+        assert_eq!(first.candidates.len(), 100);
         assert!(first.candidate_truncated);
-        req.candidate_offset=Some(600);
-        let tail=execute_at(&path,req.clone()).unwrap();
-        assert_eq!(tail.candidate_total_count,605);
-        assert_eq!(tail.candidates.len(),5);
+        req.candidate_offset = Some(600);
+        let tail = execute_at(&path, req.clone()).unwrap();
+        assert_eq!(tail.candidate_total_count, 605);
+        assert_eq!(tail.candidates.len(), 5);
         assert!(!tail.candidate_truncated);
-        req.candidate_offset=Some(0);
-        req.candidate_query=Some("v605".into());
-        let filtered=execute_at(&path,req).unwrap();
-        assert_eq!(filtered.candidate_total_count,1);
-        assert_eq!(filtered.candidates[0].asset_version_id,"v605");
+        req.candidate_offset = Some(0);
+        req.candidate_query = Some("v605".into());
+        let filtered = execute_at(&path, req).unwrap();
+        assert_eq!(filtered.candidate_total_count, 1);
+        assert_eq!(filtered.candidates[0].asset_version_id, "v605");
     }
     #[test]
     fn s9_persistence_and_version_pin() {
