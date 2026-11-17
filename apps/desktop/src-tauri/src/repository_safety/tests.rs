@@ -589,6 +589,28 @@ fn s10_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
         Ok(())
     })
     .unwrap();
+    // An additional immutable CAS version is pinned only to Figure 1, while
+    // unpinned version-v2 must never be silently substituted for old v1.
+    let second_bytes = b"separate immutable second Figure source";
+    let second_sha = format!("{:x}", Sha256::digest(second_bytes));
+    fs::write(f.object.parent().unwrap().join(&second_sha), second_bytes).unwrap();
+    with_database_at(&f.database, |c| {
+        c.execute(
+            "INSERT INTO blobs(sha256,size_bytes) VALUES(?1,?2)",
+            params![second_sha, second_bytes.len() as i64],
+        )?;
+        c.execute(
+            "INSERT INTO asset_versions(id,asset_id,version_number,blob_sha256,source_name)
+             VALUES('version-v3','asset',3,?1,'CON.原始.tif')",
+            [&second_sha],
+        )?;
+        c.execute(
+            "INSERT INTO panel_asset_versions(panel_id,asset_version_id,usage)
+             VALUES('panel3','version-v3','other')",
+            [],
+        )?;
+        Ok(())
+    }).unwrap();
     let before = std::fs::read(&f.source).unwrap();
     let snap_id = backup(&f);
     let check = execute(&f, req("verify", Some(&snap_id), None, None)).unwrap();
@@ -610,7 +632,7 @@ fn s10_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
     assert_eq!(counts(&db).unwrap()["panels"], 6);
     assert_eq!(counts(&db).unwrap()["analysis_asset_versions"], 2);
     assert_eq!(counts(&db).unwrap()["analysis_samples"], 11);
-    assert_eq!(counts(&db).unwrap()["panel_asset_versions"], 7);
+    assert_eq!(counts(&db).unwrap()["panel_asset_versions"], 8);
     for (analysis, count) in [("an5", 5), ("an6", 6)] {
         let found: i64 = db
             .query_row(
@@ -636,8 +658,8 @@ fn s10_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
             |r| r.get(0),
         )
         .unwrap();
-    assert_eq!(distinct, 1);
-    assert_eq!(counts(&db).unwrap()["asset_versions"], 2);
+    assert_eq!(distinct, 2);
+    assert_eq!(counts(&db).unwrap()["asset_versions"], 3);
     let pinned: i64 = db
         .query_row(
             "SELECT count(*) FROM panel_asset_versions WHERE asset_version_id='version-v2'",
@@ -719,16 +741,24 @@ fn s10_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
     assert_eq!(manifest.manifest_version, 1);
     assert_eq!(manifest.schema_version, 3);
     assert_eq!(manifest.panels.len(), 3);
-    assert_eq!(manifest.reference_count, 4);
-    assert_eq!(manifest.physical_file_count, 1);
+    assert_eq!(manifest.reference_count, 5);
+    assert_eq!(manifest.physical_file_count, 2);
     assert_eq!(manifest.analyses.len(), 2);
     assert_eq!(manifest.analyses[0].included_replicate_ids.len(), 5);
     assert_eq!(manifest.analyses[1].included_replicate_ids.len(), 6);
-    assert!(manifest.references.iter().all(|edge| {
-        edge.asset_version_id == "version"
-            && edge.asset_id == "asset"
-            && edge.sha256 == f.sha
-            && edge.verified
+    assert_eq!(
+        manifest.references.iter().filter(|e| e.asset_version_id == "version").count(),
+        4
+    );
+    assert_eq!(
+        manifest.references.iter().filter(|e| e.asset_version_id == "version-v3").count(),
+        1
+    );
+    assert!(manifest.references.iter().all(|e| {
+        e.asset_id == "asset"
+            && e.verified
+            && ((e.asset_version_id == "version" && e.sha256 == f.sha)
+                || (e.asset_version_id == "version-v3" && e.sha256 == second_sha))
     }));
     assert_eq!(
         fs::read(export_root.join("files").join(&f.sha)).unwrap(),
@@ -740,6 +770,28 @@ fn s10_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
             .0,
         f.sha
     );
+    assert_eq!(
+        fs::read(export_root.join("files").join(&second_sha)).unwrap(),
+        second_bytes
+    );
+    assert_eq!(
+        crate::cas::hash_file(&export_root.join("files").join(&second_sha))
+            .unwrap()
+            .0,
+        second_sha
+    );
+    let (other_root, other_figure) = crate::figure_export::export_figure_at(
+        &restored.join("project-tree.sqlite"),
+        "p",
+        "paper",
+        "fig2",
+        &export_dest,
+    ).unwrap();
+    assert_eq!(other_figure.panels.len(), 3);
+    assert_eq!(other_figure.reference_count, 3);
+    assert_eq!(other_figure.physical_file_count, 1);
+    assert!(other_figure.references.iter().all(|e| e.asset_version_id == "version"));
+    assert!(!other_root.join("files").join(&second_sha).exists());
     let disk_manifest: crate::figure_export::FigureManifest =
         serde_json::from_slice(&fs::read(export_root.join("figure-manifest.json")).unwrap())
             .unwrap();
