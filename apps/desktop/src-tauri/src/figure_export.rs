@@ -639,6 +639,9 @@ fn verified_replay(
 ) -> Result<(PathBuf, FigureManifest), TreeError> {
     let root = destination.join(format!("figure-{token}"));
     let root = safe_dir(&root).map_err(|_| error("EXPORT_INDETERMINATE"))?;
+    // A replay must not follow a swapped files/ junction or symlink outside
+    // the authorized package, even when its target bytes hash correctly.
+    let files = safe_dir(&root.join("files")).map_err(|_| error("EXPORT_INDETERMINATE"))?;
     let mf = root.join("figure-manifest.json");
     let meta = fs::symlink_metadata(&mf).map_err(|_| error("EXPORT_INDETERMINATE"))?;
     if !meta.file_type().is_file() || meta.file_type().is_symlink() || meta.len() > 16 * 1024 * 1024
@@ -672,7 +675,7 @@ fn verified_replay(
         {
             return Err(error("EXPORT_INDETERMINATE"));
         }
-        let file = root.join(&edge.relative_path);
+        let file = files.join(&edge.sha256);
         let meta = fs::symlink_metadata(&file).map_err(|_| error("EXPORT_INDETERMINATE"))?;
         if !meta.file_type().is_file()
             || meta.file_type().is_symlink()
