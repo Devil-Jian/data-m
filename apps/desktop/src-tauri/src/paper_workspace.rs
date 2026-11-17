@@ -14,14 +14,17 @@ pub struct PaperRequest {
     parent_id: Option<String>,
     name: Option<String>,
     version_id: Option<String>,
+    version_ids: Option<Vec<String>>,
     replicate_id: Option<String>,
+    status: Option<String>,
+    notes: Option<String>,
     usage: Option<String>,
     order_ids: Option<Vec<String>>,
     request_id: Option<String>,
 }
 #[derive(Serialize)]
 #[serde(rename_all="camelCase")]
-struct PaperRow { id: String, title: String, figures: Vec<FigureRow> }
+struct PaperRow { id: String, title: String, status: String, notes: String, figures: Vec<FigureRow> }
 #[derive(Serialize)]
 #[serde(rename_all="camelCase")]
 struct FigureRow { id: String, label: String, panels: Vec<PanelRow> }
@@ -68,23 +71,34 @@ fn validate(r:&PaperRequest)->Result<(),TreeError>{
     id(Some(&r.project_id))?;
     match r.action.as_str(){
        "list"|"candidates" => { if r.request_id.is_some(){return Err(invalid())} }
-       "create"|"rename"|"delete"|"reorder"|"attach"|"detach"|"representative" => {id(r.request_id.as_deref())?;}
+       "create"|"rename"|"delete"|"reorder"|"attach"|"detach"|"representative"|"clearRepresentative"|"metadata" => {id(r.request_id.as_deref())?;}
        _ => return Err(invalid())
     };
     if matches!(r.action.as_str(),"create"|"rename"|"delete"|"reorder") {
         if !matches!(r.kind.as_deref(),Some("paper"|"figure"|"panel")){return Err(invalid())}
     }
-    if matches!(r.action.as_str(),"attach"|"detach"|"representative"){id(r.id.as_deref())?;}
+    if matches!(r.action.as_str(),"attach"|"detach"|"representative"|"clearRepresentative"|"metadata"){id(r.id.as_deref())?;}
     if r.action=="create" || r.action=="rename" {required_name(r.name.as_deref())?;}
     if r.action=="reorder" {
        let ids=r.order_ids.as_ref().ok_or_else(invalid)?;
        if ids.len()>1000 || ids.is_empty() || ids.iter().any(|v|id(Some(v)).is_err()) {return Err(invalid())}
     }
     if matches!(r.action.as_str(),"attach"|"detach") {
-       id(r.version_id.as_deref())?;
+       if r.action=="attach" && r.version_ids.is_some() {
+          if r.version_id.is_some() {return Err(invalid())}
+          let versions=r.version_ids.as_ref().ok_or_else(invalid)?;
+          if versions.is_empty() || versions.len()>100 || versions.iter().any(|v|id(Some(v)).is_err()) {return Err(invalid())}
+          if versions.iter().collect::<std::collections::HashSet<_>>().len()!=versions.len(){return Err(invalid())}
+       }else {id(r.version_id.as_deref())?;}
        if !matches!(r.usage.as_deref(),Some("display"|"statistics"|"source"|"other")){return Err(invalid())}
     }
     if r.action=="representative" {id(r.replicate_id.as_deref())?;id(r.version_id.as_deref())?;}
+    if r.action=="clearRepresentative"{id(r.replicate_id.as_deref())?;}
+    if r.action=="metadata"{
+      let st=r.status.as_deref().ok_or_else(invalid)?;
+      let notes=r.notes.as_deref().ok_or_else(invalid)?;
+      if st.len()>80||st.trim().is_empty()||notes.len()>4000||st.chars().any(char::is_control)||notes.chars().any(|c|c=='\\0') {return Err(invalid())}
+    }
     Ok(())
 }
 fn mutate(c:&Connection,r:&PaperRequest)->Result<(),TreeError>{
@@ -137,15 +151,36 @@ fn mutate(c:&Connection,r:&PaperRequest)->Result<(),TreeError>{
   }
   "attach"|"detach"=>{
     let panel=id(r.id.as_deref())?;owns(c,project,"panel",panel)?;
-    let version=id(r.version_id.as_deref())?;
-    if r.action=="attach"{valid_version(c,project,version)?;}
     let usage=r.usage.as_deref().ok_or_else(invalid)?;
-    let changed=if r.action=="attach" {
-      c.execute("INSERT OR IGNORE INTO panel_asset_versions(panel_id,asset_version_id,usage) VALUES(?1,?2,?3)",params![panel,version,usage])?
-    }else {
-      c.execute("DELETE FROM panel_asset_versions WHERE panel_id=?1 AND asset_version_id=?2 AND usage=?3",params![panel,version,usage])?
-    };
-    if changed==0{return Err(conflict("The specified association is already in the requested state."))}
+    let versions=if let Some(versions)=&r.version_ids {versions.clone()} else {vec![id(r.version_id.as_deref())?.to_owned()]};
+    // Validate all members before issuing any writes. The caller's IMMEDIATE
+    // transaction means one invalid item cannot partially attach a selection.
+    if r.action=="attach"{
+      for version in &versions {valid_version(c,project,version)?;}
+      for version in &versions {
+        let exists:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM panel_asset_versions WHERE panel_id=?1 AND asset_version_id=?2 AND usage=?3)",params![panel,version,usage],|row|row.get(0))?;
+        if exists{return Err(conflict("An association already exists."))}
+      }
+      for version in &versions {
+        c.execute("INSERT INTO panel_asset_versions(panel_id,asset_version_id,usage) VALUES(?1,?2,?3)",params![panel,version,usage])?;
+      }
+    }else{
+      let count=c.execute("DELETE FROM panel_asset_versions WHERE panel_id=?1 AND asset_version_id=?2 AND usage=?3",params![panel,versions[0],usage])?;
+      if count==0{return Err(conflict("The association does not exist."))}
+    }
+  }
+  "metadata"=>{
+    let paper=id(r.id.as_deref())?;owns(c,project,"paper",paper)?;
+    let status=r.status.as_deref().ok_or_else(invalid)?;
+    let notes=r.notes.as_deref().ok_or_else(invalid)?;
+    let details=serde_json::json!({"status":status,"notes":notes}).to_string();
+    c.execute("INSERT INTO audit_events(id,action,object_type,object_id,details_json) VALUES(lower(hex(randomblob(16))),'paper_metadata','paper',?1,?2)",params![paper,details])?;
+  }
+  "clearRepresentative"=>{
+    let panel=id(r.id.as_deref())?;owns(c,project,"panel",panel)?;
+    let replicate=id(r.replicate_id.as_deref())?;
+    let count=c.execute("DELETE FROM representative_sources WHERE panel_id=?1 AND replicate_id=?2",params![panel,replicate])?;
+    if count==0{return Err(conflict("No representative source exists."))}
   }
   "representative"=>{
     let panel=id(r.id.as_deref())?;owns(c,project,"panel",panel)?;
@@ -155,6 +190,8 @@ fn mutate(c:&Connection,r:&PaperRequest)->Result<(),TreeError>{
       "SELECT EXISTS(SELECT 1 FROM replicates r JOIN experiment_groups g ON g.id=r.group_id JOIN assays s ON s.id=g.assay_id JOIN themes t ON t.id=s.theme_id JOIN asset_links l ON l.replicate_id=r.id AND l.assay_id=s.id AND l.asset_id=?3 AND l.deleted_at IS NULL WHERE r.id=?1 AND t.project_id=?2 AND r.deleted_at IS NULL AND g.deleted_at IS NULL AND s.deleted_at IS NULL AND t.deleted_at IS NULL)",
       params![replicate,project,asset],|row|row.get(0))?;
     if !valid{return Err(conflict("The chosen version does not originate from this biological replicate."))}
+    let linked:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM panel_asset_versions WHERE panel_id=?1 AND asset_version_id=?2)",params![panel,version],|row|row.get(0))?;
+    if !linked{return Err(conflict("Attach the fixed version to the Panel before selecting a representative."))}
     c.execute("INSERT INTO representative_sources(panel_id,replicate_id,asset_version_id) VALUES(?1,?2,?3) ON CONFLICT(panel_id,replicate_id) DO UPDATE SET asset_version_id=excluded.asset_version_id",params![panel,replicate,version])?;
   }
   _=>return Err(invalid())
@@ -181,7 +218,11 @@ fn query(c:&Connection,project:&str,include_candidates:bool)->Result<PaperSnapsh
      }
      figures.push(FigureRow{id:figure_id,label,panels});
    }
-   papers.push(PaperRow{id:paper_id,title,figures});
+   let metadata:Option<String>=c.query_row("SELECT details_json FROM audit_events WHERE action='paper_metadata' AND object_type='paper' AND object_id=?1 ORDER BY rowid DESC LIMIT 1",[&paper_id],|row|row.get(0)).optional()?;
+   let meta:serde_json::Value=metadata.as_deref().and_then(|value|serde_json::from_str(value).ok()).unwrap_or_else(||serde_json::json!({}));
+   let status=meta.get("status").and_then(|v|v.as_str()).unwrap_or("draft").to_owned();
+   let notes=meta.get("notes").and_then(|v|v.as_str()).unwrap_or("").to_owned();
+   papers.push(PaperRow{id:paper_id,title,status,notes,figures});
  }
  let mut candidates=Vec::new();
  if include_candidates {
@@ -230,7 +271,7 @@ mod tests {
   }).unwrap();(dir,path)
  }
  fn request(action:&str,kind:Option<&str>,id:Option<&str>,parent:Option<&str>,name:Option<&str>,token:Option<&str>)->PaperRequest{
- PaperRequest{action:action.into(),project_id:"p".into(),kind:kind.map(str::to_owned),id:id.map(str::to_owned),parent_id:parent.map(str::to_owned),name:name.map(str::to_owned),version_id:None,replicate_id:None,usage:None,order_ids:None,request_id:token.map(str::to_owned)}
+ PaperRequest{action:action.into(),project_id:"p".into(),kind:kind.map(str::to_owned),id:id.map(str::to_owned),parent_id:parent.map(str::to_owned),name:name.map(str::to_owned),version_id:None,version_ids:None,replicate_id:None,usage:None,status:None,notes:None,order_ids:None,request_id:token.map(str::to_owned)}
  }
  #[test]fn s9_persistence_and_version_pin(){
  let (_d,path)=fixture();
