@@ -59,7 +59,13 @@ test('S0 both renderer entries consume the canonical UI and styles',()=>{
   const config=JSON.parse(read('apps/desktop/src-tauri/tauri.conf.json'));
   assert.equal(config.build.devUrl,'http://127.0.0.1:5176');
   assert.equal(config.build.frontendDist,'../dist');
-  assert.equal(config.bundle.active,false);
+  // S11 deliberately enables an installer. Keep the S0 non-GUI configuration
+  // contract strict while explicitly checking the only authorized bundle type.
+  assert.equal(config.bundle.active,true);
+  assert.deepEqual(config.bundle.targets,['nsis']);
+  assert.equal(config.bundle.windows?.nsis?.installMode,'currentUser');
+  assert.equal(config.identifier,'com.deviljian.datam');
+  assert.equal(config.version,'0.1.0');
 });
 
 test('S0 CI installs locked dependencies and guards S0 test discovery',()=>{
