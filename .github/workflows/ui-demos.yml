@@ -60,15 +60,3 @@ jobs:
           retention-days: 7
 
 
-  s9-find-windows:
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-    steps:
-      - name: Identify Windows S9 builds for validation
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh run list --repo Devil-Jian/data-m --workflow desktop-windows.yml --branch feat/s9-paper-figure-panel --limit 4 --json databaseId,headSha,status,conclusion,url
-          gh run view 44001481464 --repo Devil-Jian/data-m --json jobs --jq '.jobs[] | {databaseId,name,conclusion,steps:[.steps[] | select(.conclusion=="failure") | .name]}'
-          gh run view 44001481464 --repo Devil-Jian/data-m --log-failed | grep -E 'error\[|error:|Diff in|S9|FAILED|failed|Process completed|Expected|found|TS[0-9]{4}' | head -n 120 || true
