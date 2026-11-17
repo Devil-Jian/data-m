@@ -245,6 +245,30 @@ fn verified_copy(
     if meta.len() != size as u64 {
         return Err(error("BLOB_CORRUPT"));
     }
+    // Windows: prevent an attacker replacing a checked CAS leaf between
+    // metadata inspection and open. FILE_FLAG_OPEN_REPARSE_POINT checks the
+    // actual opened handle, while FILE_SHARE_READ denies rename/delete until
+    // the verified stream completes.
+    #[cfg(windows)]
+    let mut input = {
+        use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
+        use windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT;
+        let opened = OpenOptions::new()
+            .read(true)
+            .share_mode(1)
+            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+            .open(source)
+            .map_err(|_| error("BLOB_UNREADABLE"))?;
+        let opened_meta = opened.metadata().map_err(|_| error("BLOB_UNREADABLE"))?;
+        if !opened_meta.is_file()
+            || opened_meta.file_attributes() & 0x400 != 0
+            || opened_meta.len() != size as u64
+        {
+            return Err(error("UNSAFE_BLOB"));
+        }
+        opened
+    };
+    #[cfg(not(windows))]
     let mut input = File::open(source).map_err(|_| error("BLOB_UNREADABLE"))?;
     #[cfg(test)]
     eprintln!("S10 export: writing manifest");
