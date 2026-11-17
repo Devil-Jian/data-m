@@ -887,6 +887,34 @@ mod tests {
                 .code,
             "UNSAFE_PATH"
         );
+        // Two real CAS objects: cancellation after the first verified blob
+        // must remove the entire unpublished staging directory.
+        let second_bytes = b"second separate immutable CAS blob";
+        let second_sha = format!("{:x}", Sha256::digest(second_bytes));
+        fs::write(objects.join(&second_sha), second_bytes).unwrap();
+        with_database_at(&db, |conn| {
+            conn.execute("INSERT INTO blobs(sha256,size_bytes) VALUES(?1,?2)",
+                params![second_sha, second_bytes.len() as i64])?;
+            conn.execute_batch("INSERT INTO data_assets(id,name) VALUES('asset2','a-other.tif');")?;
+            conn.execute("INSERT INTO asset_versions(id,asset_id,version_number,blob_sha256,source_name)
+                VALUES('vother','asset2',1,?1,'a-other.tif')", [&second_sha])?;
+            conn.execute_batch("INSERT INTO panel_asset_versions(panel_id,asset_version_id,usage)
+                VALUES('b','vother','statistics');")?;
+            Ok(())
+        }).unwrap();
+        let interrupted = AtomicBool::new(false);
+        let no_published = fs::read_dir(&dest).unwrap().count();
+        assert_eq!(
+            export_figure_with_hooks(
+                &db, "p", "paper", "fig", &dest,
+                &|| interrupted.load(Ordering::SeqCst),
+                &|done, _| { if done == 1 { interrupted.store(true, Ordering::SeqCst); } }
+            ).unwrap_err().code,
+            "CANCELLED"
+        );
+        assert_eq!(fs::read_dir(&dest).unwrap().count(), no_published);
+        assert_eq!(fs::read(objects.join(&sha)).unwrap(), original);
+        assert_eq!(fs::read(objects.join(&second_sha)).unwrap(), second_bytes);
         let before_count = fs::read_dir(&dest).unwrap().count();
         assert_eq!(
             export_figure_with_hooks(&db, "p", "paper", "fig", &dest, &|| true, &|_, _| {})
