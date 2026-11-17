@@ -69,6 +69,9 @@ jobs:
           name: s1-rustfmt-corrections
           path: rustfmt.patch
           if-no-files-found: warn
+      - name: S10 early native compile and integration smoke (full checks still follow)
+        working-directory: apps/desktop/src-tauri
+        run: cargo test --locked --no-default-features s10_
       - name: Install packages
         run: npm ci --no-audit --no-fund
       - name: S0 baseline contracts
