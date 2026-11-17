@@ -222,9 +222,9 @@ jobs:
           name: s11-native-benchmark-logs
           path: s11-benchmark.log
           if-no-files-found: warn
-      - name: Rust tests
+      - name: Rust full suite (serial; no skipped tests; isolates S11 performance thresholds)
         working-directory: apps/desktop/src-tauri
-        run: cargo test --locked --no-default-features
+        run: cargo test --locked --no-default-features -- --test-threads=1
       - name: Rust check
         working-directory: apps/desktop/src-tauri
         run: cargo check --locked
