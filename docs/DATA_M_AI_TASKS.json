@@ -880,7 +880,12 @@
         "不做投稿网站集成"
       ],
       "safety_gate": "默认阻止断链操作：已引用 AssetVersion 不能被静默物理删除或替换。",
-      "suggested_branch": "feat/s9-"
+      "suggested_branch": "feat/s9-",
+      "current_status": "in_progress",
+      "implementation_branch": "feat/s9-paper-figure-panel",
+      "draft_pr": "https://github.com/Devil-Jian/data-m/pull/53",
+      "machine_verification": "pending",
+      "manual_verification": "manual_pending"
     },
     {
       "id": "S10",
