@@ -1,0 +1,16 @@
+# S10 Implementation Design — verified partial implementation
+
+TASK_ID: S10. Base I1 commit: `2d5c23d447a150599118cadd18cde1b90926945b`.
+Draft PR #56 against `feat/i1-s8-s9-integration`. Status: **in_progress / manual_pending**.
+
+## Baseline audit (read from actual code)
+Schema v1 `0001_initial.sql` defines `projects/themes/assays/experiment_groups/replicates`, `blobs(sha256,size_bytes)`, `data_assets`, immutable `asset_versions(id,asset_id,version_number,blob_sha256,source_name)`, soft-deleteable `asset_links`, `papers/figures/panels/panel_asset_versions/representative_sources`, and `audit_events`. Schema v3 `0003_statistics.sql` extends `statistical_analyses` with `notes/updated_at` and creates `analysis_asset_versions(analysis_id,asset_version_id,role)`. `analysis_samples` stores the persisted included Replicate records. Frozen analyses and their input/output and inclusion links cannot be mutated. `project_tree.rs` recognizes migrations and guards repository access. S9 has a fixed 500-row candidate limit; this remains unresolved. I1 combined G0 testing and v3 backup/restore remain incomplete.
+
+## Initial S10 API
+`provenance_trace({request:{projectId,action,id,offset?,limit?}})` supports action `panel`, `asset`, `version`. It is read-only, checks the active project, uses a recognized controlled SQLite repository, and returns exact version joins, SHA, bytes, paper/figure/panel use, analysis ID/input-vs-result role/freeze timestamp, persisted included replicate IDs, and record count with pagination. 1–200 rows per page. Panel edges and analysis edges are **distinct**; a Panel sharing a version with an Analysis does not establish an explicit Panel→Analysis binding. Soft-deleted asset links remain valid historical scope evidence. A future response version should additionally report each link's current/deleted state and representative source details. No schema v4 currently required for exact-version references.
+
+## Design for remaining Figure export (NOT IMPLEMENTED)
+Authoritative manifest v1 must include Figure/Panel order, logical use edges, exact version IDs, asset IDs, blob SHA/size, analysis relation evidence and historical inclusion, source metadata, audit references, and per-file SHA result. Output ordering shall be deterministic; shared versions may share exported bytes while retaining all logical references. No fuzzy matching. No source mutation or lossy transform. Native UI must authorize a target directory; the Rust exporter must reject traversal, symlinks/reparse escapes, device names, pre-existing conflicting targets, TOCTOU risks, missing/corrupt blobs. Stage in a sibling temporary directory on the same filesystem, rehash every CAS byte stream, then publish only after complete verification, never overwrite. Failure/cancellation must leave zero successful partial published package and leave source CAS/SQLite untouched.
+
+## Outstanding gates
+G0-01–07 combined native/SQLite/CAS and UI regression; all S10-01–14 tests; integrated Figure exporter, picker/confirm/progress/cancel, forward/reverse UI and server-side candidate pagination, Windows cargo fmt/check/test, Chromium/desktop Playwright and Release EXE. Do not mark machine_passed without successful exact SHA Actions evidence.
