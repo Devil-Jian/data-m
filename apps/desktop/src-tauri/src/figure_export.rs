@@ -288,7 +288,7 @@ fn export_figure_with_hooks(
     let cas_root = safe_dir(&repository.join("cas").join("objects"))?;
     let destination = safe_dir(destination)?;
     #[cfg(windows)]
-    let destination_guard = crate::import_jobs::filesystem::Directories::hold(&destination, false)?;
+    let destination_guard = crate::import_jobs::filesystem::Directories::hold_export(&destination)?;
     #[cfg(windows)]
     let _source_guard = crate::import_jobs::filesystem::Directories::hold(&cas_root, false)?;
     if destination.starts_with(&repository) || repository.starts_with(&destination) {
