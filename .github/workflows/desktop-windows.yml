@@ -8,6 +8,7 @@ on:
       - feat/s5-asset-link-copy-move
       - feat/s6-rename-recycle
       - feat/s7-integrity-backup-restore
+      - feat/s8-statistics-sample-inclusion
     paths:
       - 'apps/desktop/**'
       - 'packages/**'
@@ -96,8 +97,19 @@ jobs:
         run: npm run test:e2e:desktop -- --grep "@S4"
       - name: S5 real workspace transfer browser flows (explicit renderer mock)
         run: npm run test:e2e:desktop -- --grep "@S5"
+      - name: S8 statistics workspace browser flows (explicit renderer mock)
+        run: npm run test:e2e:desktop -- --grep "@S8"
       - name: S7 safety workbench browser flows (explicit renderer mock)
         run: npm run test:e2e:desktop -- --grep "@S7"
+      - name: S8 native SQLite analysis inclusion and freeze tests
+        working-directory: apps/desktop/src-tauri
+        run: |
+          $discovered = cargo test --locked --no-default-features s8_ -- --list
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $count = ($discovered | Select-String 's8_.*: test').Count
+          if ($count -lt 1) { throw 'S8 native test filter discovered zero tests' }
+          cargo test --locked --no-default-features s8_
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: S7 native WAL snapshot, manifest, corruption and isolated restore tests
         working-directory: apps/desktop/src-tauri
         run: |
@@ -167,7 +179,7 @@ jobs:
       - name: Upload unsigned portable S7 EXE for Windows safety rehearsal
         uses: actions/upload-artifact@v4
         with:
-          name: data-m-s7-unsigned-portable-windows
+          name: data-m-s8-unsigned-portable-windows
           path: apps/desktop/src-tauri/target/release/data-m-desktop.exe
           if-no-files-found: error
           retention-days: 14
