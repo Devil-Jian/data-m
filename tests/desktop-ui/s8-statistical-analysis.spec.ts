@@ -65,7 +65,7 @@ test('@S8 independent inclusion n in same assay (explicit browser mock)',async({
  for(let i=1;i<=6;i++)await root.getByLabel('R'+i,{exact:true}).check();
  await root.getByRole('button',{name:'保存分析'}).click();
  await expect(root).toContainText('实验 n=6 · 本次纳入 n=6 · 未纳入 0');
- await root.getByRole('button',{name:/A5 纳入/}).click();
+ await root.getByRole('button',{name:/A.*5 纳入/}).click();
  await expect(root).toContainText('实验 n=6 · 本次纳入 n=5 · 未纳入 1');
 });
 test('@S8 frozen analysis is read-only and revised separately (explicit browser mock)',async({page})=>{
