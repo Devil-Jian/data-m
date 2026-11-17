@@ -993,15 +993,30 @@ mod tests {
         let (_temp, path) = fixture();
         let paper = execute_at(
             &path,
-            request("create", Some("paper"), None, None, Some("I1 Paper"), Some("i1-paper-create")),
-        ).unwrap();
+            request(
+                "create",
+                Some("paper"),
+                None,
+                None,
+                Some("I1 Paper"),
+                Some("i1-paper-create"),
+            ),
+        )
+        .unwrap();
         let id = paper.papers[0].id.clone();
         let tables = with_database_at(&path, |connection| {
             let version: i64 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
-            let analyses: i64 = connection.query_row("SELECT count(*) FROM statistical_analyses", [], |r| r.get(0))?;
-            let papers: i64 = connection.query_row("SELECT count(*) FROM papers WHERE id=?1", [&id], |r| r.get(0))?;
+            let analyses: i64 =
+                connection.query_row("SELECT count(*) FROM statistical_analyses", [], |r| {
+                    r.get(0)
+                })?;
+            let papers: i64 =
+                connection.query_row("SELECT count(*) FROM papers WHERE id=?1", [&id], |r| {
+                    r.get(0)
+                })?;
             Ok((version, analyses, papers))
-        }).unwrap();
+        })
+        .unwrap();
         assert_eq!(tables.0, 3);
         assert_eq!(tables.1, 0);
         assert_eq!(tables.2, 1);
