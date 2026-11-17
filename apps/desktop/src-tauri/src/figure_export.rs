@@ -355,6 +355,193 @@ fn export_figure_with_hooks(
     }
 }
 
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all="camelCase",deny_unknown_fields)]
+pub struct FigureExportRequest {
+    action: String,
+    project_id: String,
+    paper_id: String,
+    figure_id: String,
+    confirm: Option<bool>,
+    request_id: Option<String>,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all="camelCase")]
+pub struct FigureExportPreview {
+    figure_id: String,
+    panel_count: i64,
+    reference_count: usize,
+    unique_file_count: usize,
+    unique_bytes: i64,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all="camelCase")]
+pub struct FigureExportResponse {
+    status: String,
+    preview: Option<FigureExportPreview>,
+    folder_path: Option<String>,
+    manifest: Option<FigureManifest>,
+}
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all="camelCase")]
+pub struct FigureExportProgress {
+    request_id: String,
+    completed: usize,
+    total: usize,
+}
+static IN_FLIGHT: OnceLock<Mutex<HashMap<String,Arc<AtomicBool>>>> = OnceLock::new();
+fn active_exports() -> &'static Mutex<HashMap<String,Arc<AtomicBool>>> {
+    IN_FLIGHT.get_or_init(||Mutex::new(HashMap::new()))
+}
+fn preview_at(database:&Path,project:&str,paper:&str,figure:&str)
+    ->Result<FigureExportPreview,TreeError>{
+    with_database_at(database,|c|{
+        let (items,_)=planned(c,project,paper,figure)?;
+        let panel_count=c.query_row(
+            "SELECT count(*) FROM panels WHERE figure_id=?1",[figure],|r|r.get(0)
+        )?;
+        let mut bytes=BTreeMap::new();
+        for item in &items {bytes.entry(&item.sha).or_insert(item.size);}
+        Ok(FigureExportPreview {
+            figure_id:figure.into(),panel_count,reference_count:items.len(),
+            unique_file_count:bytes.len(),unique_bytes:bytes.values().sum(),
+        })
+    })
+}
+#[tauri::command]
+pub fn figure_export_cancel(request_id:String)->Result<bool,TreeError>{
+    required(Some(&request_id),128)?;
+    let map=active_exports().lock().map_err(|_|error("EXPORT_BUSY"))?;
+    if let Some(flag)=map.get(&request_id){
+        flag.store(true,Ordering::SeqCst);
+        Ok(true)
+    }else{
+        Ok(false)
+    }
+}
+#[tauri::command]
+pub async fn figure_export<R:tauri::Runtime>(
+    app:tauri::AppHandle<R>,request:FigureExportRequest
+)->Result<FigureExportResponse,TreeError>{
+    use crate::project_tree::database_path;
+    required(Some(&request.project_id),128)?;
+    required(Some(&request.paper_id),128)?;
+    required(Some(&request.figure_id),128)?;
+    let database=database_path(&app)?;
+    if request.action=="preview" {
+        if request.confirm.is_some()||request.request_id.is_some(){
+            return Err(error("INVALID_REQUEST"));
+        }
+        let preview=preview_at(
+            &database,&request.project_id,&request.paper_id,&request.figure_id
+        )?;
+        return Ok(FigureExportResponse{
+            status:"preview".into(),preview:Some(preview),
+            folder_path:None,manifest:None,
+        });
+    }
+    if request.action!="export"||request.confirm!=Some(true){
+        return Err(error("INVALID_REQUEST"));
+    }
+    let token=required(request.request_id.as_deref(),128)?.to_owned();
+    let flag=Arc::new(AtomicBool::new(false));
+    {
+        let mut map=active_exports().lock().map_err(|_|error("EXPORT_BUSY"))?;
+        if map.contains_key(&token){return Err(error("REQUEST_CONFLICT"));}
+        map.insert(token.clone(),flag.clone());
+    }
+    let emit_app=app.clone();
+    let result=tauri::async_runtime::spawn_blocking(move||{
+        let operation=||{
+            let destination=pick_native_folder()?;
+            if flag.load(Ordering::SeqCst){return Err(error("CANCELLED"));}
+            let progress=|completed:usize,total:usize|{
+                let _=emit_app.emit("s10-figure-export-progress",FigureExportProgress{
+                    request_id:token.clone(),completed,total,
+                });
+            };
+            let (folder,manifest)=export_figure_with_hooks(
+                &database,&request.project_id,&request.paper_id,&request.figure_id,
+                &destination,&||flag.load(Ordering::SeqCst),&progress
+            )?;
+            Ok(FigureExportResponse{
+                status:"complete".into(),preview:None,
+                folder_path:Some(folder.to_string_lossy().into_owned()),
+                manifest:Some(manifest),
+            })
+        };
+        let result=operation();
+        if let Ok(mut map)=active_exports().lock(){map.remove(&token);}
+        result
+    }).await.map_err(|_|error("EXPORT_FAILED"))?;
+    result
+}
+#[cfg(not(windows))]
+fn pick_native_folder()->Result<PathBuf,TreeError>{
+    Err(error("UNSUPPORTED_PLATFORM"))
+}
+#[cfg(windows)]
+fn pick_native_folder()->Result<PathBuf,TreeError>{
+    // A dedicated STA thread is required by the Windows Shell dialog.
+    std::thread::Builder::new().name("data-m-figure-picker".into())
+        .spawn(win32_pick_folder).map_err(|_|error("PICKER_UNAVAILABLE"))?
+        .join().map_err(|_|error("PICKER_UNAVAILABLE"))?
+}
+#[cfg(windows)]
+fn win32_pick_folder()->Result<PathBuf,TreeError>{
+    use std::ffi::c_void;
+    use std::os::windows::ffi::OsStringExt;
+    #[repr(C)]
+    struct BrowseInfo {
+        owner:*mut c_void,
+        root:*const c_void,
+        display_name:*mut u16,
+        title:*const u16,
+        flags:u32,
+        callback:*const c_void,
+        lparam:isize,
+        image:i32,
+    }
+    #[link(name="shell32")]
+    extern "system" {
+        fn SHBrowseForFolderW(info:*mut BrowseInfo)->*mut c_void;
+        fn SHGetPathFromIDListEx(pidl:*const c_void,path:*mut u16,length:u32,flags:u32)->i32;
+    }
+    #[link(name="ole32")]
+    extern "system" {
+        fn CoInitializeEx(reserved:*mut c_void,flags:u32)->i32;
+        fn CoUninitialize();
+        fn CoTaskMemFree(pointer:*mut c_void);
+    }
+    let hr=unsafe{CoInitializeEx(std::ptr::null_mut(),2|4)};
+    if hr<0{return Err(error("PICKER_UNAVAILABLE"));}
+    let selected=(||{
+        let mut display=[0u16;260];
+        let title:Vec<u16>="Data-M: choose Figure export folder".encode_utf16()
+            .chain(std::iter::once(0)).collect();
+        let mut info=BrowseInfo{
+            owner:std::ptr::null_mut(),root:std::ptr::null(),
+            display_name:display.as_mut_ptr(),title:title.as_ptr(),
+            flags:0x1|0x40,callback:std::ptr::null(),lparam:0,image:0,
+        };
+        let pidl=unsafe{SHBrowseForFolderW(&mut info)};
+        if pidl.is_null(){return Err(error("CANCELLED"));}
+        let mut chars=vec![0u16;32768];
+        let valid=unsafe{
+            let result=SHGetPathFromIDListEx(pidl,chars.as_mut_ptr(),chars.len() as u32,0);
+            CoTaskMemFree(pidl);
+            result!=0
+        };
+        if !valid{return Err(error("UNSAFE_PATH"));}
+        let end=chars.iter().position(|c|*c==0).ok_or_else(||error("UNSAFE_PATH"))?;
+        let selected=std::ffi::OsString::from_wide(&chars[..end]);
+        Ok(PathBuf::from(selected))
+    })();
+    unsafe{CoUninitialize()};
+    selected
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
