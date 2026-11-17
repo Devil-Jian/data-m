@@ -70,9 +70,11 @@ fn execute(c: &Connection, r: TraceRequest) -> Result<TraceResult, TreeError> {
     // links. Multiple AssetLinks never multiply an edge; there is no filename
     // or stage-based inference of an analysis relationship.
     let relation_sql = "
-      SELECT p.id, f.id, x.id, pav.usage, NULL, NULL, NULL, v.asset_id,
-             v.id, v.version_number, v.blob_sha256, b.size_bytes,
-             d.deleted_at IS NOT NULL
+      SELECT p.id AS paper_id, f.id AS figure_id, x.id AS panel_id, pav.usage AS usage,
+             NULL AS analysis_id, NULL AS analysis_role, NULL AS frozen_at,
+             v.asset_id AS asset_id, v.id AS asset_version_id,
+             v.version_number AS version_number, v.blob_sha256 AS blob_sha256,
+             b.size_bytes AS size_bytes, d.deleted_at IS NOT NULL AS asset_deleted
       FROM panel_asset_versions pav
       JOIN panels x ON x.id=pav.panel_id
       JOIN figures f ON f.id=x.figure_id
