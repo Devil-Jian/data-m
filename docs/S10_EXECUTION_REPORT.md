@@ -26,3 +26,9 @@
 - #44052241943: Rust fmt, S8/S9/S10 renderer E2E passed; failed G0 combined native test because restore label `combined-v3` began with forbidden Windows device prefix `com`. Fixed test label to `safe-v3-restore` and restricted name to `s10_` (instead of also matching `i1_`). All downstream Rust tests and EXE build were not reached in that run.
 - Added formal asset detail reverse lookup with project ancestry validation and separate `@S10` renderer mock regression. Neither proves actual native runtime.
 - Latest complete S10 CI remains pending: do NOT label `machine_passed` or supply unsigned EXE artifact URL from failed runs.
+
+## Candidate native export and UI (not machine accepted)
+- Added native Windows Shell folder picker inside Rust; the UI never passes an arbitrary target string. Rust export now has `preview`/`export`/cancel, progress events, streaming cancel checkpoints and reuse of S3 Windows parent-directory handles.
+- Added Figure export preview/confirmation/progress/cancel/success-only result view to the formal S9 Paper workspace. Added explicitly mocked `@S10` failure path regression.
+- Extended native exporter test for v2 vs pinned v1, incorrect Project, disallowed target inside repository, relative path, cancellation without visible partial package, and same-size corrupt CAS.
+- Windows CI/Release EXE for these additions: **not yet confirmed**. Full G0/S10 fourteen-scenario matrix, persistent request idempotency and interrupted-job recovery remain outstanding.
