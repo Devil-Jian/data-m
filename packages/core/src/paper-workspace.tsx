@@ -6,13 +6,13 @@ type Asset={assetVersionId:string;usage:string;versionNumber:number;name:string;
 type Rep={replicateId:string;assetVersionId:string|null};
 type Panel={id:string;label:string;assets:Asset[];representatives:Rep[]};
 type Figure={id:string;label:string;panels:Panel[]};
-type Paper={id:string;title:string;figures:Figure[]};
+type Paper={id:string;title:string;status:string;notes:string;figures:Figure[]};
 type Candidate={assetVersionId:string;assetId:string;versionNumber:number;name:string;sha256:string;stage:string;assayId:string;groupId:string|null;replicateId:string|null};
 type Snapshot={papers:Paper[];candidates:Candidate[]};
 type ProjectNode={id:string;kind:string;name:string};
 const empty:Snapshot={papers:[],candidates:[]};
 type Kind='paper'|'figure'|'panel';
-type Action='create'|'rename'|'delete'|'reorder'|'attach'|'detach'|'representative';
+type Action='create'|'rename'|'delete'|'reorder'|'attach'|'detach'|'representative'|'clearRepresentative'|'metadata';
 function errorText(error:unknown):string {
   if(error && typeof error==='object' && 'message' in error) return String((error as {message:unknown}).message);
   return String(error);
@@ -27,6 +27,8 @@ export function PaperWorkspace() {
  const [search,setSearch]=useState('');
  const [stage,setStage]=useState('');
  const [usage,setUsage]=useState('display');
+ const [paperStatus,setPaperStatus]=useState('draft');
+ const [paperNotes,setPaperNotes]=useState('');
  const [selectedVersions,setSelectedVersions]=useState<string[]>([]);
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
@@ -50,6 +52,7 @@ export function PaperWorkspace() {
  useEffect(()=>{setError('');setSelectedPaper('');setSelectedPanel('');setSelectedVersions([]);refresh(projectId).catch(e=>setError(errorText(e)))},[projectId,refresh]);
  const paper=snapshot.papers.find(p=>p.id===selectedPaper)||snapshot.papers[0];
  const panel=paper?.figures.flatMap(f=>f.panels).find(p=>p.id===selectedPanel);
+ useEffect(()=>{setPaperStatus(paper?.status||'draft');setPaperNotes(paper?.notes||'')},[paper?.id,paper?.status,paper?.notes]);
  const candidates=useMemo(()=>snapshot.candidates.filter(c=>
     (!search||[c.name,c.assayId,c.assetVersionId,c.replicateId||''].some(v=>v.toLowerCase().includes(search.toLowerCase())))&&
     (!stage||c.stage===stage)
@@ -86,6 +89,11 @@ export function PaperWorkspace() {
      {snapshot.papers.map(p=><div key={p.id} className="s9-tree-paper">
        <button className={paper?.id===p.id?'s9-active':''} onClick={()=>{setSelectedPaper(p.id);setSelectedPanel('')}}>{p.title}</button>
        {paper?.id===p.id&&<>
+         <label className="s9-meta">论文状态 <select aria-label="论文状态" value={paperStatus} onChange={e=>setPaperStatus(e.target.value)}>
+           {['draft','in_progress','ready','submitted','published','archived'].map(status=><option key={status} value={status}>{status}</option>)}
+         </select></label>
+         <textarea className="s9-notes" aria-label="论文备注" placeholder="备注（保存在本地审计日志）" value={paperNotes} onChange={e=>setPaperNotes(e.target.value)} maxLength={4000}/>
+         <button disabled={busy} onClick={()=>mutate('metadata',{id:p.id,status:paperStatus,notes:paperNotes})}>保存论文状态与备注</button>
          <div className="s9-actions">
           <button disabled={busy} onClick={()=>create('figure',p.id)}>+ Figure</button>
           <button disabled={busy||!name.trim()} onClick={()=>mutate('rename',{kind:'paper',id:p.id,name})}>改论文名</button>
@@ -122,7 +130,8 @@ export function PaperWorkspace() {
          <div className="s9-actions"><span>已固定引用</span><button disabled={busy} onClick={()=>mutate('detach',{id:panel.id,versionId:a.assetVersionId,usage:a.usage})}>仅移除引用</button></div>
        </article>)}
        <h4>代表性生物学重复</h4>
-       {panel.representatives.map(r=><p key={r.replicateId}>{r.replicateId} → {r.assetVersionId}</p>)}
+       {panel.representatives.map(r=><div key={r.replicateId} className="s9-actions"><span>{r.replicateId} → {r.assetVersionId}</span>
+         <button disabled={busy} onClick={()=>mutate('clearRepresentative',{id:panel.id,replicateId:r.replicateId})}>移除代表来源</button></div>)}
        {panel.assets.filter(a=>a.replicateId).map(a=><button key={a.assetVersionId} disabled={busy} onClick={()=>mutate('representative',{id:panel.id,replicateId:a.replicateId,versionId:a.assetVersionId})}>设置 {a.replicateId} 的代表版本 v{a.versionNumber}</button>)}
      </>}
     </section>
@@ -141,9 +150,9 @@ export function PaperWorkspace() {
          <span><strong>{c.name}</strong><small>{c.stage} · v{c.versionNumber} · {c.assetVersionId.slice(0,12)}</small></span>
         </label>)}</div>)}
       </div>
-      <button className="s9-commit" disabled={busy||!panel||selectedVersions.length===0} onClick={async()=>{
-        if(!panel)return;for(const versionId of selectedVersions){await mutate('attach',{id:panel.id,versionId,usage})}
-      }}>关联所选 {selectedVersions.length} 个固定版本</button>
+      <button className="s9-commit" disabled={busy||!panel||selectedVersions.length===0} onClick={()=>{
+        if(!panel)return;void mutate('attach',{id:panel.id,versionIds:selectedVersions,usage});
+      }}>原子关联所选 {selectedVersions.length} 个固定版本</button>
     </section>
    </div>}
  </div>;
