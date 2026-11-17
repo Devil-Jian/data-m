@@ -59,15 +59,3 @@ jobs:
           path: test-results/
           retention-days: 7
 
-  s9-rustfmt-export:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Export formatted S9 Rust file for correction
-        run: |
-          cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --all
-          echo S9_FORMAT_BEGIN
-          base64 -w0 apps/desktop/src-tauri/src/paper_workspace.rs
-          echo
-          echo S9_FORMAT_END
