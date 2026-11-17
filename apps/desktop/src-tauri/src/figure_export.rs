@@ -3,11 +3,13 @@
 //! All source bytes are read from immutable, exact-version CAS objects.
 use crate::project_tree::{required, with_database_at, TreeError};
 use rusqlite::{params, Connection, OptionalExtension};
-use serde::Serialize;
-use std::collections::BTreeMap;
+use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, HashMap};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex, OnceLock};
+use tauri::Emitter;
 
 fn error(code: &'static str) -> TreeError {
     TreeError::new(
@@ -187,7 +189,7 @@ fn safe_dir(path: &Path) -> Result<PathBuf, TreeError> {
     }
     Ok(canonical)
 }
-fn verified_copy(source: &Path, target: &Path, sha: &str, size: i64) -> Result<(), TreeError> {
+fn verified_copy(source: &Path, target: &Path, sha: &str, size: i64, cancelled: &dyn Fn() -> bool) -> Result<(), TreeError> {
     use sha2::{Digest, Sha256};
     if sha.len() != 64
         || !sha
@@ -214,6 +216,7 @@ fn verified_copy(source: &Path, target: &Path, sha: &str, size: i64) -> Result<(
     let mut written = 0u64;
     let mut buf = [0u8; 1024 * 1024];
     loop {
+        if cancelled() { return Err(error("CANCELLED")); }
         let n = input.read(&mut buf).map_err(|_| error("BLOB_UNREADABLE"))?;
         if n == 0 {
             break;
@@ -237,18 +240,24 @@ fn verified_copy(source: &Path, target: &Path, sha: &str, size: i64) -> Result<(
 /// This intentionally has no Tauri command. Destination authorization and
 /// Windows directory handle/reparse protection must be integrated first.
 pub(crate) fn export_figure_at(
-    database: &Path,
-    project: &str,
-    paper: &str,
-    figure: &str,
-    destination: &Path,
+    database: &Path, project: &str, paper: &str, figure: &str, destination: &Path
+) -> Result<(PathBuf, FigureManifest), TreeError> {
+    export_figure_with_hooks(database, project, paper, figure, destination, &|| false, &|_,_| {})
+}
+fn export_figure_with_hooks(
+    database: &Path, project: &str, paper: &str, figure: &str, destination: &Path,
+    cancelled: &dyn Fn() -> bool, progress: &dyn Fn(usize,usize)
 ) -> Result<(PathBuf, FigureManifest), TreeError> {
     required(Some(project), 128)?;
     required(Some(paper), 128)?;
     required(Some(figure), 128)?;
-    let repository = database.parent().ok_or_else(|| error("UNSAFE_PATH"))?;
+    let repository = safe_dir(database.parent().ok_or_else(|| error("UNSAFE_PATH"))?)?;
     let cas_root = safe_dir(&repository.join("cas").join("objects"))?;
     let destination = safe_dir(destination)?;
+    #[cfg(windows)]
+    let destination_guard = crate::import_jobs::filesystem::Directories::hold(&destination, false)?;
+    #[cfg(windows)]
+    let _source_guard = crate::import_jobs::filesystem::Directories::hold(&cas_root, false)?;
     if destination.starts_with(repository) || repository.starts_with(&destination) {
         return Err(error("UNSAFE_PATH"));
     }
@@ -270,6 +279,7 @@ pub(crate) fn export_figure_at(
     fs::create_dir(&files).map_err(|_| error("DISK_WRITE_FAILED"))?;
     let mut unique = BTreeMap::<String, String>::new();
     let mut refs = Vec::new();
+    let total_files=items.iter().map(|x|x.sha.as_str()).collect::<std::collections::BTreeSet<_>>().len();
     for item in items {
         let relative_path = format!("files/{}", item.sha);
         if !unique.contains_key(&item.sha) {
@@ -329,6 +339,9 @@ pub(crate) fn export_figure_at(
     if fs::symlink_metadata(&target).is_ok() {
         return Err(error("TARGET_CONFLICT"));
     }
+    if cancelled() { return Err(error("CANCELLED")); }
+    #[cfg(windows)]
+    destination_guard.validate()?;
     let staging_path = stage.keep();
     match fs::rename(&staging_path, &target) {
         Ok(()) => Ok((target, manifest)),
