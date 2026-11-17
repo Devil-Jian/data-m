@@ -373,6 +373,16 @@ fn export_figure_with_hooks(
         .prefix(".data-m-figure-stage-")
         .tempdir_in(&destination)
         .map_err(|_| error("DISK_WRITE_FAILED"))?;
+    // A crash may leave this staging folder. Only stages with a durable
+    // request claim and this marker are eligible for explicit aged recovery.
+    if let Some(token) = publication_token {
+        let mut marker = OpenOptions::new().write(true).create_new(true)
+            .open(stage.path().join(".data-m-figure-owner.json"))
+            .map_err(|_| error("DISK_WRITE_FAILED"))?;
+        serde_json::to_writer(&mut marker, &serde_json::json!({"requestId":token}))
+            .map_err(|_| error("DISK_WRITE_FAILED"))?;
+        marker.sync_all().map_err(|_| error("DISK_WRITE_FAILED"))?;
+    }
     let files = stage.path().join("files");
     fs::create_dir(&files).map_err(|_| error("DISK_WRITE_FAILED"))?;
     let mut unique = BTreeMap::<String, String>::new();
@@ -627,6 +637,81 @@ fn verified_replay(
     let _=database;
     Ok((root,manifest))
 }
+// Manual/next-export recovery touches ONLY aged, marker-bearing temp
+// directories that match a persisted v3 claim for the same destination.
+// Unknown folders, symlinks/reparse points and active exports are untouched.
+fn safe_recovery_tree(path: &Path) -> Result<(),TreeError> {
+    for item in fs::read_dir(path).map_err(|_|error("RECOVERY_BLOCKED"))? {
+        let entry=item.map_err(|_|error("RECOVERY_BLOCKED"))?;
+        let meta=fs::symlink_metadata(entry.path()).map_err(|_|error("RECOVERY_BLOCKED"))?;
+        if meta.file_type().is_symlink() { return Err(error("RECOVERY_BLOCKED")); }
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::MetadataExt;
+            if meta.file_attributes() & 0x400 != 0 { return Err(error("RECOVERY_BLOCKED")); }
+        }
+        if meta.is_dir() { safe_recovery_tree(&entry.path())?; }
+        else if !meta.is_file() { return Err(error("RECOVERY_BLOCKED")); }
+    }
+    Ok(())
+}
+fn recover_stale_stages_at(
+    database:&Path,destination:&Path,minimum_age:std::time::Duration
+) -> Result<usize,TreeError> {
+    let destination=safe_dir(destination)?;
+    #[cfg(windows)]
+    let guard=crate::import_jobs::filesystem::Directories::hold_export(&destination)?;
+    let mut removed=0;
+    for item in fs::read_dir(&destination).map_err(|_|error("RECOVERY_BLOCKED"))? {
+        let entry=item.map_err(|_|error("RECOVERY_BLOCKED"))?;
+        let name=entry.file_name().to_string_lossy().into_owned();
+        if !name.starts_with(".data-m-figure-stage-") { continue; }
+        let dir=entry.path();
+        let meta=fs::symlink_metadata(&dir).map_err(|_|error("RECOVERY_BLOCKED"))?;
+        if !meta.file_type().is_dir() || meta.file_type().is_symlink() { continue; }
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::MetadataExt;
+            if meta.file_attributes() & 0x400 != 0 { continue; }
+        }
+        let modified=meta.modified().map_err(|_|error("RECOVERY_BLOCKED"))?;
+        if modified.elapsed().unwrap_or_default()<minimum_age { continue; }
+        let owner=dir.join(".data-m-figure-owner.json");
+        let owner_meta=match fs::symlink_metadata(&owner) { Ok(v)=>v, Err(_)=>continue };
+        if !owner_meta.file_type().is_file() || owner_meta.file_type().is_symlink()
+            || owner_meta.len()>1024 { continue; }
+        let val:serde_json::Value=match fs::read(&owner)
+            .ok().and_then(|b|serde_json::from_slice(&b).ok()) {
+                Some(v)=>v,None=>continue
+            };
+        let token=match val.get("requestId").and_then(|v|v.as_str()) {
+            Some(v)=>v,None=>continue
+        };
+        let key=match export_key(token) {Ok(v)=>v,Err(_)=>continue};
+        let busy=active_exports().lock().map_err(|_|error("RECOVERY_BLOCKED"))?;
+        if busy.contains_key(token) { continue; }
+        drop(busy);
+        let claim:Option<String>=with_database_at(database, |conn| {
+            Ok(conn.query_row(
+                "SELECT payload FROM s1_requests WHERE request_id=?1",
+                [&key],|r|r.get(0)
+            ).optional()?)
+        })?;
+        let identity=claim.and_then(|v|serde_json::from_str::<serde_json::Value>(&v).ok());
+        let matches=identity.as_ref().and_then(|v|v.get("identity"))
+            .and_then(|v|v.get("destination")).and_then(|v|v.as_str())
+            ==Some(destination.to_string_lossy().as_ref());
+        if !matches { continue; }
+        safe_recovery_tree(&dir)?;
+        #[cfg(windows)]
+        guard.validate()?;
+        // This is a verified stale, unpublished stage, never a completed
+        // 'figure-<id>' directory. Errors fail closed for further export.
+        fs::remove_dir_all(&dir).map_err(|_|error("RECOVERY_BLOCKED"))?;
+        removed+=1;
+    }
+    Ok(removed)
+}
 static IN_FLIGHT: OnceLock<Mutex<HashMap<String, Arc<AtomicBool>>>> = OnceLock::new();
 fn active_exports() -> &'static Mutex<HashMap<String, Arc<AtomicBool>>> {
     IN_FLIGHT.get_or_init(|| Mutex::new(HashMap::new()))
@@ -710,7 +795,12 @@ pub async fn figure_export<R: tauri::Runtime>(
     let emit_app = app.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
         let operation = || {
-            let destination = pick_native_folder()?;
+            let destination = safe_dir(&pick_native_folder()?)?;
+            // Conservative, user-authorized recovery of abandoned export
+            // staging in this chosen destination (never source CAS).
+            recover_stale_stages_at(
+                &database, &destination, std::time::Duration::from_secs(24*3600)
+            )?;
             if flag.load(Ordering::SeqCst) {
                 return Err(error("CANCELLED"));
             }
