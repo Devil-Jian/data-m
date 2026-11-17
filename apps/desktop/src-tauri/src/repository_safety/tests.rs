@@ -543,3 +543,80 @@ fn s8_sealed_schema_v2_snapshot_still_verifies_and_restores() {
         2
     );
 }
+
+#[test]
+fn s10_i1_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
+    let f = fixture();
+    // The S7 fixture already has an immutable CAS asset version and one Panel.
+    // Expand it to a complete disposable I1 statistical/paper topology.
+    with_database_at(&f.database, |c| {
+        c.execute_batch("
+          INSERT INTO replicates(id,group_id,label) VALUES
+             ('r2','g','R2'),('r3','g','R3'),('r4','g','R4'),
+             ('r5','g','R5'),('r6','g','R6');
+          INSERT INTO figures(id,paper_id,label,sort_order)
+             VALUES('fig2','paper','F2',1);
+          INSERT INTO panels(id,figure_id,label,sort_order)
+             VALUES('panel2','fig','B',1),('panel3','fig','C',2),
+                    ('panel4','fig2','D',0),('panel5','fig2','E',1),
+                    ('panel6','fig2','F',2);
+          INSERT INTO panel_asset_versions(panel_id,asset_version_id,usage)
+             VALUES ('panel','version','source'),('panel2','version','display'),
+                    ('panel3','version','statistics'),('panel4','version','source'),
+                    ('panel5','version','display'),('panel6','version','other');
+          INSERT INTO statistical_analyses(id,assay_id,name,notes,updated_at)
+             VALUES ('an5','a','A','','2026-01-01'),
+                    ('an6','a','B','','2026-01-01');
+          INSERT INTO analysis_samples(analysis_id,replicate_id,included)
+             VALUES ('an5','r',1),('an5','r2',1),('an5','r3',1),
+                    ('an5','r4',1),('an5','r5',1),
+                    ('an6','r',1),('an6','r2',1),('an6','r3',1),
+                    ('an6','r4',1),('an6','r5',1),('an6','r6',1);
+          INSERT INTO analysis_asset_versions(analysis_id,asset_version_id,role)
+             VALUES ('an5','version','input'),('an6','version','result');
+          UPDATE statistical_analyses SET frozen_at='2026-01-02'
+             WHERE id IN ('an5','an6');
+          UPDATE asset_links SET deleted_at='2026-01-03' WHERE id='link';
+        ")?;
+        Ok(())
+    }).unwrap();
+    let before = std::fs::read(&f.source).unwrap();
+    let snap_id = backup(&f);
+    let check=execute(&f,req("verify",Some(&snap_id),None,None)).unwrap();
+    assert_eq!(check.status,"verified");
+    let restore=execute(&f,req("restore",Some(&snap_id),Some("combined-v3"),Some(true))).unwrap();
+    assert_eq!(restore.status,"restored");
+    let restored=f.restore_root.join("combined-v3");
+    let db=open_recognized(&restored.join("project-tree.sqlite")).unwrap();
+    assert_eq!(counts(&db).unwrap()["figures"],2);
+    assert_eq!(counts(&db).unwrap()["panels"],6);
+    assert_eq!(counts(&db).unwrap()["analysis_asset_versions"],2);
+    assert_eq!(counts(&db).unwrap()["analysis_samples"],11);
+    assert_eq!(counts(&db).unwrap()["panel_asset_versions"],7);
+    for (analysis,count) in [("an5",5),("an6",6)] {
+        let found:i64=db.query_row(
+           "SELECT count(*) FROM analysis_samples WHERE analysis_id=?1 AND included=1",
+           [analysis],|r|r.get(0)).unwrap();
+        assert_eq!(found,count);
+        let frozen:bool=db.query_row(
+           "SELECT frozen_at IS NOT NULL FROM statistical_analyses WHERE id=?1",
+           [analysis],|r|r.get(0)).unwrap();
+        assert!(frozen);
+    }
+    let distinct:i64=db.query_row(
+        "SELECT count(DISTINCT asset_version_id) FROM panel_asset_versions",[],
+        |r|r.get(0)).unwrap();
+    assert_eq!(distinct,1);
+    let raw=fs::read(restored.join("cas").join("objects").join(&f.sha)).unwrap();
+    assert_eq!(raw,before);
+    assert_eq!(crate::cas::hash_file(&restored.join("cas").join("objects").join(&f.sha))
+        .unwrap().0,f.sha);
+    let reversed=crate::provenance_trace::execute_at(
+        &restored.join("project-tree.sqlite"),
+        serde_json::from_value(serde_json::json!({
+            "projectId":"p","action":"version","id":"version"
+        })).unwrap()).unwrap();
+    assert_eq!(reversed.total_count,9);
+    assert_eq!(reversed.edges.iter().filter(|x|x.panel_id.is_some()).count(),7);
+    assert_eq!(reversed.edges.iter().filter(|x|x.analysis_id.is_some()).count(),2);
+}
