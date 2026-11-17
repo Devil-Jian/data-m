@@ -211,7 +211,18 @@ jobs:
         run: |
           $discovered = cargo test --locked --no-default-features s11_ -- --list
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (-not ($discovered -match 's11_.*: test        working-directory: apps/desktop/src-tauri
+          if (-not ($discovered -match 's11_.*: test$')) { throw 'S11 native tests not discovered' }
+          cargo test --locked --no-default-features s11_ -- --nocapture --test-threads=1 2>&1 | Tee-Object -FilePath ../../../s11-benchmark.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Upload S11 native benchmark logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s11-native-benchmark-logs
+          path: s11-benchmark.log
+          if-no-files-found: warn
+      - name: Rust tests
+        working-directory: apps/desktop/src-tauri
         run: cargo test --locked --no-default-features
       - name: Rust check
         working-directory: apps/desktop/src-tauri
@@ -228,42 +239,6 @@ jobs:
           path: s11-release-artifacts/*
           if-no-files-found: error
           retention-days: 30
-      - name: Export dependency lock corrections on failure
-        if: failure()
-        working-directory: apps/desktop/src-tauri
-        run: cargo generate-lockfile
-      - name: Upload Rust dependency lock
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: s1-cargo-lock
-          path: apps/desktop/src-tauri/Cargo.lock
-          if-no-files-found: warn
-)) { throw 'S11 native tests not discovered' }
-          cargo test --locked --no-default-features s11_ -- --nocapture --test-threads=1 2>&1 | Tee-Object -FilePath ../../../s11-benchmark.log
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Upload S11 native benchmark logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: s11-native-benchmark-logs
-          path: s11-benchmark.log
-          if-no-files-found: warn
-      - name: Rust tests
-        working-directory: apps/desktop/src-tauri
-        run: cargo test --locked --no-default-features
-      - name: Rust check
-        working-directory: apps/desktop/src-tauri
-        run: cargo check --locked
-      - name: Build Windows executable (no installer yet)
-        run: npm run tauri:build
-      - name: Upload unsigned portable S10 development EXE (not accepted)
-        uses: actions/upload-artifact@v4
-        with:
-          name: data-m-s10-unsigned-portable-windows
-          path: apps/desktop/src-tauri/target/release/data-m-desktop.exe
-          if-no-files-found: error
-          retention-days: 14
       - name: Export dependency lock corrections on failure
         if: failure()
         working-directory: apps/desktop/src-tauri

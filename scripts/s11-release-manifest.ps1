@@ -51,7 +51,7 @@ $manifest = [ordered]@{
 }
 $manifestPath = Join-Path $OutputDirectory "release-manifest.json"
 ($manifest | ConvertTo-Json -Depth 8) | Set-Content -LiteralPath $manifestPath -Encoding utf8
-($lines -join "\`n") | Set-Content -LiteralPath (Join-Path $OutputDirectory "SHA256SUMS.txt") -Encoding ascii
+($lines -join [Environment]::NewLine) | Set-Content -LiteralPath (Join-Path $OutputDirectory "SHA256SUMS.txt") -Encoding ascii
 $readBack = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
 if ($readBack.artifacts.Count -ne 2) { throw "Manifest incomplete" }
 foreach ($item in $readBack.artifacts) {
