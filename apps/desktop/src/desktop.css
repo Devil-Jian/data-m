@@ -20,3 +20,5 @@
 .dm-drop-filename{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dm-drop-entries small{color:#ffd6a8;font-size:11px;flex:none}
 .dm-drop-warning{color:#e9c4a1;font-weight:600}
+
+.dm-release-candidate{margin-left:auto;min-width:0;text-align:right;font-size:11px;color:#cad6e7;white-space:normal}

@@ -1043,7 +1043,19 @@
         "没有全量多格式解析的承诺"
       ],
       "safety_gate": "不得在缺少恢复演练、人工签字或仍有 P0/P1 缺陷时宣布 v1.0 正式完成。",
-      "suggested_branch": "feat/s11-windows"
+      "suggested_branch": "feat/s11-windows",
+      "development_branch": "feat/s11-windows-performance-installer",
+      "baseline_sha": "ad623adac7b9b632f3f09725ac63b1a7725953b4",
+      "current_status": "in_progress",
+      "machine_status": "pending",
+      "human_status": "manual_pending",
+      "pr_url": null,
+      "ci_run_url": null,
+      "ci_tested_sha": null,
+      "execution_note": "S11 candidate code and native 10024 SQLite/CAS benchmark, @S11 renderer mock and NSIS artifact CI are staged; no successful S11 CI, binary hashes or Windows manual acceptance proven yet. Never accepted/published.",
+      "implementation_design": "S11_IMPLEMENTATION_DESIGN.md",
+      "benchmark_report": "S11_BENCHMARK_REPORT.md",
+      "installation_release_report": "S11_INSTALLATION_RELEASE_REPORT.md"
     }
   ],
   "execution_report_schema": {
