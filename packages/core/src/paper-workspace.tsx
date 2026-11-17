@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {invoke} from '@tauri-apps/api/core';
 import {listen} from '@tauri-apps/api/event';
 import './paper-workspace.css';
@@ -49,10 +49,14 @@ export function PaperWorkspace({onClose}:{onClose?:()=>void}={}) {
  const [exportBusy,setExportBusy]=useState(false);
  const [exportRequestId,setExportRequestId]=useState<string|null>(null);
  const [exportProgress,setExportProgress]=useState<ExportProgress|null>(null);
+ const refreshGeneration=useRef(0);
  const refresh=useCallback(async(project:string)=>{
+   const generation=++refreshGeneration.current;
    if(!project){setSnapshot(empty);return}
    const current=await invoke<Snapshot>('paper_workspace',{request:{action:'list',projectId:project}});
-   setSnapshot(old=>({...old,papers:current.papers}));
+   // Async responses from the previous Project must not repopulate the UI.
+   if(refreshGeneration.current===generation)
+     setSnapshot(old=>({...old,papers:current.papers}));
  },[]);
  useEffect(()=>{
    let cancelled=false;
