@@ -151,7 +151,9 @@ fn percentile(values: &[Duration], pct: f64) -> u128 {
 #[cfg(windows)]
 fn process_resources() -> (u64, u64) {
     use windows_sys::Win32::Foundation::FILETIME;
-    use windows_sys::Win32::System::ProcessStatus::{GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS};
+    use windows_sys::Win32::System::ProcessStatus::{
+        GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS,
+    };
     use windows_sys::Win32::System::Threading::{GetCurrentProcess, GetProcessTimes};
     unsafe {
         let process = GetCurrentProcess();
@@ -223,7 +225,11 @@ fn s11_real_sqlite_cas_10024_asset_search_page_and_pinned_integrity() {
             for row in &page.items {
                 assert!(ids.insert(row.asset_link_id.clone()));
                 let actual = fs::read(
-                    db.parent().unwrap().join("cas").join("objects").join(&row.sha256),
+                    db.parent()
+                        .unwrap()
+                        .join("cas")
+                        .join("objects")
+                        .join(&row.sha256),
                 )
                 .unwrap();
                 assert_eq!(format!("{:x}", Sha256::digest(&actual)), row.sha256);
@@ -274,6 +280,9 @@ fn s11_real_sqlite_cas_10024_asset_search_page_and_pinned_integrity() {
         cpu_after_ms.max(cpu_ms),
         ids.len()
     );
-    assert!(first_query_ms <= 3_000, "native first list query exceeded 3 seconds");
+    assert!(
+        first_query_ms <= 3_000,
+        "native first list query exceeded 3 seconds"
+    );
     assert!(p95 <= 2_000, "native search query p95 exceeded 2 seconds");
 }
