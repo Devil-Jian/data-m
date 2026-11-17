@@ -589,7 +589,12 @@ fn s10_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
     assert_eq!(check.status, "verified");
     let restore = execute(
         &f,
-        req("restore", Some(&snap_id), Some("safe-v3-restore"), Some(true)),
+        req(
+            "restore",
+            Some(&snap_id),
+            Some("safe-v3-restore"),
+            Some(true),
+        ),
     )
     .unwrap();
     assert_eq!(restore.status, "restored");
