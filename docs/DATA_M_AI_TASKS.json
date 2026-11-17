@@ -967,7 +967,14 @@
         "不对接期刊投稿"
       ],
       "safety_gate": "只允许从受控文件版本导出，所有目标路径和文件名都需 Rust 验证，不允许路径穿越。",
-      "suggested_branch": "feat/s10-"
+      "suggested_branch": "feat/s10-",
+      "current_status": "in_progress",
+      "machine_status": "pending",
+      "human_status": "manual_pending",
+      "baseline_sha": "2d5c23d447a150599118cadd18cde1b90926945b",
+      "pr_url": "https://github.com/Devil-Jian/data-m/pull/56",
+      "ci_tested_sha": null,
+      "development_note": "Native exact-version provenance and first Figure CAS exporter module committed; G0/all S10 gates and Windows Release EXE not yet passed. No accepted status."
     },
     {
       "id": "S11",
