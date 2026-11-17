@@ -973,8 +973,10 @@
       "human_status": "manual_pending",
       "baseline_sha": "2d5c23d447a150599118cadd18cde1b90926945b",
       "pr_url": "https://github.com/Devil-Jian/data-m/pull/56",
-      "ci_tested_sha": null,
-      "development_note": "Native exact-version provenance and first Figure CAS exporter module committed; G0/all S10 gates and Windows Release EXE not yet passed. No accepted status."
+      "ci_tested_sha": "8dfb20fe82f82d3f184b4be20031526fbfdc7bdd",
+      "ci_run_url": "https://github.com/Devil-Jian/data-m/actions/runs/44059250671",
+      "exe_artifact_url": "https://github.com/Devil-Jian/data-m/actions/runs/44059250671/artifacts/14319090043",
+      "development_note": "Exact SHA Windows CI and unsigned EXE passed: Rust 114/114, S10 native 4/4, desktop E2E 44/44, Chromium 29/29. G0 and S10 full matrix plus requestId durability, crash cleanup and Windows human safety gates remain incomplete; stage stays in_progress/manual_pending and not accepted."
     },
     {
       "id": "S11",
