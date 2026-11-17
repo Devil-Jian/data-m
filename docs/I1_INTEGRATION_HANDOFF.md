@@ -1,9 +1,14 @@
-# I1 S8 + S9 统一交接
+# I1 integration handoff — S8 + S9
 
-S8 为唯一 Schema v3 基线；保留 statistical_analyses、analysis_samples、版本固定引用及冻结修订。S9 使用 papers、figures、panels、panel_asset_versions、representative_sources 现有结构；Paper 元数据在 audit_events。
+**Working branch:** `feat/i1-s8-s9-integration`; [Draft PR #54](https://github.com/Devil-Jian/data-m/pull/54) against S8. Tested executable source: `ac65c16d4304d9f90d81d09e328d0b4f8e6549fa`; [Windows success #44014564074](https://github.com/Devil-Jian/data-m/actions/runs/44014564074); [EXE artifact #14299186149](https://github.com/Devil-Jian/data-m/actions/runs/44014564074/artifacts/14299186149).
 
-IPC：statistical_analysis({request}) 与 paper_workspace({request}) 同时显式注册。正式工作台：项目管理内 S8 统计分析入口、论文管理内 S9 Paper/Figure/Panel 工作区。Panel 多用途固定版本，候选页面最多 500 条并显式告警；不能推断全部项目候选。
+## Shared repository and schema
+S8 v3 schema is the sole migration target; `0003_statistics.sql` is retained. Statistics: `statistical_analyses`, `analysis_samples`, inputs/results pin exact `asset_versions.id`, frozen revisions. S9: S7-existing `papers`, `figures`, `panels`, `panel_asset_versions`, `representative_sources`; paper status and notes are audited metadata. No schema v4.
 
-S10 关联模型基于分析固定输入/输出版本 ID 与 Panel 固定版本 ID，必须进一步实现受控双向查询与安全导出。I1 不宣称这些 S10 能力完成。
+## IPC and UI
+The Tauri explicit invoke handler includes both `statistical_analysis({request})` and `paper_workspace({request})`. The core workbench retains its demo paper route, while the real native Project Manager has separate S8 statistics and S9 paper navigation. Each workspace reads the controlled database. The Paper workspace can return to Project Manager.
 
-机器/人工验收状态以 I1 执行报告和 GitHub Actions 为准；原 S8、S9 分支不修改，main 不合并。
+S9 `paper_workspace` actions: `list`, `candidates`, `create`, `rename`, `delete`, `reorder`, `attach`, `detach`, `representative`, `clearRepresentative`, `metadata`. Requests carry `projectId`; pins are exact immutable `AssetVersionId` and usage `display|statistics|source|other`. Candidate query is limited to 500 without server-side pagination; a visible warning appears when result count reaches 500.
+
+## S10 readiness and known gaps
+Cross-module analysis inputs/outputs and Panel links can be joined by exact immutable asset version identifier, but **full S10 bidirectional tracing, safe Figure Manifest and export are not implemented**. Finish required I1 combined native scenarios before tagging machine acceptance; current CI only establishes successful combined build and the listed narrower tests. Windows human safety acceptance remains pending.
