@@ -815,7 +815,15 @@
         "不读专用实验格式算图"
       ],
       "safety_gate": "每次统计的 included 与输入版本为关系级语义；不得通过文件级 boolean 全局表达。",
-      "suggested_branch": "feat/s8-"
+      "suggested_branch": "feat/s8-",
+      "current_status": "in_progress",
+      "machine_status": "pending",
+      "human_status": "manual_pending",
+      "development_branch": "feat/s8-statistics-sample-inclusion",
+      "baseline_sha": "15e784a6bf939cf509254aacdea33bb120cf9165",
+      "implementation_design": "S8_IMPLEMENTATION_DESIGN.md",
+      "execution_report": "S8_EXECUTION_REPORT.md",
+      "execution_note": "S8 implementation committed to stacked S7 branch. Native/Playwright and Windows CI have not yet been verified; do not mark machine_passed or accepted. S7 manual_pending unchanged."
     },
     {
       "id": "S9",
