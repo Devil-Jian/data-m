@@ -372,6 +372,9 @@ fn export_figure_with_hooks(
         .map_err(|_| error("DISK_WRITE_FAILED"))?;
     serde_json::to_writer_pretty(&mut output, &manifest).map_err(|_| error("DISK_WRITE_FAILED"))?;
     output.sync_all().map_err(|_| error("DISK_WRITE_FAILED"))?;
+    // Windows cannot rename the staging directory while the manifest handle
+    // remains open without FILE_SHARE_DELETE. Flush and release it first.
+    drop(output);
     // Caller may provide only a previously existing destination directory.
     // Random subdirectory avoids name collision and never touches existing
     // files. Windows rename cannot replace an existing target directory.
