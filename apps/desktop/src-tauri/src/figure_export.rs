@@ -18,7 +18,8 @@ fn error(code: &'static str) -> TreeError {
     TreeError::new(
         code,
         "Figure export could not be verified or safely published.",
-    )}
+    )
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ManifestEntry {
@@ -190,10 +191,12 @@ fn planned(
 }
 fn safe_dir(path: &Path) -> Result<PathBuf, TreeError> {
     use std::path::Component;
-    if !path.is_absolute() { return Err(error("UNSAFE_PATH")); }
+    if !path.is_absolute() {
+        return Err(error("UNSAFE_PATH"));
+    }
     // Check each lexical ancestor BEFORE canonicalization. Otherwise a
     // junction/symlink in the parent chain gets erased by canonicalize.
-    let mut cursor=PathBuf::new();
+    let mut cursor = PathBuf::new();
     for component in path.components() {
         match component {
             Component::Prefix(_) | Component::RootDir | Component::Normal(_) => {
@@ -201,8 +204,10 @@ fn safe_dir(path: &Path) -> Result<PathBuf, TreeError> {
             }
             _ => return Err(error("UNSAFE_PATH")),
         }
-        if matches!(component, Component::Prefix(_)) { continue; }
-        let meta=fs::symlink_metadata(&cursor).map_err(|_|error("UNSAFE_PATH"))?;
+        if matches!(component, Component::Prefix(_)) {
+            continue;
+        }
+        let meta = fs::symlink_metadata(&cursor).map_err(|_| error("UNSAFE_PATH"))?;
         if !meta.file_type().is_dir() || meta.file_type().is_symlink() {
             return Err(error("UNSAFE_PATH"));
         }
@@ -214,7 +219,7 @@ fn safe_dir(path: &Path) -> Result<PathBuf, TreeError> {
             }
         }
     }
-    fs::canonicalize(path).map_err(|_|error("UNSAFE_PATH"))
+    fs::canonicalize(path).map_err(|_| error("UNSAFE_PATH"))
 }
 
 fn verified_copy(
@@ -386,7 +391,9 @@ fn export_figure_with_hooks(
     // A crash may leave this staging folder. Only stages with a durable
     // request claim and this marker are eligible for explicit aged recovery.
     if let Some(token) = publication_token {
-        let mut marker = OpenOptions::new().write(true).create_new(true)
+        let mut marker = OpenOptions::new()
+            .write(true)
+            .create_new(true)
             .open(stage.path().join(".data-m-figure-owner.json"))
             .map_err(|_| error("DISK_WRITE_FAILED"))?;
         serde_json::to_writer(&mut marker, &serde_json::json!({"requestId":token}))
@@ -472,7 +479,8 @@ fn export_figure_with_hooks(
         with_database_at(database, |c| {
             c.query_row("SELECT lower(hex(randomblob(16)))", [], |r| {
                 r.get::<_, String>(0)
-            }).map_err(TreeError::from)
+            })
+            .map_err(TreeError::from)
         })?
     };
     let target = destination.join(format!("figure-{random_id}"));
@@ -543,19 +551,31 @@ pub struct FigureExportProgress {
 // crash cannot silently reexecute a token. Completed output is reconstructed
 // only after independent byte and metadata verification.
 #[derive(Debug, PartialEq, Eq)]
-enum Claim { New, Existing }
+enum Claim {
+    New,
+    Existing,
+}
 fn export_key(token: &str) -> Result<String, TreeError> {
     if token.len() != 36
-        || !token.bytes().enumerate().all(|(i,b)| {
-            if matches!(i,8|13|18|23) { b == b'-' }
-            else { b.is_ascii_hexdigit() }
+        || !token.bytes().enumerate().all(|(i, b)| {
+            if matches!(i, 8 | 13 | 18 | 23) {
+                b == b'-'
+            } else {
+                b.is_ascii_hexdigit()
+            }
         })
-    { return Err(error("INVALID_REQUEST")); }
+    {
+        return Err(error("INVALID_REQUEST"));
+    }
     Ok(format!("s10-figure-export-{token}"))
 }
 fn claim_export_request(
-    database: &Path, token: &str, project: &str,
-    paper: &str, figure: &str, destination: &Path
+    database: &Path,
+    token: &str,
+    project: &str,
+    paper: &str,
+    figure: &str,
+    destination: &Path,
 ) -> Result<Claim, TreeError> {
     let key = export_key(token)?;
     let identity = serde_json::json!({
@@ -563,13 +583,16 @@ fn claim_export_request(
         "figureId":figure,"destination":destination.to_string_lossy()
     });
     with_database_at(database, |c| {
-        let existing: Option<String> = c.query_row(
-            "SELECT payload FROM s1_requests WHERE request_id=?1",
-            [&key], |r| r.get(0)
-        ).optional()?;
+        let existing: Option<String> = c
+            .query_row(
+                "SELECT payload FROM s1_requests WHERE request_id=?1",
+                [&key],
+                |r| r.get(0),
+            )
+            .optional()?;
         if let Some(payload) = existing {
-            let previous: serde_json::Value = serde_json::from_str(&payload)
-                .map_err(|_| error("REQUEST_CONFLICT"))?;
+            let previous: serde_json::Value =
+                serde_json::from_str(&payload).map_err(|_| error("REQUEST_CONFLICT"))?;
             if previous.get("identity") != Some(&identity) {
                 return Err(error("REQUEST_CONFLICT"));
             }
@@ -577,148 +600,211 @@ fn claim_export_request(
         }
         c.execute(
             "INSERT INTO s1_requests(request_id,payload) VALUES(?1,?2)",
-            params![key,serde_json::json!({"identity":identity,"status":"started"}).to_string()]
+            params![
+                key,
+                serde_json::json!({"identity":identity,"status":"started"}).to_string()
+            ],
         )?;
         Ok(Claim::New)
     })
 }
-fn mark_export_complete(
-    database:&Path,token:&str
-) -> Result<(),TreeError> {
-    let key=export_key(token)?;
+fn mark_export_complete(database: &Path, token: &str) -> Result<(), TreeError> {
+    let key = export_key(token)?;
     with_database_at(database, |c| {
-        let old:String=c.query_row(
+        let old: String = c.query_row(
             "SELECT payload FROM s1_requests WHERE request_id=?1",
-            [&key],|r|r.get(0)
+            [&key],
+            |r| r.get(0),
         )?;
-        let mut value:serde_json::Value=serde_json::from_str(&old)
-            .map_err(|_|error("REQUEST_CONFLICT"))?;
-        value["status"]=serde_json::json!("complete");
-        c.execute("UPDATE s1_requests SET payload=?2 WHERE request_id=?1 AND payload=?3",
-            params![key,value.to_string(),old])?;
+        let mut value: serde_json::Value =
+            serde_json::from_str(&old).map_err(|_| error("REQUEST_CONFLICT"))?;
+        value["status"] = serde_json::json!("complete");
+        c.execute(
+            "UPDATE s1_requests SET payload=?2 WHERE request_id=?1 AND payload=?3",
+            params![key, value.to_string(), old],
+        )?;
         Ok(())
     })
 }
 fn verified_replay(
-    database:&Path,project:&str,paper:&str,figure:&str,
-    destination:&Path,token:&str
-) -> Result<(PathBuf,FigureManifest),TreeError> {
-    let root=destination.join(format!("figure-{token}"));
-    let root=safe_dir(&root).map_err(|_|error("EXPORT_INDETERMINATE"))?;
-    let mf=root.join("figure-manifest.json");
-    let meta=fs::symlink_metadata(&mf).map_err(|_|error("EXPORT_INDETERMINATE"))?;
-    if !meta.file_type().is_file() || meta.file_type().is_symlink() || meta.len()>16*1024*1024 {
+    database: &Path,
+    project: &str,
+    paper: &str,
+    figure: &str,
+    destination: &Path,
+    token: &str,
+) -> Result<(PathBuf, FigureManifest), TreeError> {
+    let root = destination.join(format!("figure-{token}"));
+    let root = safe_dir(&root).map_err(|_| error("EXPORT_INDETERMINATE"))?;
+    let mf = root.join("figure-manifest.json");
+    let meta = fs::symlink_metadata(&mf).map_err(|_| error("EXPORT_INDETERMINATE"))?;
+    if !meta.file_type().is_file() || meta.file_type().is_symlink() || meta.len() > 16 * 1024 * 1024
+    {
         return Err(error("EXPORT_INDETERMINATE"));
     }
-    let manifest:FigureManifest=serde_json::from_slice(
-        &fs::read(&mf).map_err(|_|error("EXPORT_INDETERMINATE"))?
-    ).map_err(|_|error("EXPORT_INDETERMINATE"))?;
-    if manifest.manifest_version!=1 || manifest.schema_version!=3
-        || manifest.project_id!=project || manifest.paper_id!=paper
-        || manifest.figure_id!=figure || manifest.status!="complete"
-        || manifest.reference_count!=manifest.references.len() {
+    let manifest: FigureManifest =
+        serde_json::from_slice(&fs::read(&mf).map_err(|_| error("EXPORT_INDETERMINATE"))?)
+            .map_err(|_| error("EXPORT_INDETERMINATE"))?;
+    if manifest.manifest_version != 1
+        || manifest.schema_version != 3
+        || manifest.project_id != project
+        || manifest.paper_id != paper
+        || manifest.figure_id != figure
+        || manifest.status != "complete"
+        || manifest.reference_count != manifest.references.len()
+    {
         return Err(error("EXPORT_INDETERMINATE"));
     }
-    let mut hashes=std::collections::BTreeSet::new();
+    let mut hashes = std::collections::BTreeSet::new();
     for edge in &manifest.references {
-        if edge.relative_path!=format!("files/{}",edge.sha256)
-            || edge.blob_key!=edge.sha256 || !edge.verified
-            || edge.sha256.len()!=64 || !edge.sha256.bytes().all(|b|b.is_ascii_hexdigit()&&!b.is_ascii_uppercase())
-            || edge.size_bytes<0 {
+        if edge.relative_path != format!("files/{}", edge.sha256)
+            || edge.blob_key != edge.sha256
+            || !edge.verified
+            || edge.sha256.len() != 64
+            || !edge
+                .sha256
+                .bytes()
+                .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+            || edge.size_bytes < 0
+        {
             return Err(error("EXPORT_INDETERMINATE"));
         }
-        let file=root.join(&edge.relative_path);
-        let meta=fs::symlink_metadata(&file).map_err(|_|error("EXPORT_INDETERMINATE"))?;
-        if !meta.file_type().is_file() || meta.file_type().is_symlink()
-            || meta.len()!=edge.size_bytes as u64 {
+        let file = root.join(&edge.relative_path);
+        let meta = fs::symlink_metadata(&file).map_err(|_| error("EXPORT_INDETERMINATE"))?;
+        if !meta.file_type().is_file()
+            || meta.file_type().is_symlink()
+            || meta.len() != edge.size_bytes as u64
+        {
             return Err(error("EXPORT_INDETERMINATE"));
         }
-        let (sha,len)=crate::cas::hash_file(&file)
-            .map_err(|_|error("EXPORT_INDETERMINATE"))?;
-        if sha!=edge.sha256 || len!=edge.size_bytes as u64 {
+        let (sha, len) = crate::cas::hash_file(&file).map_err(|_| error("EXPORT_INDETERMINATE"))?;
+        if sha != edge.sha256 || len != edge.size_bytes as u64 {
             return Err(error("EXPORT_INDETERMINATE"));
         }
         hashes.insert(edge.sha256.as_str());
     }
-    if hashes.len()!=manifest.physical_file_count {
+    if hashes.len() != manifest.physical_file_count {
         return Err(error("EXPORT_INDETERMINATE"));
     }
     // No repository bytes are changed during verified replay.
-    let _=database;
-    Ok((root,manifest))
+    let _ = database;
+    Ok((root, manifest))
 }
 // Manual/next-export recovery touches ONLY aged, marker-bearing temp
 // directories that match a persisted v3 claim for the same destination.
 // Unknown folders, symlinks/reparse points and active exports are untouched.
-fn safe_recovery_tree(path: &Path) -> Result<(),TreeError> {
-    for item in fs::read_dir(path).map_err(|_|error("RECOVERY_BLOCKED"))? {
-        let entry=item.map_err(|_|error("RECOVERY_BLOCKED"))?;
-        let meta=fs::symlink_metadata(entry.path()).map_err(|_|error("RECOVERY_BLOCKED"))?;
-        if meta.file_type().is_symlink() { return Err(error("RECOVERY_BLOCKED")); }
+fn safe_recovery_tree(path: &Path) -> Result<(), TreeError> {
+    for item in fs::read_dir(path).map_err(|_| error("RECOVERY_BLOCKED"))? {
+        let entry = item.map_err(|_| error("RECOVERY_BLOCKED"))?;
+        let meta = fs::symlink_metadata(entry.path()).map_err(|_| error("RECOVERY_BLOCKED"))?;
+        if meta.file_type().is_symlink() {
+            return Err(error("RECOVERY_BLOCKED"));
+        }
         #[cfg(windows)]
         {
             use std::os::windows::fs::MetadataExt;
-            if meta.file_attributes() & 0x400 != 0 { return Err(error("RECOVERY_BLOCKED")); }
+            if meta.file_attributes() & 0x400 != 0 {
+                return Err(error("RECOVERY_BLOCKED"));
+            }
         }
-        if meta.is_dir() { safe_recovery_tree(&entry.path())?; }
-        else if !meta.is_file() { return Err(error("RECOVERY_BLOCKED")); }
+        if meta.is_dir() {
+            safe_recovery_tree(&entry.path())?;
+        } else if !meta.is_file() {
+            return Err(error("RECOVERY_BLOCKED"));
+        }
     }
     Ok(())
 }
 fn recover_stale_stages_at(
-    database:&Path,destination:&Path,minimum_age:std::time::Duration
-) -> Result<usize,TreeError> {
-    let destination=safe_dir(destination)?;
+    database: &Path,
+    destination: &Path,
+    minimum_age: std::time::Duration,
+) -> Result<usize, TreeError> {
+    let destination = safe_dir(destination)?;
     #[cfg(windows)]
-    let guard=crate::import_jobs::filesystem::Directories::hold_export(&destination)?;
-    let mut removed=0;
-    for item in fs::read_dir(&destination).map_err(|_|error("RECOVERY_BLOCKED"))? {
-        let entry=item.map_err(|_|error("RECOVERY_BLOCKED"))?;
-        let name=entry.file_name().to_string_lossy().into_owned();
-        if !name.starts_with(".data-m-figure-stage-") { continue; }
-        let dir=entry.path();
-        let meta=fs::symlink_metadata(&dir).map_err(|_|error("RECOVERY_BLOCKED"))?;
-        if !meta.file_type().is_dir() || meta.file_type().is_symlink() { continue; }
+    let guard = crate::import_jobs::filesystem::Directories::hold_export(&destination)?;
+    let mut removed = 0;
+    for item in fs::read_dir(&destination).map_err(|_| error("RECOVERY_BLOCKED"))? {
+        let entry = item.map_err(|_| error("RECOVERY_BLOCKED"))?;
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if !name.starts_with(".data-m-figure-stage-") {
+            continue;
+        }
+        let dir = entry.path();
+        let meta = fs::symlink_metadata(&dir).map_err(|_| error("RECOVERY_BLOCKED"))?;
+        if !meta.file_type().is_dir() || meta.file_type().is_symlink() {
+            continue;
+        }
         #[cfg(windows)]
         {
             use std::os::windows::fs::MetadataExt;
-            if meta.file_attributes() & 0x400 != 0 { continue; }
+            if meta.file_attributes() & 0x400 != 0 {
+                continue;
+            }
         }
-        let modified=meta.modified().map_err(|_|error("RECOVERY_BLOCKED"))?;
-        if modified.elapsed().unwrap_or_default()<minimum_age { continue; }
-        let owner=dir.join(".data-m-figure-owner.json");
-        let owner_meta=match fs::symlink_metadata(&owner) { Ok(v)=>v, Err(_)=>continue };
-        if !owner_meta.file_type().is_file() || owner_meta.file_type().is_symlink()
-            || owner_meta.len()>1024 { continue; }
-        let val:serde_json::Value=match fs::read(&owner)
-            .ok().and_then(|b|serde_json::from_slice(&b).ok()) {
-                Some(v)=>v,None=>continue
-            };
-        let token=match val.get("requestId").and_then(|v|v.as_str()) {
-            Some(v)=>v,None=>continue
+        let modified = meta.modified().map_err(|_| error("RECOVERY_BLOCKED"))?;
+        if modified.elapsed().unwrap_or_default() < minimum_age {
+            continue;
+        }
+        let owner = dir.join(".data-m-figure-owner.json");
+        let owner_meta = match fs::symlink_metadata(&owner) {
+            Ok(v) => v,
+            Err(_) => continue,
         };
-        let key=match export_key(token) {Ok(v)=>v,Err(_)=>continue};
-        let busy=active_exports().lock().map_err(|_|error("RECOVERY_BLOCKED"))?;
-        if busy.contains_key(token) { continue; }
+        if !owner_meta.file_type().is_file()
+            || owner_meta.file_type().is_symlink()
+            || owner_meta.len() > 1024
+        {
+            continue;
+        }
+        let val: serde_json::Value = match fs::read(&owner)
+            .ok()
+            .and_then(|b| serde_json::from_slice(&b).ok())
+        {
+            Some(v) => v,
+            None => continue,
+        };
+        let token = match val.get("requestId").and_then(|v| v.as_str()) {
+            Some(v) => v,
+            None => continue,
+        };
+        let key = match export_key(token) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let busy = active_exports()
+            .lock()
+            .map_err(|_| error("RECOVERY_BLOCKED"))?;
+        if busy.contains_key(token) {
+            continue;
+        }
         drop(busy);
-        let claim:Option<String>=with_database_at(database, |conn| {
-            Ok(conn.query_row(
-                "SELECT payload FROM s1_requests WHERE request_id=?1",
-                [&key],|r|r.get(0)
-            ).optional()?)
+        let claim: Option<String> = with_database_at(database, |conn| {
+            Ok(conn
+                .query_row(
+                    "SELECT payload FROM s1_requests WHERE request_id=?1",
+                    [&key],
+                    |r| r.get(0),
+                )
+                .optional()?)
         })?;
-        let identity=claim.and_then(|v|serde_json::from_str::<serde_json::Value>(&v).ok());
-        let matches=identity.as_ref().and_then(|v|v.get("identity"))
-            .and_then(|v|v.get("destination")).and_then(|v|v.as_str())
-            ==Some(destination.to_string_lossy().as_ref());
-        if !matches { continue; }
+        let identity = claim.and_then(|v| serde_json::from_str::<serde_json::Value>(&v).ok());
+        let matches = identity
+            .as_ref()
+            .and_then(|v| v.get("identity"))
+            .and_then(|v| v.get("destination"))
+            .and_then(|v| v.as_str())
+            == Some(destination.to_string_lossy().as_ref());
+        if !matches {
+            continue;
+        }
         safe_recovery_tree(&dir)?;
         #[cfg(windows)]
         guard.validate()?;
         // This is a verified stale, unpublished stage, never a completed
         // 'figure-<id>' directory. Errors fail closed for further export.
-        fs::remove_dir_all(&dir).map_err(|_|error("RECOVERY_BLOCKED"))?;
-        removed+=1;
+        fs::remove_dir_all(&dir).map_err(|_| error("RECOVERY_BLOCKED"))?;
+        removed += 1;
     }
     Ok(removed)
 }
@@ -809,7 +895,9 @@ pub async fn figure_export<R: tauri::Runtime>(
             // Conservative, user-authorized recovery of abandoned export
             // staging in this chosen destination (never source CAS).
             recover_stale_stages_at(
-                &database, &destination, std::time::Duration::from_secs(24*3600)
+                &database,
+                &destination,
+                std::time::Duration::from_secs(24 * 3600),
             )?;
             if flag.load(Ordering::SeqCst) {
                 return Err(error("CANCELLED"));
@@ -828,17 +916,26 @@ pub async fn figure_export<R: tauri::Runtime>(
             // the picker does not consume a token. A crash after this claim
             // requires a fresh token and an explicit inspection of the target.
             let claim = claim_export_request(
-                &database, &token, &request.project_id, &request.paper_id,
-                &request.figure_id, &destination,
+                &database,
+                &token,
+                &request.project_id,
+                &request.paper_id,
+                &request.figure_id,
+                &destination,
             )?;
             if claim == Claim::Existing {
                 let (folder, manifest) = verified_replay(
-                    &database, &request.project_id, &request.paper_id,
-                    &request.figure_id, &destination, &token,
+                    &database,
+                    &request.project_id,
+                    &request.paper_id,
+                    &request.figure_id,
+                    &destination,
+                    &token,
                 )?;
                 mark_export_complete(&database, &token)?;
                 return Ok(FigureExportResponse {
-                    status: "complete".into(), preview: None,
+                    status: "complete".into(),
+                    preview: None,
                     folder_path: Some(folder.to_string_lossy().into_owned()),
                     manifest: Some(manifest),
                 });
@@ -1082,24 +1179,42 @@ mod tests {
         let second_sha = format!("{:x}", Sha256::digest(second_bytes));
         fs::write(objects.join(&second_sha), second_bytes).unwrap();
         with_database_at(&db, |conn| {
-            conn.execute("INSERT INTO blobs(sha256,size_bytes) VALUES(?1,?2)",
-                params![second_sha, second_bytes.len() as i64])?;
+            conn.execute(
+                "INSERT INTO blobs(sha256,size_bytes) VALUES(?1,?2)",
+                params![second_sha, second_bytes.len() as i64],
+            )?;
             conn.execute_batch("INSERT INTO data_assets(id,name) VALUES('asset2','a-other.tif');")?;
-            conn.execute("INSERT INTO asset_versions(id,asset_id,version_number,blob_sha256,source_name)
-                VALUES('vother','asset2',1,?1,'a-other.tif')", [&second_sha])?;
-            conn.execute_batch("INSERT INTO panel_asset_versions(panel_id,asset_version_id,usage)
-                VALUES('b','vother','statistics');")?;
+            conn.execute(
+                "INSERT INTO asset_versions(id,asset_id,version_number,blob_sha256,source_name)
+                VALUES('vother','asset2',1,?1,'a-other.tif')",
+                [&second_sha],
+            )?;
+            conn.execute_batch(
+                "INSERT INTO panel_asset_versions(panel_id,asset_version_id,usage)
+                VALUES('b','vother','statistics');",
+            )?;
             Ok(())
-        }).unwrap();
+        })
+        .unwrap();
         let interrupted = AtomicBool::new(false);
         let no_published = fs::read_dir(&dest).unwrap().count();
         assert_eq!(
             export_figure_with_hooks(
-                &db, "p", "paper", "fig", &dest,
+                &db,
+                "p",
+                "paper",
+                "fig",
+                &dest,
                 &|| interrupted.load(Ordering::SeqCst),
-                &|done, _| { if done == 1 { interrupted.store(true, Ordering::SeqCst); } },
+                &|done, _| {
+                    if done == 1 {
+                        interrupted.store(true, Ordering::SeqCst);
+                    }
+                },
                 None
-            ).unwrap_err().code,
+            )
+            .unwrap_err()
+            .code,
             "CANCELLED"
         );
         assert_eq!(fs::read_dir(&dest).unwrap().count(), no_published);
@@ -1121,25 +1236,36 @@ mod tests {
             Claim::New
         );
         let (published, first_manifest) = export_figure_with_hooks(
-            &db, "p", "paper", "fig", &dest, &|| false, &|_, _| {}, Some(token)
-        ).unwrap();
+            &db,
+            "p",
+            "paper",
+            "fig",
+            &dest,
+            &|| false,
+            &|_, _| {},
+            Some(token),
+        )
+        .unwrap();
         mark_export_complete(&db, token).unwrap();
         assert_eq!(published.file_name().unwrap(), format!("figure-{token}"));
         assert_eq!(
             claim_export_request(&db, token, "p", "paper", "fig", &dest).unwrap(),
             Claim::Existing
         );
-        let (replayed, recovered_manifest) = verified_replay(
-            &db, "p", "paper", "fig", &dest, token
-        ).unwrap();
+        let (replayed, recovered_manifest) =
+            verified_replay(&db, "p", "paper", "fig", &dest, token).unwrap();
         assert_eq!(replayed, published);
-        assert_eq!(recovered_manifest.reference_count, first_manifest.reference_count);
+        assert_eq!(
+            recovered_manifest.reference_count,
+            first_manifest.reference_count
+        );
         assert_eq!(recovered_manifest.physical_file_count, 2);
         let altered = vec![b'Q'; second_bytes.len()];
         fs::write(published.join("files").join(&second_sha), altered).unwrap();
         assert_eq!(
             verified_replay(&db, "p", "paper", "fig", &dest, token)
-                .unwrap_err().code,
+                .unwrap_err()
+                .code,
             "EXPORT_INDETERMINATE"
         );
         fs::write(objects.join(&sha), vec![b'X'; original.len()]).unwrap();
@@ -1157,7 +1283,10 @@ mod tests {
         let token = "12345678-1234-1234-1234-123456789abc";
         let dest = dir.path().join("dest");
         fs::create_dir(&dest).unwrap();
-        assert_eq!(claim_export_request(&db, token, "p", "paper", "figure", &dest).unwrap(), Claim::New);
+        assert_eq!(
+            claim_export_request(&db, token, "p", "paper", "figure", &dest).unwrap(),
+            Claim::New
+        );
         // with_database_at independently reopens the database and commits
         // the claim. A retry cannot silently produce a second export.
         assert_eq!(
@@ -1248,64 +1377,77 @@ mod tests {
 
     #[test]
     fn s10_aborted_process_staging_recovery_requires_durable_claim_marker_and_age() {
-        let dir=tempfile::tempdir().unwrap();
-        let db=dir.path().join("repo.sqlite");
-        let dest=dir.path().join("exports");
+        let dir = tempfile::tempdir().unwrap();
+        let db = dir.path().join("repo.sqlite");
+        let dest = dir.path().join("exports");
         fs::create_dir(&dest).unwrap();
-        let token="11111111-2222-3333-4444-555555555555";
+        let token = "11111111-2222-3333-4444-555555555555";
         assert_eq!(
-            claim_export_request(&db,token,"p","paper","fig",&dest).unwrap(),
+            claim_export_request(&db, token, "p", "paper", "fig", &dest).unwrap(),
             Claim::New
         );
-        let stale=tempfile::Builder::new().prefix(".data-m-figure-stage-")
-            .tempdir_in(&dest).unwrap();
-        let abandoned=stale.path().to_path_buf();
+        let stale = tempfile::Builder::new()
+            .prefix(".data-m-figure-stage-")
+            .tempdir_in(&dest)
+            .unwrap();
+        let abandoned = stale.path().to_path_buf();
         fs::write(
             abandoned.join(".data-m-figure-owner.json"),
-            serde_json::json!({"requestId":token}).to_string()
-        ).unwrap();
-        fs::write(abandoned.join("partial"),b"NOT_A_COMPLETE_PACKAGE").unwrap();
-        let abandoned=stale.keep(); // emulate abrupt process termination
-        let unrelated=dest.join(".data-m-figure-stage-unrelated");
+            serde_json::json!({"requestId":token}).to_string(),
+        )
+        .unwrap();
+        fs::write(abandoned.join("partial"), b"NOT_A_COMPLETE_PACKAGE").unwrap();
+        let abandoned = stale.keep(); // emulate abrupt process termination
+        let unrelated = dest.join(".data-m-figure-stage-unrelated");
         fs::create_dir(&unrelated).unwrap();
-        fs::write(unrelated.join("partial"),b"DO_NOT_DELETE").unwrap();
+        fs::write(unrelated.join("partial"), b"DO_NOT_DELETE").unwrap();
         // Never delete the stage while an export is still too recent.
         assert_eq!(
-            recover_stale_stages_at(&db,&dest,std::time::Duration::from_secs(86400)).unwrap(),
+            recover_stale_stages_at(&db, &dest, std::time::Duration::from_secs(86400)).unwrap(),
             0
         );
         assert!(abandoned.is_dir());
         // A later explicit export to this selected folder can remove only
         // stale unpublished stages owned by an existing durable claim.
         assert_eq!(
-            recover_stale_stages_at(&db,&dest,std::time::Duration::ZERO).unwrap(),1
+            recover_stale_stages_at(&db, &dest, std::time::Duration::ZERO).unwrap(),
+            1
         );
         assert!(!abandoned.exists());
-        assert_eq!(fs::read(unrelated.join("partial")).unwrap(),b"DO_NOT_DELETE");
-        let finished=dest.join("figure-immutable");
-        fs::create_dir(&finished).unwrap();
-        fs::write(finished.join("figure-manifest.json"),b"KEEP").unwrap();
         assert_eq!(
-            recover_stale_stages_at(&db,&dest,std::time::Duration::ZERO).unwrap(),0
+            fs::read(unrelated.join("partial")).unwrap(),
+            b"DO_NOT_DELETE"
         );
-        assert_eq!(fs::read(finished.join("figure-manifest.json")).unwrap(),b"KEEP");
+        let finished = dest.join("figure-immutable");
+        fs::create_dir(&finished).unwrap();
+        fs::write(finished.join("figure-manifest.json"), b"KEEP").unwrap();
+        assert_eq!(
+            recover_stale_stages_at(&db, &dest, std::time::Duration::ZERO).unwrap(),
+            0
+        );
+        assert_eq!(
+            fs::read(finished.join("figure-manifest.json")).unwrap(),
+            b"KEEP"
+        );
     }
 
     #[cfg(windows)]
     #[test]
     fn s10_windows_directory_reparse_ancestors_cannot_authorize_export() {
-        let dir=tempfile::tempdir().unwrap();
-        let real=dir.path().join("real");
+        let dir = tempfile::tempdir().unwrap();
+        let real = dir.path().join("real");
         fs::create_dir(&real).unwrap();
-        let child=real.join("child");
+        let child = real.join("child");
         fs::create_dir(&child).unwrap();
-        let link=dir.path().join("redirect");
+        let link = dir.path().join("redirect");
         // Windows runner must actually create the adversarial fixture.
-        std::os::windows::fs::symlink_dir(&real,&link)
+        std::os::windows::fs::symlink_dir(&real, &link)
             .expect("Windows CI must support native symlink security fixtures");
-        assert_eq!(safe_dir(&link).unwrap_err().code,"UNSAFE_PATH");
-        assert_eq!(safe_dir(&link.join("child")).unwrap_err().code,"UNSAFE_PATH");
+        assert_eq!(safe_dir(&link).unwrap_err().code, "UNSAFE_PATH");
+        assert_eq!(
+            safe_dir(&link.join("child")).unwrap_err().code,
+            "UNSAFE_PATH"
+        );
         assert!(safe_dir(&child).is_ok());
     }
-
 }
