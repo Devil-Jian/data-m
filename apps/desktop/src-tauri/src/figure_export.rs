@@ -1350,6 +1350,34 @@ mod tests {
             first_manifest.reference_count
         );
         assert_eq!(recovered_manifest.physical_file_count, 2);
+        #[cfg(windows)]
+        {
+            // Simulate a hostile destination swap while streaming. The
+            // no-delete-sharing leaf handle must block the rename; the
+            // normal export must still finish with every source unchanged.
+            let replacement = dir.path().join("unauthorized-replacement");
+            let attempted = AtomicBool::new(false);
+            let (_, verified) = export_figure_with_hooks(
+                &db,
+                "p",
+                "paper",
+                "fig",
+                &dest,
+                &|| false,
+                &|done, _| {
+                    if done == 1 {
+                        attempted.store(true, Ordering::SeqCst);
+                        assert!(fs::rename(&dest, &replacement).is_err());
+                    }
+                },
+                None,
+            )
+            .unwrap();
+            assert!(attempted.load(Ordering::SeqCst));
+            assert_eq!(verified.physical_file_count, 2);
+            assert!(!replacement.exists());
+            assert_eq!(fs::read(objects.join(&sha)).unwrap(), original);
+        }
         let altered = vec![b'Q'; second_bytes.len()];
         fs::write(published.join("files").join(&second_sha), altered).unwrap();
         assert_eq!(
