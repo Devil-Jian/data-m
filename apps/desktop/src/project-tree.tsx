@@ -6,6 +6,7 @@ import {ExperimentTreeManager} from './experiment-tree.tsx';
 import {RepositorySafetyPanel} from './repository-safety.tsx';
 import {StatisticalAnalysisPanel} from './statistical-analysis.tsx';
 import type {ImportDropRegistrar} from './import-jobs.ts';
+import {PaperWorkspace} from '@data-m/core';
 import './project-tree.css';
 
 const {Button,Input,Badge}=shadcnUI;
@@ -22,6 +23,7 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
   const [experiment,setExperiment]=useState<{id:string;name:string}|null>(null);
   const [safetyOpen,setSafetyOpen]=useState(false);
   const [statistics,setStatistics]=useState<{id:string;name:string}|null>(null);
+  const [paperOpen,setPaperOpen]=useState(false);
   const alive=useRef(true);
   const busy=useRef(false);
   const dialog=useRef<HTMLDialogElement>(null);
@@ -90,6 +92,7 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
     </li>);
   }
 
+  if(paperOpen)return <PaperWorkspace onClose={()=>setPaperOpen(false)}/>;
   if(statistics)return <StatisticalAnalysisPanel key={statistics.id} assayId={statistics.id} assayName={statistics.name} onClose={()=>setStatistics(null)}/>;
   if(safetyOpen)return <RepositorySafetyPanel onClose={()=>setSafetyOpen(false)}/>;
   if(experiment)return <ExperimentTreeManager key={experiment.id} assayId={experiment.id} assayName={experiment.name}
@@ -106,6 +109,7 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
       <Button variant="primary" disabled={pending||!loaded} onClick={()=>open({action:'create',kind:'project',name:''})}>新建项目</Button>
       <Button disabled={pending||Boolean(editor)} onClick={()=>void reload()}>重新加载</Button>
       <Button disabled={pending||Boolean(editor)} onClick={()=>setSafetyOpen(true)}>数据完整性与备份恢复 (S7)</Button>
+      <Button disabled={pending||Boolean(editor)} onClick={()=>setPaperOpen(true)}>论文管理 (S9)</Button>
       <span role="status">{pending?'正在读取或提交项目数据…':loaded?`${nodes.filter(node=>node.kind==='project').length} 个项目 · ${nodes.filter(node=>node.kind==='theme').length} 个主题 · ${nodes.filter(node=>node.kind==='assay').length} 个实验`:''}</span>
     </div>
     {error&&!editor&&<p className="dm-project-error" role="alert">{error}</p>}

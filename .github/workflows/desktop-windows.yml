@@ -9,6 +9,7 @@ on:
       - feat/s6-rename-recycle
       - feat/s7-integrity-backup-restore
       - feat/s8-statistics-sample-inclusion
+      - feat/i1-s8-s9-integration
     paths:
       - 'apps/desktop/**'
       - 'packages/**'
@@ -101,6 +102,26 @@ jobs:
         run: npm run test:e2e:desktop -- --grep "@S8"
       - name: S7 safety workbench browser flows (explicit renderer mock)
         run: npm run test:e2e:desktop -- --grep "@S7"
+      - name: S9 paper workspace UI E2E
+        run: npm run test:e2e:desktop -- --grep "@S9"
+      - name: I1 integrated workspace UI E2E
+        run: npm run test:e2e:desktop -- --grep "@I1"
+      - name: S9 native SQLite paper and pinned-version regression
+        working-directory: apps/desktop/src-tauri
+        run: |
+          $discovered = cargo test --locked --no-default-features s9_ -- --list
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not ($discovered -match 's9_.*: test$')) { throw 'S9 native tests not discovered' }
+          cargo test --locked --no-default-features s9_
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: I1 native integrated schema and repository regression
+        working-directory: apps/desktop/src-tauri
+        run: |
+          $discovered = cargo test --locked --no-default-features i1_ -- --list
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not ($discovered -match 'i1_.*: test$')) { throw 'I1 native tests not discovered' }
+          cargo test --locked --no-default-features i1_
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: S8 native SQLite analysis inclusion and freeze tests
         working-directory: apps/desktop/src-tauri
         run: |
@@ -179,7 +200,7 @@ jobs:
       - name: Upload unsigned portable S7 EXE for Windows safety rehearsal
         uses: actions/upload-artifact@v4
         with:
-          name: data-m-s8-unsigned-portable-windows
+          name: data-m-i1-unsigned-portable-windows
           path: apps/desktop/src-tauri/target/release/data-m-desktop.exe
           if-no-files-found: error
           retention-days: 14

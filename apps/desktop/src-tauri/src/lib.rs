@@ -12,6 +12,7 @@ mod domain_db;
 mod drop_preview;
 mod experiment_tree;
 mod import_jobs;
+mod paper_workspace;
 mod project_tree;
 mod repository_safety;
 #[cfg(test)]
@@ -37,7 +38,8 @@ pub fn run() {
             experiment_tree::experiment_tree,
             import_jobs::import_jobs,
             repository_safety::repository_safety,
-            statistical_analysis::statistical_analysis
+            statistical_analysis::statistical_analysis,
+            paper_workspace::paper_workspace
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Data-M desktop");
