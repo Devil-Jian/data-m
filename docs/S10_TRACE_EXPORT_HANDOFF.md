@@ -14,3 +14,6 @@ The real Paper workspace now displays a paginated Panel version-provenance view 
 {"manifestVersion":1,"schemaVersion":3,"projectId":"project-id","paperId":"paper-id","figureId":"figure-id","status":"proposed-not-exported","references":[{"panelId":"panel-id","usage":"display","assetVersionId":"version-id","assetId":"asset-id","sha256":"64-hex-digest","sizeBytes":0,"relativePath":"files/version-id.bin"}]}
 ```
 S11 cannot rely on this proposal until implemented, hashed, tested, and proven by Windows CI.
+
+## Added partial API (code not CI-accepted)
+S9 `paper_workspace` action `candidates` accepts optional `candidateQuery`, `candidateStage`, `candidateOffset`, `candidateLimit`; response includes `candidateTotalCount` and `candidateTruncated`. Figure native exporter is deliberately **not** published as a Tauri IPC until a trusted directory authorization and Windows handle-level safety implementation exists. No user-facing production manifest or successful S10 EXE can be claimed.
