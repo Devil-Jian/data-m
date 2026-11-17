@@ -347,7 +347,7 @@ fn blob_list(c: &Connection) -> Result<Vec<BlobRecord>, TreeError> {
     let mut stmt = c
         .prepare("SELECT sha256,size_bytes FROM blobs ORDER BY sha256")
         .map_err(map_read)?;
-    stmt.query_map([], |r| {
+    let result = stmt.query_map([], |r| {
         Ok(BlobRecord {
             sha256: r.get(0)?,
             size_bytes: r.get(1)?,
@@ -355,13 +355,14 @@ fn blob_list(c: &Connection) -> Result<Vec<BlobRecord>, TreeError> {
     })
     .map_err(map_read)?
     .collect::<rusqlite::Result<Vec<_>>>()
-    .map_err(map_read)
+    .map_err(map_read);
+    result
 }
 fn version_list(c: &Connection) -> Result<Vec<VersionRecord>, TreeError> {
     let mut stmt = c
         .prepare("SELECT id,asset_id,version_number,blob_sha256 FROM asset_versions ORDER BY id")
         .map_err(map_read)?;
-    stmt.query_map([], |r| {
+    let result = stmt.query_map([], |r| {
         Ok(VersionRecord {
             id: r.get(0)?,
             asset_id: r.get(1)?,
@@ -371,7 +372,8 @@ fn version_list(c: &Connection) -> Result<Vec<VersionRecord>, TreeError> {
     })
     .map_err(map_read)?
     .collect::<rusqlite::Result<Vec<_>>>()
-    .map_err(map_read)
+    .map_err(map_read);
+    result
 }
 fn database_issues(c: &Connection, report: &mut SafetyReport) -> Result<(), TreeError> {
     let mut stmt = c.prepare("PRAGMA integrity_check").map_err(map_read)?;
