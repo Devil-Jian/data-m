@@ -310,17 +310,17 @@ fn export_figure_with_hooks(
     if destination.starts_with(&repository) || repository.starts_with(&destination) {
         return Err(error("UNSAFE_PATH"));
     }
-    let (items, analyses, panels, audit_event_ids, created_at) =
-        with_database_at(database, |c| {
-            let (items, analyses) = planned(c, project, paper, figure)?;
-            // Preserve every Panel, including those with no pinned bytes.
-            let mut stmt = c.prepare(
-                "SELECT x.id,x.label,x.sort_order,rs.replicate_id,rs.asset_version_id
+    let (items, analyses, panels, audit_event_ids, created_at) = with_database_at(database, |c| {
+        let (items, analyses) = planned(c, project, paper, figure)?;
+        // Preserve every Panel, including those with no pinned bytes.
+        let mut stmt = c.prepare(
+            "SELECT x.id,x.label,x.sort_order,rs.replicate_id,rs.asset_version_id
                  FROM panels x LEFT JOIN representative_sources rs ON rs.panel_id=x.id
                  WHERE x.figure_id=?1
                  ORDER BY x.sort_order,x.id,rs.replicate_id",
-            )?;
-            let rows = stmt.query_map([figure], |r| {
+        )?;
+        let rows = stmt
+            .query_map([figure], |r| {
                 Ok((
                     r.get::<_, String>(0)?,
                     r.get::<_, String>(1)?,
@@ -328,41 +328,43 @@ fn export_figure_with_hooks(
                     r.get::<_, Option<String>>(3)?,
                     r.get::<_, Option<String>>(4)?,
                 ))
-            })?.collect::<rusqlite::Result<Vec<_>>>()?;
-            let mut panels = Vec::<ManifestPanel>::new();
-            for (panel_id, panel_label, panel_order, replicate_id, version_id) in rows {
-                if panels.last().map(|p| p.panel_id.as_str()) != Some(panel_id.as_str()) {
-                    panels.push(ManifestPanel {
-                        panel_id,
-                        panel_label,
-                        panel_order,
-                        representatives: Vec::new(),
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        let mut panels = Vec::<ManifestPanel>::new();
+        for (panel_id, panel_label, panel_order, replicate_id, version_id) in rows {
+            if panels.last().map(|p| p.panel_id.as_str()) != Some(panel_id.as_str()) {
+                panels.push(ManifestPanel {
+                    panel_id,
+                    panel_label,
+                    panel_order,
+                    representatives: Vec::new(),
+                });
+            }
+            if let Some(replicate_id) = replicate_id {
+                if let Some(panel) = panels.last_mut() {
+                    panel.representatives.push(ManifestRepresentative {
+                        replicate_id,
+                        asset_version_id: version_id,
                     });
                 }
-                if let Some(replicate_id) = replicate_id {
-                    if let Some(panel) = panels.last_mut() {
-                        panel.representatives.push(ManifestRepresentative {
-                            replicate_id,
-                            asset_version_id: version_id,
-                        });
-                    }
-                }
             }
-            // Persist auditable event identifiers; JSON details remain in the
-            // source repository's immutable audit table, not inferred labels.
-            let mut audits = c.prepare(
-                "SELECT id FROM audit_events
+        }
+        // Persist auditable event identifiers; JSON details remain in the
+        // source repository's immutable audit table, not inferred labels.
+        let mut audits = c.prepare(
+            "SELECT id FROM audit_events
                  WHERE object_id=?1 OR object_id=?2
                     OR object_id IN (SELECT id FROM panels WHERE figure_id=?2)
                  ORDER BY created_at,id",
-            )?;
-            let audit_event_ids = audits.query_map(params![paper, figure], |r| r.get(0))?
-                .collect::<rusqlite::Result<Vec<String>>>()?;
-            let now: String = c.query_row(
-                "SELECT strftime('%Y-%m-%dT%H:%M:%fZ','now')", [], |r| r.get(0)
-            )?;
-            Ok((items, analyses, panels, audit_event_ids, now))
+        )?;
+        let audit_event_ids = audits
+            .query_map(params![paper, figure], |r| r.get(0))?
+            .collect::<rusqlite::Result<Vec<String>>>()?;
+        let now: String = c.query_row("SELECT strftime('%Y-%m-%dT%H:%M:%fZ','now')", [], |r| {
+            r.get(0)
         })?;
+        Ok((items, analyses, panels, audit_event_ids, now))
+    })?;
     if items.is_empty() {
         return Err(error("EMPTY_FIGURE"));
     }
