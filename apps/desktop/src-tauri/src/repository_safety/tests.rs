@@ -740,10 +740,9 @@ fn s10_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
             .0,
         f.sha
     );
-    let disk_manifest: crate::figure_export::FigureManifest = serde_json::from_slice(
-        &fs::read(export_root.join("figure-manifest.json")).unwrap(),
-    )
-    .unwrap();
+    let disk_manifest: crate::figure_export::FigureManifest =
+        serde_json::from_slice(&fs::read(export_root.join("figure-manifest.json")).unwrap())
+            .unwrap();
     assert_eq!(disk_manifest.reference_count, manifest.reference_count);
     assert_eq!(fs::read(&f.source).unwrap(), before);
     assert_eq!(fs::read(&f.object).unwrap(), before);
@@ -755,12 +754,16 @@ fn s10_g0_01_v1_and_v2_upgrade_to_v3_preserve_pinned_references_and_reject_futur
     // migrate through the production project_tree::with_database_at path.
     for historical_version in [1_i64, 2_i64] {
         let temp = tempfile::tempdir().unwrap();
-        let path = temp.path().join(format!("legacy-v{historical_version}.sqlite"));
+        let path = temp
+            .path()
+            .join(format!("legacy-v{historical_version}.sqlite"));
         {
             let c = Connection::open(&path).unwrap();
             c.pragma_update(None, "foreign_keys", "ON").unwrap();
-            c.execute_batch(include_str!("../../migrations/0001_initial.sql")).unwrap();
-            c.execute_batch(crate::project_tree::REQUEST_SCHEMA).unwrap();
+            c.execute_batch(include_str!("../../migrations/0001_initial.sql"))
+                .unwrap();
+            c.execute_batch(crate::project_tree::REQUEST_SCHEMA)
+                .unwrap();
             if historical_version == 2 {
                 c.execute_batch(include_str!("../../migrations/0002_import_jobs.sql"))
                     .unwrap();
@@ -780,8 +783,10 @@ fn s10_g0_01_v1_and_v2_upgrade_to_v3_preserve_pinned_references_and_reject_futur
                  INSERT INTO panel_asset_versions(panel_id,asset_version_id,usage)
                   VALUES('panel','v1','display');",
             ).unwrap();
-            c.pragma_update(None, "application_id", 0x444d5331_i64).unwrap();
-            c.pragma_update(None, "user_version", historical_version).unwrap();
+            c.pragma_update(None, "application_id", 0x444d5331_i64)
+                .unwrap();
+            c.pragma_update(None, "user_version", historical_version)
+                .unwrap();
         }
         with_database_at(&path, |c| {
             let version: i64 = c.pragma_query_value(None, "user_version", |r| r.get(0))?;
@@ -790,20 +795,22 @@ fn s10_g0_01_v1_and_v2_upgrade_to_v3_preserve_pinned_references_and_reject_futur
                 "SELECT v.id,v.blob_sha256 FROM panel_asset_versions pav
                  JOIN asset_versions v ON v.id=pav.asset_version_id
                  WHERE pav.panel_id='panel'",
-                [], |r| Ok((r.get(0)?, r.get(1)?)),
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
             )?;
             assert_eq!(pins.0, "v1");
             assert_eq!(pins.1, "a".repeat(64));
             Ok(())
-        }).unwrap();
+        })
+        .unwrap();
         // Reopening never reassigns a version or replays a migration.
         with_database_at(&path, |c| {
-            let count: i64 = c.query_row(
-                "SELECT count(*) FROM schema_migrations", [], |r| r.get(0),
-            )?;
+            let count: i64 =
+                c.query_row("SELECT count(*) FROM schema_migrations", [], |r| r.get(0))?;
             assert_eq!(count, 3);
             Ok(())
-        }).unwrap();
+        })
+        .unwrap();
         // A future version is NOT auto-downgraded or initialized.
         {
             let c = Connection::open(&path).unwrap();
