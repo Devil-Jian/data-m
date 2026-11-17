@@ -1236,4 +1236,49 @@ mod tests {
         assert!(!dst.exists());
     }
 
+    #[test]
+    fn s10_aborted_process_staging_recovery_requires_durable_claim_marker_and_age() {
+        let dir=tempfile::tempdir().unwrap();
+        let db=dir.path().join("repo.sqlite");
+        let dest=dir.path().join("exports");
+        fs::create_dir(&dest).unwrap();
+        let token="11111111-2222-3333-4444-555555555555";
+        assert_eq!(
+            claim_export_request(&db,token,"p","paper","fig",&dest).unwrap(),
+            Claim::New
+        );
+        let stale=tempfile::Builder::new().prefix(".data-m-figure-stage-")
+            .tempdir_in(&dest).unwrap();
+        let abandoned=stale.path().to_path_buf();
+        fs::write(
+            abandoned.join(".data-m-figure-owner.json"),
+            serde_json::json!({"requestId":token}).to_string()
+        ).unwrap();
+        fs::write(abandoned.join("partial"),b"NOT_A_COMPLETE_PACKAGE").unwrap();
+        let abandoned=stale.keep(); // emulate abrupt process termination
+        let unrelated=dest.join(".data-m-figure-stage-unrelated");
+        fs::create_dir(&unrelated).unwrap();
+        fs::write(unrelated.join("partial"),b"DO_NOT_DELETE").unwrap();
+        // Never delete the stage while an export is still too recent.
+        assert_eq!(
+            recover_stale_stages_at(&db,&dest,std::time::Duration::from_secs(86400)).unwrap(),
+            0
+        );
+        assert!(abandoned.is_dir());
+        // A later explicit export to this selected folder can remove only
+        // stale unpublished stages owned by an existing durable claim.
+        assert_eq!(
+            recover_stale_stages_at(&db,&dest,std::time::Duration::ZERO).unwrap(),1
+        );
+        assert!(!abandoned.exists());
+        assert_eq!(fs::read(unrelated.join("partial")).unwrap(),b"DO_NOT_DELETE");
+        let finished=dest.join("figure-immutable");
+        fs::create_dir(&finished).unwrap();
+        fs::write(finished.join("figure-manifest.json"),b"KEEP").unwrap();
+        assert_eq!(
+            recover_stale_stages_at(&db,&dest,std::time::Duration::ZERO).unwrap(),0
+        );
+        assert_eq!(fs::read(finished.join("figure-manifest.json")).unwrap(),b"KEEP");
+    }
+
 }
