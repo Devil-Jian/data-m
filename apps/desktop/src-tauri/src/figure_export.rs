@@ -1013,6 +1013,35 @@ mod tests {
             "CANCELLED"
         );
         assert_eq!(fs::read_dir(&dest).unwrap().count(), before_count);
+        // A deterministic token publishes once and survives process restart.
+        // Replay validates every exported byte before returning 'complete'.
+        let token = "01234567-89ab-cdef-0123-456789abcdef";
+        assert_eq!(
+            claim_export_request(&db, token, "p", "paper", "fig", &dest).unwrap(),
+            Claim::New
+        );
+        let (published, first_manifest) = export_figure_with_hooks(
+            &db, "p", "paper", "fig", &dest, &|| false, &|_, _| {}, Some(token)
+        ).unwrap();
+        mark_export_complete(&db, token).unwrap();
+        assert_eq!(published.file_name().unwrap(), format!("figure-{token}"));
+        assert_eq!(
+            claim_export_request(&db, token, "p", "paper", "fig", &dest).unwrap(),
+            Claim::Existing
+        );
+        let (replayed, recovered_manifest) = verified_replay(
+            &db, "p", "paper", "fig", &dest, token
+        ).unwrap();
+        assert_eq!(replayed, published);
+        assert_eq!(recovered_manifest.reference_count, first_manifest.reference_count);
+        assert_eq!(recovered_manifest.physical_file_count, 2);
+        let altered = vec![b'Q'; second_bytes.len()];
+        fs::write(published.join("files").join(&second_sha), altered).unwrap();
+        assert_eq!(
+            verified_replay(&db, "p", "paper", "fig", &dest, token)
+                .unwrap_err().code,
+            "EXPORT_INDETERMINATE"
+        );
         fs::write(objects.join(&sha), vec![b'X'; original.len()]).unwrap();
         assert_eq!(
             export_figure_at(&db, "p", "paper", "fig", &dest)
