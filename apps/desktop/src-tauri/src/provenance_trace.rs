@@ -42,7 +42,10 @@ pub struct TraceResult {
     truncated: bool,
 }
 fn invalid_scope() -> TreeError {
-    TreeError::new("NOT_FOUND", "The requested item does not belong to this project.")
+    TreeError::new(
+        "NOT_FOUND",
+        "The requested item does not belong to this project.",
+    )
 }
 fn execute(c: &Connection, r: TraceRequest) -> Result<TraceResult, TreeError> {
     required(Some(&r.project_id), 128)?;
@@ -54,9 +57,12 @@ fn execute(c: &Connection, r: TraceRequest) -> Result<TraceResult, TreeError> {
     }
     let project_exists: bool = c.query_row(
         "SELECT EXISTS(SELECT 1 FROM projects WHERE id=?1 AND deleted_at IS NULL)",
-        [&r.project_id], |row| row.get(0)
+        [&r.project_id],
+        |row| row.get(0),
     )?;
-    if !project_exists { return Err(invalid_scope()); }
+    if !project_exists {
+        return Err(invalid_scope());
+    }
     // Scope is established by a *historical* assay link, so soft-deletion
     // does not erase evidence. Exact version identity is never substituted.
     let scope_sql = match r.action.as_str() {
@@ -65,7 +71,9 @@ fn execute(c: &Connection, r: TraceRequest) -> Result<TraceResult, TreeError> {
         _ => "SELECT EXISTS(SELECT 1 FROM asset_versions v JOIN asset_links l ON l.asset_id=v.asset_id JOIN assays s ON s.id=l.assay_id JOIN themes t ON t.id=s.theme_id WHERE v.id=?1 AND t.project_id=?2)",
     };
     let found: bool = c.query_row(scope_sql, params![r.id, r.project_id], |row| row.get(0))?;
-    if !found { return Err(invalid_scope()); }
+    if !found {
+        return Err(invalid_scope());
+    }
 
     // UNION ALL keeps independent paper usages and statistical input/result
     // links. Multiple AssetLinks never multiply an edge; there is no filename
@@ -103,42 +111,48 @@ fn execute(c: &Connection, r: TraceRequest) -> Result<TraceResult, TreeError> {
     };
     let from = format!(" FROM ({relation_sql}) WHERE {filter}");
     let total_count: i64 = c.query_row(
-        &format!("SELECT count(*) {from}"), params![r.project_id, r.id],
-        |row| row.get(0)
+        &format!("SELECT count(*) {from}"),
+        params![r.project_id, r.id],
+        |row| row.get(0),
     )?;
     let query = format!(
         "SELECT * {from} ORDER BY asset_version_id, panel_id, usage, analysis_id, analysis_role LIMIT ?3 OFFSET ?4"
     );
     let mut stmt = c.prepare(&query)?;
-    let mut edges = stmt.query_map(
-        params![r.project_id, r.id, limit, offset],
-        |row| Ok(TraceEdge {
-            paper_id: row.get(0)?,
-            figure_id: row.get(1)?,
-            panel_id: row.get(2)?,
-            usage: row.get(3)?,
-            analysis_id: row.get(4)?,
-            analysis_role: row.get(5)?,
-            frozen_at: row.get(6)?,
-            included_replicate_ids: Vec::new(),
-            asset_id: row.get(7)?,
-            asset_version_id: row.get(8)?,
-            version_number: row.get(9)?,
-            blob_sha256: row.get(10)?,
-            size_bytes: row.get(11)?,
-            asset_deleted: row.get(12)?,
-        })
-    )?.collect::<rusqlite::Result<Vec<_>>>()?;
+    let mut edges = stmt
+        .query_map(params![r.project_id, r.id, limit, offset], |row| {
+            Ok(TraceEdge {
+                paper_id: row.get(0)?,
+                figure_id: row.get(1)?,
+                panel_id: row.get(2)?,
+                usage: row.get(3)?,
+                analysis_id: row.get(4)?,
+                analysis_role: row.get(5)?,
+                frozen_at: row.get(6)?,
+                included_replicate_ids: Vec::new(),
+                asset_id: row.get(7)?,
+                asset_version_id: row.get(8)?,
+                version_number: row.get(9)?,
+                blob_sha256: row.get(10)?,
+                size_bytes: row.get(11)?,
+                asset_deleted: row.get(12)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
     for edge in &mut edges {
         if let Some(analysis_id) = &edge.analysis_id {
             let mut included = c.prepare("SELECT replicate_id FROM analysis_samples WHERE analysis_id=?1 AND included=1 ORDER BY replicate_id")?;
-            edge.included_replicate_ids = included.query_map([analysis_id], |row| row.get(0))?
+            edge.included_replicate_ids = included
+                .query_map([analysis_id], |row| row.get(0))?
                 .collect::<rusqlite::Result<Vec<String>>>()?;
         }
     }
     Ok(TraceResult {
         truncated: i64::from(offset) + (edges.len() as i64) < total_count,
-        edges, total_count, offset, limit,
+        edges,
+        total_count,
+        offset,
+        limit,
     })
 }
 pub(crate) fn execute_at(path: &Path, request: TraceRequest) -> Result<TraceResult, TreeError> {
@@ -146,7 +160,8 @@ pub(crate) fn execute_at(path: &Path, request: TraceRequest) -> Result<TraceResu
 }
 #[tauri::command]
 pub fn provenance_trace<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>, request: TraceRequest
+    app: tauri::AppHandle<R>,
+    request: TraceRequest,
 ) -> Result<TraceResult, TreeError> {
     execute_at(&database_path(&app)?, request)
 }
@@ -159,10 +174,13 @@ mod tests {
         let c = Connection::open_in_memory().unwrap();
         c.pragma_update(None, "foreign_keys", "ON").unwrap();
         c.execute_batch(crate::project_tree::MIGRATION).unwrap();
-        c.execute_batch(include_str!("../migrations/0002_import_jobs.sql")).unwrap();
-        c.execute_batch(include_str!("../migrations/0003_statistics.sql")).unwrap();
+        c.execute_batch(include_str!("../migrations/0002_import_jobs.sql"))
+            .unwrap();
+        c.execute_batch(include_str!("../migrations/0003_statistics.sql"))
+            .unwrap();
         let sha = "a".repeat(64);
-        c.execute_batch(&format!("
+        c.execute_batch(&format!(
+            "
           INSERT INTO projects(id,name) VALUES('p','Project');
           INSERT INTO themes(id,project_id,name) VALUES('t','p','Theme');
           INSERT INTO assays(id,theme_id,name) VALUES('a','t','Assay');
@@ -187,20 +205,34 @@ mod tests {
             VALUES('analysis','v1','input');
           UPDATE statistical_analyses SET frozen_at='2026-01-01' WHERE id='analysis';
           UPDATE asset_links SET deleted_at='2026-02-01' WHERE id='l';
-        ")).unwrap();
+        "
+        ))
+        .unwrap();
         let req = |action: &str, id: &str| TraceRequest {
-            project_id: "p".into(), action: action.into(), id: id.into(),
-            offset: None, limit: Some(50),
+            project_id: "p".into(),
+            action: action.into(),
+            id: id.into(),
+            offset: None,
+            limit: Some(50),
         };
         let forward = execute(&c, req("panel", "panel")).unwrap();
         assert_eq!(forward.total_count, 1);
         assert_eq!(forward.edges[0].asset_version_id, "v1");
         let reverse = execute(&c, req("version", "v1")).unwrap();
         assert_eq!(reverse.total_count, 2);
-        assert!(reverse.edges.iter().any(|e| e.panel_id.as_deref() == Some("panel")));
-        assert!(reverse.edges.iter().any(|e| e.analysis_id.as_deref() == Some("analysis")
-            && e.frozen_at.as_deref() == Some("2026-01-01")));
+        assert!(reverse
+            .edges
+            .iter()
+            .any(|e| e.panel_id.as_deref() == Some("panel")));
+        assert!(reverse
+            .edges
+            .iter()
+            .any(|e| e.analysis_id.as_deref() == Some("analysis")
+                && e.frozen_at.as_deref() == Some("2026-01-01")));
         assert_eq!(execute(&c, req("asset", "d")).unwrap().total_count, 2);
-        assert_eq!(execute(&c, req("version", "other")).unwrap_err().code, "NOT_FOUND");
+        assert_eq!(
+            execute(&c, req("version", "other")).unwrap_err().code,
+            "NOT_FOUND"
+        );
     }
 }
