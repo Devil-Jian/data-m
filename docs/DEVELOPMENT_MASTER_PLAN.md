@@ -1,4 +1,4 @@
-> **S8 开发状态（2026-11-17）**：在 `feat/s8-statistics-sample-inclusion` 从 S7 `15e784a6bf939cf509254aacdea33bb120cf9165` 堆叠实现 Schema v3 迁移、独立统计分析 Rust IPC、冻结审计与正式项目管理 UI；新增 `s8_` Rust / `@S8` Playwright 测试。当前为 `in_progress`，机器 CI 与 Windows EXE 尚待实际验证，不得标记 `machine_passed` 或 `accepted`。S7 仍为 `machine_passed / manual_pending`，S8 人工验收同样未执行。详见 [S8 设计](S8_IMPLEMENTATION_DESIGN.md) 与 [S8 报告](S8_EXECUTION_REPORT.md)。
+> **S8 机器验收（2026-11-17）**：在 `feat/s8-statistics-sample-inclusion`（S7 基线 `15e784a6bf939cf509254aacdea33bb120cf9165`）实现 Schema v3、独立统计分析与冻结审计、正式 UI。成功测试代码 SHA `d52b1e9c9851d718ff9ae80d4e0c700290c6da22`，[Windows CI #44003979357](https://github.com/Devil-Jian/data-m/actions/runs/44003979357) SUCCESS：S8 Rust 8/8、@S8 Playwright 3/3、全量 Rust 103/103、完整桌面 E2E 40/40、Chromium 29/29、S0–S7 回归与 Windows Release EXE 成功，[EXE Artifact #14293614430](https://github.com/Devil-Jian/data-m/actions/runs/44003979357/artifacts/14293614430) 已上传。**S8 状态 = `machine_passed / manual_pending`，非 `accepted`**；[S8 报告](S8_EXECUTION_REPORT.md)。[Draft PR #52](https://github.com/Devil-Jian/data-m/pull/52) 以 S7 为 base、未合并 main；S7 人工恢复演练仍未完成，珍贵科研数据门槛不变。
 
 # Data-M 产品需求、开发进度、后续计划与验收基线
 
