@@ -24,6 +24,7 @@ pub struct TraceEdge {
     analysis_id: Option<String>,
     analysis_role: Option<String>,
     frozen_at: Option<String>,
+    included_replicate_ids: Vec<String>,
     asset_id: String,
     asset_version_id: String,
     version_number: i64,
@@ -109,7 +110,7 @@ fn execute(c: &Connection, r: TraceRequest) -> Result<TraceResult, TreeError> {
         "SELECT * {from} ORDER BY asset_version_id, panel_id, usage, analysis_id, analysis_role LIMIT ?3 OFFSET ?4"
     );
     let mut stmt = c.prepare(&query)?;
-    let edges = stmt.query_map(
+    let mut edges = stmt.query_map(
         params![r.project_id, r.id, limit, offset],
         |row| Ok(TraceEdge {
             paper_id: row.get(0)?,
@@ -119,6 +120,7 @@ fn execute(c: &Connection, r: TraceRequest) -> Result<TraceResult, TreeError> {
             analysis_id: row.get(4)?,
             analysis_role: row.get(5)?,
             frozen_at: row.get(6)?,
+            included_replicate_ids: Vec::new(),
             asset_id: row.get(7)?,
             asset_version_id: row.get(8)?,
             version_number: row.get(9)?,
@@ -127,6 +129,13 @@ fn execute(c: &Connection, r: TraceRequest) -> Result<TraceResult, TreeError> {
             asset_deleted: row.get(12)?,
         })
     )?.collect::<rusqlite::Result<Vec<_>>>()?;
+    for edge in &mut edges {
+        if let Some(analysis_id) = &edge.analysis_id {
+            let mut included = c.prepare("SELECT replicate_id FROM analysis_samples WHERE analysis_id=?1 AND included=1 ORDER BY replicate_id")?;
+            edge.included_replicate_ids = included.query_map([analysis_id], |row| row.get(0))?
+                .collect::<rusqlite::Result<Vec<String>>>()?;
+        }
+    }
     Ok(TraceResult {
         truncated: i64::from(offset) + (edges.len() as i64) < total_count,
         edges, total_count, offset, limit,
