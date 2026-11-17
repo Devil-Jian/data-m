@@ -1,43 +1,68 @@
-# S8 执行报告：统计分析与生物学重复独立纳入
+# S8 执行报告：统计分析与独立样本纳入
 
-> TASK_ID=S8 · 2026-11-17 · **in_progress / CI_pending / manual_pending**。本文件记录已提交代码与未确认结果，不把尚未执行的检查写成通过。
+> TASK_ID=S8 · 2026-11-17 · **machine_passed / manual_pending**。机器验证与 Windows Release EXE 已完成；Windows 11 原生 WebView2 人工验收尚未执行，状态非 accepted，PR 保持 Draft。
 
-## 基线与分支
-- 仓库：Devil-Jian/data-m。
-- 上游 S7：`feat/s7-integrity-backup-restore` @ `15e784a6bf939cf509254aacdea33bb120cf9165`，`machine_passed / manual_pending`。
-- 当前 S8：`feat/s8-statistics-sample-inclusion`；以 S7 为 PR base，不合并 main。
+## 开发基线与提交身份
+- 仓库：`Devil-Jian/data-m`。
+- 上游 S7：`feat/s7-integrity-backup-restore` @ `15e784a6bf939cf509254aacdea33bb120cf9165`，`machine_passed / manual_pending`，不以 S8 机器通过代替 S7 恢复演练。
+- 当前分支：`feat/s8-statistics-sample-inclusion`。
+- [S8 Draft PR #52](https://github.com/Devil-Jian/data-m/pull/52) 以 S7 分支为 base；**未合并 main**。
+- **成功 Windows CI 实测代码 SHA：`d52b1e9c9851d718ff9ae80d4e0c700290c6da22`**。后续纯文档提交不是这个 SHA 的编译输入，不应错误标记为重测。
+- [Windows desktop shell #44003979357](https://github.com/Devil-Jian/data-m/actions/runs/44003979357)：status=completed、conclusion=success，全部步骤从 GitHub job 实际结果/原始日志核查。
+- [S8 Windows EXE Artifact #14293614430](https://github.com/Devil-Jian/data-m/actions/runs/44003979357/artifacts/14293614430)：`data-m-s8-unsigned-portable-windows`，ZIP 4,151,074 bytes，实际上传且未过期；属于**未签名便携 EXE**，不是 NSIS/MSI 安装器。EXE 文件自身 SHA-256 待下载后单独计算。
 
-## 代码改动
-- `migrations/0003_statistics.sql`：保留原统计表和 ID，新增分析备注、更新时间和 `analysis_asset_versions`；数据库触发器拒绝跨实验样本和文件关系，并保护冻结分析不被普通写入修改。
-- `project_tree.rs`：Schema v1→v2→v3 增量事务迁移；v2 既有纳入关系跨 Assay 预检，失败时拒绝迁移。
-- `statistical_analysis.rs`：真实 Tauri/SQLite 接口 `list/get/create/save/freeze/revise`，纳入数量按关系查询，冻结与审计在同一数据库事务；冻结修订保留旧 ID 与引用。
-- `statistical-analysis.ts(x)`：正式项目工作区内的左分析列表、中间分组重复、右侧输入/结果版本；支持保存、冻结、修订、重载。
-- S7 `repository_safety.rs`、`snapshot.rs` 和 `repository-safety.ts`：Schema v2 历史快照继续受支持，新 v3 快照计数包含统计版本关联。
-- 测试代码：新增六个以 `s8_` 命名的 Rust/SQLite 专项与三个标题含 `@S8` 的 Playwright UI Mock 测试。**测试文件数量不是测试通过数量。**
+## Schema 迁移与数据约束
+- `apps/desktop/src-tauri/migrations/0003_statistics.sql`：在保留 `statistical_analyses`、`analysis_samples`、原 AssetVersion 与 Panel ID 的基础上，增添 `notes`、`updated_at` 和 `analysis_asset_versions(analysis_id,asset_version_id,role)`，其中 role = input/result。
+- 正式 `project_tree.rs` 校验 Schema 身份后，以 SQLite IMMEDIATE 事务从 v1→v2→v3 或 v2→v3 升级，拒绝非法旧纳入关系并保留原 ID；不修改 CAS 字节。
+- 数据库触发器与服务端验证拒绝跨 Assay 的 Replicate / 文件版本，冻结后拒绝普通更新、删除或替换纳入及版本关系。
+- S7 快照验证按 manifest 的 Schema v2/v3 区分表清单。历史 v2 快照原样验证并可在独立目录恢复；新 v3 包含统计版本引用表计数，不回写或篡改封存快照。
+- S3、S1 历史测试中原本硬编码的 Schema v2/v3 期望已按本阶段版本更新，仍保留原有迁移原子性及非法未来 Schema 拒绝的断言。
 
-## 验证进度（不得推断通过）
-- Rust `cargo test --locked --no-default-features s8_`：待 Windows CI 实测，已编写 6 个测试函数。
-- Playwright `npm run test:e2e:desktop -- --grep "@S8"`：待 Windows CI 实测，已编写 3 个显式 UI Mock 用例。
-- Cargo fmt / check、TypeScript / Vite、S0–S7 全量、Windows Release EXE、Artifact 上传：待 CI。
-- CI URL：待记录真实 Run。测试 SHA：待按实际成功 workflow 固定。Artifact URL：尚无。
-- 未解决风险：Windows 编译/格式/前端测试可能发现错误；v1/v2 实际迁移、历史 S7 v2 快照恢复、原生跨进程重启持久化仍需专门实测补强；未运行任何人工验收。
+## API 与正式 UI
+- Rust/Tauri `statistical_analysis({request})`：`list/get/create/save/freeze/revise`；按 Assay 查询分析清单、纳入样本、可关联固定版本。创建/保存/冻结/修订与 `audit_events` 在同一事务，冻结修订保留原记录并创建新 ID。
+- 正式项目管理入口「统计分析 (S8)」，而不是独立 Demo 生产数据。左侧分析列表，中间按 Group 勾选 Replicate 并显示实验实际 n、纳入 n、未纳入 n，右侧选择输入/结果 `AssetVersionId`。冻结只读，修订可追溯。
+- `scripts/s0-baseline.test.mjs` 增加经授权的新 IPC，保留严格白名单而不是关闭检查。
 
-## Windows 人工验收（全部待完成）
-- [ ] 下载对应 SHA 的 Windows 便携 EXE，在 Windows 11/WebView2 中打开正式项目管理和 S8 统计分析。
-- [ ] 建立 Control 六重复及分析 A（5/6）、分析 B（6/6）；重启核对两分析独立且实验 n=6。
-- [ ] 复制、移动、重命名 Raw 文件，验证实际 n 和两次分析纳入关系不变。
-- [ ] 输入/结果固定到 AssetVersionId，软删除链接或新增版本后旧分析引用不漂移。
-- [ ] 冻结后尝试直接编辑并确认拒绝；新建修订且审计可查。
-- [ ] 用可抛弃数据演练 v1/v2 升级与 S7 历史 v2 快照验证/隔离恢复。
-- [ ] 记录 EXE SHA-256、截图、原文件/CAS 哈希、测试执行者和日期。
+## Windows Actions 实测
 
-S8 不执行 t 检验/ANOVA，不修改 CAS 或 Panel 关系；S0–S7 未完成人工恢复验收前，禁止珍贵/唯一科研数据投入使用。禁止提前标为 accepted 或合并 main。
+| 测试项 | Windows CI #44003979357 实际结果 | 结论 |
+|---|---|---|
+| `cargo fmt --all -- --check` | 标准格式通过 | PASS |
+| S0 基线检查 | 3 passed / 0 failed | PASS |
+| TypeScript / Vite、交互及 UI 基础测试 | CI 全部通过 | PASS |
+| Windows Chromium 交互回归 | 29 passed / 0 failed | PASS |
+| 桌面全量 Playwright | 40 passed / 0 failed | PASS |
+| `@S8` Playwright（明确 Mock） | 3 passed / 0 failed | PASS（UI） |
+| `s8_` 原生 Rust/SQLite | **8 passed / 0 failed** | PASS |
+| `s7_` 原生备份恢复 | 15 passed / 0 failed | PASS |
+| S6/S5/S4/S3/S2/S1/S0 Rust 专项 | 11 / 8 / 2 / 17 / 7 / 14 / 4 passed | PASS |
+| `cargo test --locked --no-default-features` 全量 | **103 passed / 0 failed** | PASS |
+| `cargo check --locked` | Windows 完整检查通过 | PASS |
+| `npm run tauri:build` Windows Release EXE | 构建步骤成功 | PASS |
+| EXE Artifact 上传 | #14293614430，4,151,074-byte ZIP | PASS |
+| Windows 11 WebView2 实机人工验收 | 未执行（用户暂缓） | manual_pending |
 
+测试总数非零、未跳过失败项目；浏览器 Mock 仅覆盖 UI，Rust 临时 SQLite 测试才覆盖业务持久性和事务约束。
 
-## 已获得的 GitHub CI 证据（阶段性，不代表 S8 机器完成）
-- Draft PR：[S8 #52](https://github.com/Devil-Jian/data-m/pull/52)，base=S7。代码待验证 SHA：`9a94932325a91ddfcee3359a65785aca50ca141d`。
-- 首次 [Windows CI #43999891949](https://github.com/Devil-Jian/data-m/actions/runs/43999891949) 在 `cargo fmt --check` 阶段失败（未执行 Rust/Playwright/EXE）。已从原始 runner 日志提取 39 处格式差异，按对应六个 Rust 文件修复，并再次提交；未屏蔽格式检查。
-- 新 [Windows CI #44000227751](https://github.com/Devil-Jian/data-m/actions/runs/44000227751)：最后核查时仍为 `pending`，**没有** Rust 编译、S8 测试或 EXE 通过证据。该运行结果需复查，不能自动宣称通过。
-- [UI 工作流 #44000227712](https://github.com/Devil-Jian/data-m/actions/runs/44000227712)：`success`，包含三个 demo build 和浏览器交互流程；不能代替 `build:desktop`、`@S8` 或 Windows Rust/EXE。
-- 最新提交已增加 `s8_migrate_existing_v2_preserves_analysis_and_original_ids` 和 `s8_sealed_schema_v2_snapshot_still_verifies_and_restores`，因此当前源代码中共有 7 个 `s8_` 统计模块测试 + 1 个 S7 快照模块 `s8_` 兼容测试，以及 3 个 `@S8` Playwright Mock 用例；**均未得到本次 Windows CI 的通过结论**。
-- EXE Artifact：**尚无 S8 Release EXE 成功上传证据**。状态保持 `in_progress / manual_pending`。
+## 失败与修复历史（全部保留）
+1. [Windows #43999891949](https://github.com/Devil-Jian/data-m/actions/runs/43999891949)：Rustfmt 失败；按 Windows runner 原始 39 处差异修复，不跳过格式校验。
+2. [Windows #44000628135](https://github.com/Devil-Jian/data-m/actions/runs/44000628135)：S0 严格 IPC 白名单未允许新的 S8 命令；在白名单内显式添加并保留意外命令拒绝。
+3. [Windows #44001227534](https://github.com/Devil-Jian/data-m/actions/runs/44001227534)：S3 旧测试仍断言最终 Schema=2；修改为验证 v3 且保留旧 ID、原始数据与迁移回滚断言，修复后 S3 17/17。
+4. [Windows #44002434013](https://github.com/Devil-Jian/data-m/actions/runs/44002434013)：S1 篡改测试把正式 Schema v3 当非法值；改用未知未来 v4，仍验证错误拒绝和字节不变；最终 S1 14/14。
+5. 最终 #44003979357 SUCCESS，非伪造零测试或取消工作流成功。
+
+## Windows 原生人工验收清单（全部未完成）
+- [ ] 下载与实测代码 SHA 匹配的 Artifact，计算 ZIP 与 EXE 各自 SHA-256，记录 Windows 版本、日期和操作者。
+- [ ] 在 Windows 11 WebView2 中用可抛弃测试项目创建 Control/Model/Treatment，Control 六个生物学重复，建立分析 A（Control 5 个）与分析 B（Control 6 个）。
+- [ ] 重启 EXE 重新查看两个分析，核对实际 n=6 而两次纳入 n 独立。
+- [ ] 复制、移动、重命名 Raw 文件并新建资产版本，确认 n 与冻结的输入/结果版本均不漂移。
+- [ ] 关联输入和结果 AssetVersion，冻结，尝试直接修改应拒绝；创建明确修订并检查审计历史。
+- [ ] 软删除有关 AssetLink，确认历史冻结分析仍能查到固定版本；试验非法跨 Assay 样本与文件关联。
+- [ ] 使用可抛弃数据库演练 Schema v1/v2 迁移、S7 历史 v2 快照验证和隔离恢复，保存哈希/ID/关系 count diff=0 证据。
+- [ ] 保存人工截图、错误案例、EXE/源文件哈希，不得以浏览器 Mock 替代原生验收。
+
+## 边界与遗留风险
+- **S8 已达到机器放行标准，但未达到人工 accepted**；S7 同样依旧 manual_pending；不得合并 main。
+- 未签名便携 EXE 不是正式安装包，Windows 11 实机、WebView2、DPI 与长期运行需要用户人工检查。
+- S7 用户恢复演练与离盘备份签收之前，**禁止珍贵或唯一科研原始数据投入正式使用**。
+- 不进行 t 检验/ANOVA 或数据计算，不修改原始文件/CAS 与现有 Panel 固定关联，不自动实施 S9–S11。
