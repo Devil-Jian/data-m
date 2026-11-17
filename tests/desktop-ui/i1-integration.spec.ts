@@ -29,6 +29,16 @@ test('@I1 formal project workspace opens S8 and S9 without using demo data',asyn
  await expect(page.getByText('I1 persisted paper')).toBeVisible();
  await page.getByRole('button',{name:'返回项目管理'}).click();
  await expect(page.getByRole('main',{name:'项目管理工作区'})).toBeVisible();
+ // G0-07: refreshed application still enters both official workspaces from
+ // the same real Project entry, rather than relying on a demo-only route.
+ await page.reload();
+ await page.getByRole('button',{name:'项目管理',exact:true}).click();
+ await page.getByRole('button',{name:'实验：ROS'}).click();
+ await page.getByRole('button',{name:'统计分析 (S8)'}).click();
+ await expect(page.getByRole('main',{name:'S8 统计分析工作台'})).toBeVisible();
+ await page.getByRole('button',{name:'返回项目管理'}).click();
+ await page.getByRole('button',{name:'论文管理 (S9)'}).click();
+ await expect(page.getByText('I1 persisted paper')).toBeVisible();
 });
 
 test('@I1 project switch discards stale delayed Paper responses (explicit IPC mock)',async({page})=>{
