@@ -638,27 +638,37 @@ fn s10_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
         .unwrap();
     assert_eq!(distinct, 1);
     assert_eq!(counts(&db).unwrap()["asset_versions"], 2);
-    let pinned: i64 = db.query_row(
-        "SELECT count(*) FROM panel_asset_versions WHERE asset_version_id='version-v2'",
-        [], |r| r.get(0)
-    ).unwrap();
+    let pinned: i64 = db
+        .query_row(
+            "SELECT count(*) FROM panel_asset_versions WHERE asset_version_id='version-v2'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
     assert_eq!(pinned, 0);
-    let historical: i64 = db.query_row(
-        "SELECT count(*) FROM asset_links WHERE asset_id IN
+    let historical: i64 = db
+        .query_row(
+            "SELECT count(*) FROM asset_links WHERE asset_id IN
            (SELECT asset_id FROM asset_versions WHERE id='version')
            AND deleted_at IS NOT NULL",
-        [], |r| r.get(0)
-    ).unwrap();
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
     assert_eq!(historical, 1);
-    for analysis in ["an5","an6"] {
-        assert!(db.execute(
-            "UPDATE analysis_samples SET included=0 WHERE analysis_id=?1",
-            [analysis]
-        ).is_err());
-        assert!(db.execute(
-            "DELETE FROM analysis_asset_versions WHERE analysis_id=?1",
-            [analysis]
-        ).is_err());
+    for analysis in ["an5", "an6"] {
+        assert!(db
+            .execute(
+                "UPDATE analysis_samples SET included=0 WHERE analysis_id=?1",
+                [analysis]
+            )
+            .is_err());
+        assert!(db
+            .execute(
+                "DELETE FROM analysis_asset_versions WHERE analysis_id=?1",
+                [analysis]
+            )
+            .is_err());
     }
     let raw = fs::read(restored.join("cas").join("objects").join(&f.sha)).unwrap();
     assert_eq!(raw, before);
