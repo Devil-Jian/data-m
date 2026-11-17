@@ -693,7 +693,8 @@ fn s3_v1_to_v2_migration_rolls_back_atomically_and_preserves_stable_ids() {
         with_database_at(&database, |connection| {
             let version: i64 =
                 connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
-            assert_eq!(version, 2);
+            // S8 advances a valid v1 repository through v2 to v3 without losing IDs.
+            assert_eq!(version, 3);
             let name: String = connection.query_row(
                 "SELECT name FROM projects WHERE id='stable-project'",
                 [],
