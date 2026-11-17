@@ -13,6 +13,7 @@ mod drop_preview;
 mod experiment_tree;
 mod import_jobs;
 mod project_tree;
+mod repository_safety;
 #[cfg(test)]
 mod s1_ipc_tests;
 #[tauri::command]
@@ -33,7 +34,8 @@ pub fn run() {
             drop_preview::inspect_drop_paths,
             project_tree::project_tree,
             experiment_tree::experiment_tree,
-            import_jobs::import_jobs
+            import_jobs::import_jobs,
+            repository_safety::repository_safety
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Data-M desktop");
