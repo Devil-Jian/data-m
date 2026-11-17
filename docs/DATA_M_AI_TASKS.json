@@ -968,15 +968,16 @@
       ],
       "safety_gate": "只允许从受控文件版本导出，所有目标路径和文件名都需 Rust 验证，不允许路径穿越。",
       "suggested_branch": "feat/s10-",
-      "current_status": "in_progress",
-      "machine_status": "pending",
+      "current_status": "manual_pending",
+      "machine_status": "machine_passed",
       "human_status": "manual_pending",
       "baseline_sha": "2d5c23d447a150599118cadd18cde1b90926945b",
       "pr_url": "https://github.com/Devil-Jian/data-m/pull/56",
-      "ci_tested_sha": "8dfb20fe82f82d3f184b4be20031526fbfdc7bdd",
-      "ci_run_url": "https://github.com/Devil-Jian/data-m/actions/runs/44059250671",
-      "exe_artifact_url": "https://github.com/Devil-Jian/data-m/actions/runs/44059250671/artifacts/14319090043",
-      "development_note": "Exact SHA Windows CI and unsigned EXE passed: Rust 114/114, S10 native 4/4, desktop E2E 44/44, Chromium 29/29. G0 and S10 full matrix plus requestId durability, crash cleanup and Windows human safety gates remain incomplete; stage stays in_progress/manual_pending and not accepted."
+      "ci_tested_sha": "420bcd4be18ef6b781a629f1b887c0c57611f2ee",
+      "ci_run_url": "https://github.com/Devil-Jian/data-m/actions/runs/44094234909",
+      "exe_artifact_url": "https://github.com/Devil-Jian/data-m/actions/runs/44094234909/artifacts/14333783685",
+      "development_note": "G0-01..07 and S10-01..14 synthetic SQLite/CAS + renderer mock machine matrix verified at source SHA 420bcd4be18ef6b781a629f1b887c0c57611f2ee in Windows Actions #44094234909 SUCCESS. Rust all 121/121, S10 11/11, Chromium 29/29; Desktop 45 tests: 44 first-pass and 1 unrelated Demo context-menu flaky retry-pass. Windows unsigned portable EXE artifact #14333783685. This does NOT include Windows WebView2 real picker, drag-drop, off-device S7 restore or manual signature. Stage is machine_passed/manual_pending only, not accepted; do not merge main or release v1.0.",
+      "machine_acceptance_matrix": "docs/S10_MACHINE_ACCEPTANCE_MATRIX.md"
     },
     {
       "id": "S11",
