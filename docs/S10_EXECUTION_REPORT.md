@@ -14,3 +14,9 @@
 - Safety: user original data was not accessed or modified. I1/S8/S9 upstream branches and main were not modified.
 - Task state remains `in_progress / manual_pending` (machine gates outstanding).
 - Before S11, finish S10 export, UI, G0 and complete Windows CI with exact tested source SHA.
+
+## Additional code committed (verification pending)
+- `figure_export.rs`: test-accessible exact CAS read-only Figure export core with unique staged folder, SHA/size checks, manifest logical references, byte dedup and fail-closed corruption handling. **Not an authorized native picker / production IPC; do not present as working user-facing export.**
+- `repository_safety/tests.rs`: new disposable SQLite/CAS G0 combined v3 backup → verify → isolated restore test with two Figures, six Panels, frozen 5/6 analyses, and reverse trace count.
+- `paper_workspace.rs`: server-side candidates search/paging with real total, plus native 605-row regression; formal Paper UI migrated to use that API.
+- All new test results **pending**; there is no asserted G0 acceptance and no S10 successful Windows Release EXE evidence.
