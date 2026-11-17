@@ -61,7 +61,7 @@ function checkedResult(req:SafetyRequest,raw:SafetyResponse):SafetyResponse{
     &&raw.report.issues.every(issue=>typeof issue.code==='string'&&typeof issue.subject==='string')
     &&raw.report.tableCounts&&typeof raw.report.tableCounts==='object')
    ||raw.snapshots.some(s=>!validID(s.snapshotId)||!Number.isSafeInteger(s.blobCount)
-    ||!Number.isSafeInteger(s.versionCount)||s.schemaVersion!==2||typeof s.createdAt!=='string')
+    ||!Number.isSafeInteger(s.versionCount)||![2,3].includes(s.schemaVersion)||typeof s.createdAt!=='string')
    ||('snapshotId' in req&&raw.snapshotId!==req.snapshotId)
    ||('restoreLabel' in req&&raw.restoreLabel!==req.restoreLabel))
    throw new SafetyError('INVALID_RESPONSE');
