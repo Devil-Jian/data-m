@@ -267,6 +267,23 @@ mod tests {
               INSERT INTO figures(id,paper_id,label) VALUES('fig','paper','Figure 1');
               INSERT INTO panels(id,figure_id,label,sort_order) VALUES('a','fig','A',0),('b','fig','B',1);
               INSERT INTO data_assets(id,name) VALUES('asset','x.png');
+              INSERT INTO experiment_groups(id,assay_id,name) VALUES('g','assay','Group');
+              INSERT INTO replicates(id,group_id,label) VALUES
+                ('r1','g','1'),('r2','g','2'),('r3','g','3'),
+                ('r4','g','4'),('r5','g','5'),('r6','g','6');
+              INSERT INTO asset_links(id,asset_id,assay_id,stage,display_name)
+                VALUES('link','asset','assay','raw','x.png');
+              INSERT INTO statistical_analyses(id,assay_id,name,notes,updated_at)
+                VALUES('analysis-a','assay','A','','2026-01-01'),
+                      ('analysis-b','assay','B','','2026-01-01');
+              INSERT INTO analysis_samples(analysis_id,replicate_id,included)
+                VALUES
+                ('analysis-a','r1',1),('analysis-a','r2',1),
+                ('analysis-a','r3',1),('analysis-a','r4',1),
+                ('analysis-a','r5',1),
+                ('analysis-b','r1',1),('analysis-b','r2',1),
+                ('analysis-b','r3',1),('analysis-b','r4',1),
+                ('analysis-b','r5',1),('analysis-b','r6',1);
             ")?;
             Ok(())
         }).unwrap();
@@ -283,6 +300,11 @@ mod tests {
             c.execute_batch("
               INSERT INTO panel_asset_versions(panel_id,asset_version_id,usage)
                 VALUES('a','v1','display'),('b','v1','source');
+              INSERT INTO analysis_asset_versions(analysis_id,asset_version_id,role)
+                VALUES('analysis-a','v1','input'),('analysis-b','v1','input');
+              UPDATE statistical_analyses SET frozen_at='2026-01-02'
+                WHERE id IN ('analysis-a','analysis-b');
+              UPDATE asset_links SET deleted_at='2026-02-01' WHERE id='link';
             ")?;
             Ok(())
         }).unwrap();
@@ -291,6 +313,10 @@ mod tests {
         let (root,m)=export_figure_at(&db,"p","paper","fig",&dest).unwrap();
         assert_eq!(m.reference_count,2);
         assert_eq!(m.physical_file_count,1);
+        assert_eq!(m.analyses.len(),2);
+        assert_eq!(m.analyses[0].included_replicate_ids.len(),5);
+        assert_eq!(m.analyses[1].included_replicate_ids.len(),6);
+        assert_eq!(m.references[0].asset_version_id,"v1");
         assert_eq!(fs::read(root.join("files").join(&sha)).unwrap(),original);
         let raw=fs::read(root.join("figure-manifest.json")).unwrap();
         assert!(raw.windows(2).any(|x|x==b"v1"));
