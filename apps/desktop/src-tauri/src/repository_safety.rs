@@ -342,7 +342,7 @@ fn counts(c: &Connection) -> Result<BTreeMap<String, i64>, TreeError> {
         let count: i64 = c
             .query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get(0))
             .map_err(map_read)?;
-        result.insert((*table).into(), count);
+        result.insert(table.into(), count);
     }
     Ok(result)
 }
