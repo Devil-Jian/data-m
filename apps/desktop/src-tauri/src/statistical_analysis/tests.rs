@@ -112,3 +112,41 @@ fn s8_failed_version_selection_rolls_back_draft_save() {
     assert!(state.samples.iter().find(|r|r.replicate_id=="r1").unwrap().included);
     assert!(!state.samples.iter().find(|r|r.replicate_id=="r2").unwrap().included);
 }
+
+#[test]
+fn s8_migrate_existing_v2_preserves_analysis_and_original_ids() {
+    let dir=tempfile::tempdir().unwrap();
+    let db_path=dir.path().join("project-tree.sqlite");
+    {
+        let c=Connection::open(&db_path).unwrap();
+        c.pragma_update(None,"foreign_keys","ON").unwrap();
+        c.execute_batch(include_str!("../../migrations/0001_initial.sql")).unwrap();
+        c.execute_batch(crate::project_tree::REQUEST_SCHEMA).unwrap();
+        c.execute_batch(include_str!("../../migrations/0002_import_jobs.sql")).unwrap();
+        c.pragma_update(None,"application_id",0x444d5331_i64).unwrap();
+        c.pragma_update(None,"user_version",2).unwrap();
+        c.execute_batch(
+            "INSERT INTO projects(id,name) VALUES('p','P');
+             INSERT INTO themes(id,project_id,name) VALUES('t','p','T');
+             INSERT INTO assays(id,theme_id,name) VALUES('a','t','A');
+             INSERT INTO experiment_groups(id,assay_id,name) VALUES('g','a','Control');
+             INSERT INTO replicates(id,group_id,label) VALUES('r1','g','R1');
+             INSERT INTO statistical_analyses(id,assay_id,name) VALUES('analysis-old','a','Original');
+             INSERT INTO analysis_samples(analysis_id,replicate_id,included)
+               VALUES('analysis-old','r1',1);"
+        ).unwrap();
+    }
+    crate::project_tree::with_database_at(&db_path,|c|{
+        let version:i64=c.pragma_query_value(None,"user_version",|r|r.get(0))?;
+        assert_eq!(version,3);
+        let state=snapshot(c,"a",Some("analysis-old".into()))?;
+        assert_eq!(state.analyses[0].id,"analysis-old");
+        assert_eq!(state.analyses[0].included_n,1);
+        Ok(())
+    }).unwrap();
+    // A fresh connection observes the committed schema and original stable IDs.
+    crate::project_tree::with_database_at(&db_path,|c|{
+        assert_eq!(snapshot(c,"a",Some("analysis-old".into()))?.analyses[0].included_n,1);
+        Ok(())
+    }).unwrap();
+}
