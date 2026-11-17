@@ -12,8 +12,8 @@ mod domain_db;
 mod drop_preview;
 mod experiment_tree;
 mod import_jobs;
-mod project_tree;
 mod paper_workspace;
+mod project_tree;
 mod repository_safety;
 #[cfg(test)]
 mod s1_ipc_tests;
