@@ -42,7 +42,9 @@ pub fn run() {
             repository_safety::repository_safety,
             statistical_analysis::statistical_analysis,
             paper_workspace::paper_workspace,
-            provenance_trace::provenance_trace
+            provenance_trace::provenance_trace,
+            figure_export::figure_export,
+            figure_export::figure_export_cancel
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Data-M desktop");
