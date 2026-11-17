@@ -32,7 +32,11 @@ test('S0 shell retains authorized metadata/import IPC without storage work at st
   for (const command of s8) {
     assert.equal(registered.filter(x=>x===command).length,1,`S8 audited analysis IPC missing or duplicated: ${command}`);
   }
-  assert.deepEqual([...registered].sort(),[...baseline,...s4,...s5,...s6,...s7,...s8].sort(),'unexpected IPC command registered');
+  const s9 = ['paper_workspace::paper_workspace'];
+  for (const command of s9) {
+    assert.equal(registered.filter(x=>x===command).length,1,`S9 paper workspace IPC missing or duplicated: ${command}`);
+  }
+  assert.deepEqual([...registered].sort(),[...baseline,...s4,...s5,...s6,...s7,...s8,...s9].sort(),'unexpected IPC command registered');
   const start=shell.indexOf('pub fn run()');
   const end=shell.indexOf('#[cfg(test)]',start);
   const run=shell.slice(start,end<0?undefined:end);
