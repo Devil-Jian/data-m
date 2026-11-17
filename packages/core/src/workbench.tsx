@@ -8,6 +8,7 @@ import {
 import { allPanels, findAssay, INITIAL_PROJECTS, STAGES, summary } from './data';
 import { demoAssetId, selectableDemoAssets } from './demo-assets';
 import { VirtualAssetList } from './virtual-asset-list';
+import {PaperWorkspace} from './paper-workspace';
 import {InlineRename} from './inline-rename';
 import {renameValidationError} from './rename-validation';
 import {makeVirtualStressAssets,virtualAssetRects} from './virtual-layout';
@@ -487,7 +488,7 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
       <UI.Button small variant="secondary" onClick={()=>{setProjectId(trace.projectId);setActivePaperId(trace.paperId);
         setModule('paper');setActivePanelId(trace.panelId);setTrace(null)}}><ArrowLeft size={14}/> 返回论文</UI.Button></div>}
     <div className="dm-body">
-      <aside className="dm-sidebar">
+      {module==='experiment'&&<aside className="dm-sidebar">
         <div className="dm-sidebar-title"><span>{module==='experiment'?'研究项目 / 实验导航':'论文导航'}</span><Folder size={15}/></div>
         {module==='experiment'?<div className="dm-nav-tree">
           {project.themes.map(t=><div key={t.id}>
@@ -506,9 +507,9 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
           {!project.papers.length&&<div className="dm-sidebar-empty">暂无论文条目</div>}
         </div>}
         <div className="dm-sidebar-footer"><ShieldCheck size={15}/><span>本地单机 · 演示数据</span></div>
-      </aside>
+      </aside>}
       <main className="dm-workspace">
-        {module==='experiment'?<>
+        {module==='paper'?<PaperWorkspace/>:module==='experiment'?<>
           <div className="dm-workspace-head">
             <div className="dm-crumb">{project.code}<ChevronRight size={13}/>{theme.name}<ChevronRight size={13}/>{assay.name}</div>
             <h1>{assay.name}</h1><p>{assay.code} · {assay.modality} · {assay.metricName}（{assay.metricUnit}）</p>
