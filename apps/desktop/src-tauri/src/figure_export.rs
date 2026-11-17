@@ -256,10 +256,7 @@ mod tests {
         let db=dir.path().join("repo").join("state.db");
         fs::create_dir(db.parent().unwrap()).unwrap();
         with_database_at(&db,|c|{
-            c.execute_batch("
-              INSERT INTO projects(id,name) VALUES('p','Project');
-              INSERT INTO themes(id,project_id,name) VALUES('t','Theme');
-            ").ok(); // populate below atomically using real schema
+            c.execute_batch("INSERT INTO projects(id,name) VALUES('p','Project');")?;
             Ok(())
         }).unwrap();
         with_database_at(&db,|c|{
