@@ -115,7 +115,8 @@ fn s7_audit_clean_snapshot_manifest_and_listing_preserve_file_bytes() {
     let manifest: Manifest =
         serde_json::from_slice(&fs::read(snap(&f, &id).join("manifest.json")).unwrap()).unwrap();
     assert_eq!(manifest.format_version, 1);
-    assert_eq!(manifest.schema_version, 2);
+    assert_eq!(manifest.schema_version, 3);
+    assert_eq!(manifest.table_counts["analysis_asset_versions"], 0);
     assert_eq!(manifest.blobs.len(), 1);
     assert_eq!(manifest.versions[0].id, "version");
     assert_eq!(manifest.table_counts["asset_links"], 1);
