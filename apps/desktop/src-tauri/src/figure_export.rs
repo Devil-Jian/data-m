@@ -2,7 +2,7 @@
 //! A future native picker must supply the explicitly authorized destination.
 //! All source bytes are read from immutable, exact-version CAS objects.
 use crate::project_tree::{required, with_database_at, TreeError};
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::fs::{self, File, OpenOptions};
@@ -19,7 +19,7 @@ fn error(code: &'static str) -> TreeError {
         code,
         "Figure export could not be verified or safely published.",
     )}
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ManifestEntry {
     pub panel_id: String,
@@ -35,7 +35,7 @@ pub struct ManifestEntry {
     pub relative_path: String,
     pub verified: bool,
 }
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ManifestAnalysis {
     pub analysis_id: String,
@@ -44,13 +44,13 @@ pub struct ManifestAnalysis {
     pub frozen_at: Option<String>,
     pub included_replicate_ids: Vec<String>,
 }
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ManifestRepresentative {
     pub replicate_id: String,
     pub asset_version_id: Option<String>,
 }
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ManifestPanel {
     pub panel_id: String,
@@ -58,7 +58,7 @@ pub struct ManifestPanel {
     pub panel_order: i64,
     pub representatives: Vec<ManifestRepresentative>,
 }
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FigureManifest {
     pub manifest_version: u32,
@@ -285,6 +285,7 @@ pub(crate) fn export_figure_at(
         destination,
         &|| false,
         &|_, _| {},
+        None,
     )
 }
 fn export_figure_with_hooks(
@@ -295,6 +296,7 @@ fn export_figure_with_hooks(
     destination: &Path,
     cancelled: &dyn Fn() -> bool,
     progress: &dyn Fn(usize, usize),
+    publication_token: Option<&str>,
 ) -> Result<(PathBuf, FigureManifest), TreeError> {
     required(Some(project), 128)?;
     required(Some(paper), 128)?;
@@ -443,12 +445,16 @@ fn export_figure_with_hooks(
     // Caller may provide only a previously existing destination directory.
     // Random subdirectory avoids name collision and never touches existing
     // files. Windows rename cannot replace an existing target directory.
-    let random_id = with_database_at(database, |c| {
-        c.query_row("SELECT lower(hex(randomblob(16)))", [], |r| {
-            r.get::<_, String>(0)
-        })
-        .map_err(TreeError::from)
-    })?;
+    let random_id = if let Some(token) = publication_token {
+        export_key(token)?;
+        token.to_owned()
+    } else {
+        with_database_at(database, |c| {
+            c.query_row("SELECT lower(hex(randomblob(16)))", [], |r| {
+                r.get::<_, String>(0)
+            }).map_err(TreeError::from)
+        })?
+    };
     let target = destination.join(format!("figure-{random_id}"));
     if fs::symlink_metadata(&target).is_ok() {
         return Err(error("TARGET_CONFLICT"));
@@ -513,44 +519,113 @@ pub struct FigureExportProgress {
     completed: usize,
     total: usize,
 }
-// A committed claim in the existing v3 idempotency table survives process
-// restarts. We never blindly retry an ambiguous export with the same token.
-// This provides durable at-most-once execution, not response replay.
-fn claim_export_request(
-    database: &Path,
-    token: &str,
-    project: &str,
-    paper: &str,
-    figure: &str,
-) -> Result<(), TreeError> {
+// The existing v3 s1_requests table is a durable ledger. An uncertain
+// crash cannot silently reexecute a token. Completed output is reconstructed
+// only after independent byte and metadata verification.
+#[derive(Debug, PartialEq, Eq)]
+enum Claim { New, Existing }
+fn export_key(token: &str) -> Result<String, TreeError> {
     if token.len() != 36
-        || !token.bytes().enumerate().all(|(i, b)| {
-            if matches!(i, 8 | 13 | 18 | 23) {
-                b == b'-'
-            } else {
-                b.is_ascii_hexdigit()
-            }
+        || !token.bytes().enumerate().all(|(i,b)| {
+            if matches!(i,8|13|18|23) { b == b'-' }
+            else { b.is_ascii_hexdigit() }
         })
-    {
-        return Err(error("INVALID_REQUEST"));
-    }
-    let key = format!("s10-figure-export-{token}");
-    let payload = serde_json::json!({
-        "action": "figure_export", "projectId": project, "paperId": paper,
-        "figureId": figure
-    })
-    .to_string();
+    { return Err(error("INVALID_REQUEST")); }
+    Ok(format!("s10-figure-export-{token}"))
+}
+fn claim_export_request(
+    database: &Path, token: &str, project: &str,
+    paper: &str, figure: &str, destination: &Path
+) -> Result<Claim, TreeError> {
+    let key = export_key(token)?;
+    let identity = serde_json::json!({
+        "action":"figure_export","projectId":project,"paperId":paper,
+        "figureId":figure,"destination":destination.to_string_lossy()
+    });
     with_database_at(database, |c| {
-        // Single SQLite constraint handles racing processes as well as restarts.
-        let inserted = c.execute(
-            "INSERT OR IGNORE INTO s1_requests(request_id,payload) VALUES(?1,?2)",
-            params![key, payload],
-        )?;
-        if inserted != 1 {
-            return Err(error("REQUEST_REPLAY_BLOCKED"));
+        let existing: Option<String> = c.query_row(
+            "SELECT payload FROM s1_requests WHERE request_id=?1",
+            [&key], |r| r.get(0)
+        ).optional()?;
+        if let Some(payload) = existing {
+            let previous: serde_json::Value = serde_json::from_str(&payload)
+                .map_err(|_| error("REQUEST_CONFLICT"))?;
+            if previous.get("identity") != Some(&identity) {
+                return Err(error("REQUEST_CONFLICT"));
+            }
+            return Ok(Claim::Existing);
         }
+        c.execute(
+            "INSERT INTO s1_requests(request_id,payload) VALUES(?1,?2)",
+            params![key,serde_json::json!({"identity":identity,"status":"started"}).to_string()]
+        )?;
+        Ok(Claim::New)
+    })
+}
+fn mark_export_complete(
+    database:&Path,token:&str
+) -> Result<(),TreeError> {
+    let key=export_key(token)?;
+    with_database_at(database, |c| {
+        let old:String=c.query_row(
+            "SELECT payload FROM s1_requests WHERE request_id=?1",
+            [&key],|r|r.get(0)
+        )?;
+        let mut value:serde_json::Value=serde_json::from_str(&old)
+            .map_err(|_|error("REQUEST_CONFLICT"))?;
+        value["status"]=serde_json::json!("complete");
+        c.execute("UPDATE s1_requests SET payload=?2 WHERE request_id=?1 AND payload=?3",
+            params![key,value.to_string(),old])?;
         Ok(())
     })
+}
+fn verified_replay(
+    database:&Path,project:&str,paper:&str,figure:&str,
+    destination:&Path,token:&str
+) -> Result<(PathBuf,FigureManifest),TreeError> {
+    let root=destination.join(format!("figure-{token}"));
+    let root=safe_dir(&root).map_err(|_|error("EXPORT_INDETERMINATE"))?;
+    let mf=root.join("figure-manifest.json");
+    let meta=fs::symlink_metadata(&mf).map_err(|_|error("EXPORT_INDETERMINATE"))?;
+    if !meta.file_type().is_file() || meta.file_type().is_symlink() || meta.len()>16*1024*1024 {
+        return Err(error("EXPORT_INDETERMINATE"));
+    }
+    let manifest:FigureManifest=serde_json::from_slice(
+        &fs::read(&mf).map_err(|_|error("EXPORT_INDETERMINATE"))?
+    ).map_err(|_|error("EXPORT_INDETERMINATE"))?;
+    if manifest.manifest_version!=1 || manifest.schema_version!=3
+        || manifest.project_id!=project || manifest.paper_id!=paper
+        || manifest.figure_id!=figure || manifest.status!="complete"
+        || manifest.reference_count!=manifest.references.len() {
+        return Err(error("EXPORT_INDETERMINATE"));
+    }
+    let mut hashes=std::collections::BTreeSet::new();
+    for edge in &manifest.references {
+        if edge.relative_path!=format!("files/{}",edge.sha256)
+            || edge.blob_key!=edge.sha256 || !edge.verified
+            || edge.sha256.len()!=64 || !edge.sha256.bytes().all(|b|b.is_ascii_hexdigit()&&!b.is_ascii_uppercase())
+            || edge.size_bytes<0 {
+            return Err(error("EXPORT_INDETERMINATE"));
+        }
+        let file=root.join(&edge.relative_path);
+        let meta=fs::symlink_metadata(&file).map_err(|_|error("EXPORT_INDETERMINATE"))?;
+        if !meta.file_type().is_file() || meta.file_type().is_symlink()
+            || meta.len()!=edge.size_bytes as u64 {
+            return Err(error("EXPORT_INDETERMINATE"));
+        }
+        let (sha,len)=crate::cas::hash_file(&file)
+            .map_err(|_|error("EXPORT_INDETERMINATE"))?;
+        if sha!=edge.sha256 || len!=edge.size_bytes as u64 {
+            return Err(error("EXPORT_INDETERMINATE"));
+        }
+        hashes.insert(edge.sha256.as_str());
+    }
+    if hashes.len()!=manifest.physical_file_count {
+        return Err(error("EXPORT_INDETERMINATE"));
+    }
+    // No repository bytes are changed during verified replay.
+    let _=database;
+    Ok((root,manifest))
 }
 static IN_FLIGHT: OnceLock<Mutex<HashMap<String, Arc<AtomicBool>>>> = OnceLock::new();
 fn active_exports() -> &'static Mutex<HashMap<String, Arc<AtomicBool>>> {
@@ -652,13 +727,22 @@ pub async fn figure_export<R: tauri::Runtime>(
             // Claim only after the native picker returns; user cancellation of
             // the picker does not consume a token. A crash after this claim
             // requires a fresh token and an explicit inspection of the target.
-            claim_export_request(
-                &database,
-                &token,
-                &request.project_id,
-                &request.paper_id,
-                &request.figure_id,
+            let claim = claim_export_request(
+                &database, &token, &request.project_id, &request.paper_id,
+                &request.figure_id, &destination,
             )?;
+            if claim == Claim::Existing {
+                let (folder, manifest) = verified_replay(
+                    &database, &request.project_id, &request.paper_id,
+                    &request.figure_id, &destination, &token,
+                )?;
+                mark_export_complete(&database, &token)?;
+                return Ok(FigureExportResponse {
+                    status: "complete".into(), preview: None,
+                    folder_path: Some(folder.to_string_lossy().into_owned()),
+                    manifest: Some(manifest),
+                });
+            }
             let (folder, manifest) = export_figure_with_hooks(
                 &database,
                 &request.project_id,
@@ -667,7 +751,9 @@ pub async fn figure_export<R: tauri::Runtime>(
                 &destination,
                 &|| flag.load(Ordering::SeqCst),
                 &progress,
+                Some(&token),
             )?;
+            mark_export_complete(&database, &token)?;
             Ok(FigureExportResponse {
                 status: "complete".into(),
                 preview: None,
@@ -911,7 +997,8 @@ mod tests {
             export_figure_with_hooks(
                 &db, "p", "paper", "fig", &dest,
                 &|| interrupted.load(Ordering::SeqCst),
-                &|done, _| { if done == 1 { interrupted.store(true, Ordering::SeqCst); } }
+                &|done, _| { if done == 1 { interrupted.store(true, Ordering::SeqCst); } },
+                None
             ).unwrap_err().code,
             "CANCELLED"
         );
@@ -920,7 +1007,7 @@ mod tests {
         assert_eq!(fs::read(objects.join(&second_sha)).unwrap(), second_bytes);
         let before_count = fs::read_dir(&dest).unwrap().count();
         assert_eq!(
-            export_figure_with_hooks(&db, "p", "paper", "fig", &dest, &|| true, &|_, _| {})
+            export_figure_with_hooks(&db, "p", "paper", "fig", &dest, &|| true, &|_, _| {}, None)
                 .unwrap_err()
                 .code,
             "CANCELLED"
@@ -939,23 +1026,23 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let db = dir.path().join("state.sqlite");
         let token = "12345678-1234-1234-1234-123456789abc";
-        assert!(claim_export_request(&db, token, "p", "paper", "figure").is_ok());
+        let dest = dir.path().join("dest");
+        fs::create_dir(&dest).unwrap();
+        assert_eq!(claim_export_request(&db, token, "p", "paper", "figure", &dest).unwrap(), Claim::New);
         // with_database_at independently reopens the database and commits
         // the claim. A retry cannot silently produce a second export.
         assert_eq!(
-            claim_export_request(&db, token, "p", "paper", "figure")
-                .unwrap_err()
-                .code,
-            "REQUEST_REPLAY_BLOCKED"
+            claim_export_request(&db, token, "p", "paper", "figure", &dest).unwrap(),
+            Claim::Existing
         );
         assert_eq!(
-            claim_export_request(&db, token, "other", "paper", "figure")
+            claim_export_request(&db, token, "other", "paper", "figure", &dest)
                 .unwrap_err()
                 .code,
-            "REQUEST_REPLAY_BLOCKED"
+            "REQUEST_CONFLICT"
         );
         assert_eq!(
-            claim_export_request(&db, "../invalid", "p", "paper", "figure")
+            claim_export_request(&db, "../invalid", "p", "paper", "figure", &dest)
                 .unwrap_err()
                 .code,
             "INVALID_REQUEST"
@@ -974,7 +1061,8 @@ mod tests {
             "f2345678-1234-1234-1234-123456789abc",
             "p",
             "paper",
-            "figure"
+            "figure",
+            &dest
         )
         .is_ok());
     }
