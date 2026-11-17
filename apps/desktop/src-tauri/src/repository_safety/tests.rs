@@ -477,3 +477,34 @@ fn s7_rejects_unconfirmed_restore_paths_and_reparse_like_labels() {
     );
     assert!(!f.restore_root.exists());
 }
+
+#[test]
+fn s8_sealed_schema_v2_snapshot_still_verifies_and_restores() {
+    let dir=tempfile::tempdir().unwrap();
+    let live=dir.path().join("legacy");
+    fs::create_dir_all(live.join("cas").join("objects")).unwrap();
+    fs::create_dir_all(live.join("cas").join("staging")).unwrap();
+    let db=live.join("project-tree.sqlite");
+    {
+        let c=Connection::open(&db).unwrap();
+        c.pragma_update(None,"foreign_keys","ON").unwrap();
+        c.execute_batch(include_str!("../../migrations/0001_initial.sql")).unwrap();
+        c.execute_batch(crate::project_tree::REQUEST_SCHEMA).unwrap();
+        c.execute_batch(include_str!("../../migrations/0002_import_jobs.sql")).unwrap();
+        c.pragma_update(None,"application_id",0x444d5331_i64).unwrap();
+        c.pragma_update(None,"user_version",2).unwrap();
+    }
+    let backups=dir.path().join("backups");
+    let restores=dir.path().join("restores");
+    let created=execute_at(&db,&backups,&restores,req("backup",None,None,None),&nop).unwrap();
+    let id=created.snapshot_id.unwrap();
+    let m: Manifest=serde_json::from_slice(&fs::read(backups.join(&id).join("manifest.json")).unwrap()).unwrap();
+    assert_eq!(m.schema_version,2);
+    assert_eq!(m.table_counts.len(),TABLES.len());
+    assert_eq!(execute_at(&db,&backups,&restores,req("verify",Some(&id),None,None),&nop).unwrap().status,"verified");
+    let restored=execute_at(&db,&backups,&restores,req("restore",Some(&id),Some("legacy-v2"),Some(true)),&nop).unwrap();
+    assert_eq!(restored.status,"restored");
+    let v2=restores.join("legacy-v2").join("database.sqlite");
+    let c=Connection::open_with_flags(v2,OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+    assert_eq!(c.pragma_query_value(None,"user_version",|r|r.get::<_,i64>(0)).unwrap(),2);
+}
