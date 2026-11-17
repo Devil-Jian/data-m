@@ -329,3 +329,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "asset_browser/s11_tests.rs"]
+mod s11_tests;

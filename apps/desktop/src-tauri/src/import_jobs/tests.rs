@@ -765,3 +765,191 @@ fn s3_tauri_ipc_imports_through_the_registered_async_command() {
     assert!(completed["jobs"][0]["files"][0]["assetVersionId"].is_string());
     assert!(!completed.to_string().contains("sourcePath"));
 }
+
+#[test]
+fn s11_inflight_import_blocks_backup_then_restores_frozen_and_pinned_records() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::mpsc;
+
+    let (directory, database, source) = fixture();
+    let mut paths = Vec::new();
+    for index in 0..8 {
+        let file = source.join(format!("study-{index:02}.bin"));
+        std::fs::write(&file, format!("S11 original test sample {index}")).unwrap();
+        paths.push(file);
+    }
+    let source_before: Vec<_> = paths
+        .iter()
+        .map(|path| {
+            (
+                hash(path),
+                std::fs::metadata(path).unwrap().modified().unwrap(),
+            )
+        })
+        .collect();
+    let repo = Repository::acquire(&database).unwrap();
+    let prepared = prepare(&repo, &paths, raw("r1"), "s11-inflight-import");
+    let (paused_tx, paused_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let release_rx = Arc::new(Mutex::new(release_rx));
+    let once = AtomicBool::new(false);
+    repo.set_hook(Arc::new(move |phase| {
+        if phase == "staged" && !once.swap(true, Ordering::SeqCst) {
+            paused_tx
+                .send(())
+                .map_err(|_| failure("DISK_WRITE_FAILED"))?;
+            release_rx
+                .lock()
+                .map_err(|_| failure("DATABASE_UNAVAILABLE"))?
+                .recv_timeout(Duration::from_secs(30))
+                .map_err(|_| failure("DISK_WRITE_FAILED"))?;
+        }
+        Ok(())
+    }));
+    action(&repo, "start", &prepared.id);
+    paused_rx
+        .recv_timeout(Duration::from_secs(30))
+        .expect("native worker must enter the staged checkpoint");
+    let backups = directory.path().join("s11-backups");
+    let restores = directory.path().join("s11-restores");
+    let safety = |payload| -> crate::repository_safety::SafetyRequest {
+        serde_json::from_value(payload).unwrap()
+    };
+    let refused = crate::repository_safety::execute_at(
+        &database,
+        &backups,
+        &restores,
+        safety(json!({"action":"backup"})),
+        &|_| {},
+    )
+    .err()
+    .expect("S7 must refuse an in-flight S3 import");
+    assert_eq!(refused.code, "BACKUP_BUSY");
+    assert!(
+        !backups.exists(),
+        "failed snapshot must not publish anything"
+    );
+    release_tx.send(()).unwrap();
+    let finished = wait(&repo, &prepared.id);
+    assert_eq!(finished.status, "completed");
+    assert_eq!(finished.completed_count, paths.len());
+    assert_registry(&repo, paths.len() as i64);
+    repo.set_hook(Arc::new(|_| Ok(())));
+
+    let pinned = finished.files[0].asset_version_id.as_deref().unwrap();
+    with_database_at(&database, |connection| {
+        connection.execute_batch(
+            "INSERT INTO papers(id,project_id,title) VALUES('s11paper','p','Draft');
+             INSERT INTO figures(id,paper_id,label) VALUES('s11figure','s11paper','F1');
+             INSERT INTO panels(id,figure_id,label) VALUES('s11panel','s11figure','A');
+             INSERT INTO statistical_analyses(id,assay_id,name)
+             VALUES('s11analysis','a','Frozen');
+             INSERT INTO analysis_samples(analysis_id,replicate_id,included)
+             VALUES('s11analysis','r1',1);",
+        )?;
+        connection.execute(
+            "INSERT INTO panel_asset_versions(panel_id,asset_version_id,usage)
+             VALUES('s11panel',?1,'display')",
+            [pinned],
+        )?;
+        connection.execute(
+            "INSERT INTO analysis_asset_versions(analysis_id,asset_version_id,role)
+             VALUES('s11analysis',?1,'input')",
+            [pinned],
+        )?;
+        connection.execute(
+            "UPDATE statistical_analyses
+             SET frozen_at='2026-11-17T00:00:00Z'
+             WHERE id='s11analysis'",
+            [],
+        )?;
+        Ok(())
+    })
+    .unwrap();
+
+    let snapshot = crate::repository_safety::execute_at(
+        &database,
+        &backups,
+        &restores,
+        safety(json!({"action":"backup"})),
+        &|_| {},
+    )
+    .unwrap();
+    let snapshot_json = serde_json::to_value(snapshot).unwrap();
+    let id = snapshot_json["snapshotId"].as_str().unwrap();
+    assert_eq!(snapshot_json["status"], "verified");
+    let verified = crate::repository_safety::execute_at(
+        &database,
+        &backups,
+        &restores,
+        safety(json!({"action":"verify","snapshotId":id})),
+        &|_| {},
+    )
+    .unwrap();
+    assert_eq!(
+        serde_json::to_value(verified).unwrap()["status"],
+        "verified"
+    );
+    let restored = crate::repository_safety::execute_at(
+        &database,
+        &backups,
+        &restores,
+        safety(json!({
+            "action":"restore",
+            "snapshotId":id,
+            "restoreLabel":"s11-isolated",
+            "confirm":true
+        })),
+        &|_| {},
+    )
+    .unwrap();
+    assert_eq!(
+        serde_json::to_value(restored).unwrap()["status"],
+        "restored"
+    );
+    let restored_db = restores.join("s11-isolated").join("project-tree.sqlite");
+    with_database_at(&restored_db, |connection| {
+        for (table, expected) in [
+            ("data_assets", 8),
+            ("blobs", 8),
+            ("asset_versions", 8),
+            ("asset_links", 8),
+            ("panel_asset_versions", 1),
+            ("analysis_asset_versions", 1),
+        ] {
+            let found: i64 =
+                connection.query_row(&format!("SELECT count(*) FROM {table}"), [], |row| {
+                    row.get(0)
+                })?;
+            assert_eq!(found, expected, "{table}");
+        }
+        let expected_version: String = connection.query_row(
+            "SELECT asset_version_id FROM panel_asset_versions",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(expected_version, pinned);
+        let frozen: i64 = connection.query_row(
+            "SELECT count(*) FROM statistical_analyses WHERE frozen_at IS NOT NULL",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(frozen, 1);
+        Ok(())
+    })
+    .unwrap();
+    for (index, file) in paths.iter().enumerate() {
+        let blob = finished.files[index].sha256.as_ref().unwrap();
+        let object = restores
+            .join("s11-isolated")
+            .join("cas")
+            .join("objects")
+            .join(blob);
+        assert_eq!(hash(&object), source_before[index].0);
+        assert_eq!(hash(file), source_before[index].0);
+        assert_eq!(
+            std::fs::metadata(file).unwrap().modified().unwrap(),
+            source_before[index].1
+        );
+    }
+}
