@@ -661,6 +661,39 @@ mod tests {
         }
     }
     #[test]
+    fn s10_candidate_pages_are_server_filtered_and_counted_beyond_old_cap() {
+        let (_dir,path)=fixture();
+        with_database_at(&path,|c|{
+            let tx=c.transaction()?;
+            for n in 2..=605 {
+                tx.execute(
+                    "INSERT INTO asset_versions(id,asset_id,version_number,blob_sha256,source_name)
+                     VALUES(?1,'asset',?2,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','raw.tif')",
+                    params![format!("v{n}"),n],
+                )?;
+            }
+            tx.commit()?;
+            Ok(())
+        }).unwrap();
+        let mut req=request("candidates",None,None,None,None,None);
+        req.candidate_offset=Some(0);
+        req.candidate_limit=Some(100);
+        let first=execute_at(&path,req.clone()).unwrap();
+        assert_eq!(first.candidate_total_count,605);
+        assert_eq!(first.candidates.len(),100);
+        assert!(first.candidate_truncated);
+        req.candidate_offset=Some(600);
+        let tail=execute_at(&path,req.clone()).unwrap();
+        assert_eq!(tail.candidate_total_count,605);
+        assert_eq!(tail.candidates.len(),5);
+        assert!(!tail.candidate_truncated);
+        req.candidate_offset=Some(0);
+        req.candidate_query=Some("v605".into());
+        let filtered=execute_at(&path,req).unwrap();
+        assert_eq!(filtered.candidate_total_count,1);
+        assert_eq!(filtered.candidates[0].asset_version_id,"v605");
+    }
+    #[test]
     fn s9_persistence_and_version_pin() {
         let (_d, path) = fixture();
         let p = execute_at(
