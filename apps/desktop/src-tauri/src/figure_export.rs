@@ -216,6 +216,7 @@ fn verified_copy(
         return Err(error("BLOB_CORRUPT"));
     }
     let mut input = File::open(source).map_err(|_| error("BLOB_UNREADABLE"))?;
+    #[cfg(test)] eprintln!("S10 export: writing manifest");
     let mut output = OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -318,6 +319,7 @@ fn export_figure_with_hooks(
     for item in items {
         let relative_path = format!("files/{}", item.sha);
         if !unique.contains_key(&item.sha) {
+            #[cfg(test)] eprintln!("S10 export: copying CAS blob {}",item.sha);
             if cancelled() {
                 return Err(error("CANCELLED"));
             }
@@ -346,6 +348,7 @@ fn export_figure_with_hooks(
             verified: true,
         });
     }
+    #[cfg(test)] eprintln!("S10 export: wrote {} CAS files",unique.len());
     let manifest = FigureManifest {
         manifest_version: 1,
         schema_version: 3,
@@ -384,10 +387,13 @@ fn export_figure_with_hooks(
     }
     #[cfg(windows)]
     destination_guard.validate()?;
+    #[cfg(test)] eprintln!("S10 export: publishing staged folder {:?} to {:?}",stage.path(),target);
     let staging_path = stage.keep();
     match fs::rename(&staging_path, &target) {
         Ok(()) => Ok((target, manifest)),
-        Err(_) => {
+        Err(rename_error) => {
+            #[cfg(test)] eprintln!("S10 export: publish OS error {:?}",rename_error);
+            #[cfg(not(test))] let _ = &rename_error;
             let _ = fs::remove_dir_all(&staging_path);
             Err(error("DISK_WRITE_FAILED"))
         }
