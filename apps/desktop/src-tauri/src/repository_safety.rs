@@ -328,8 +328,10 @@ fn open_recognized(path: &Path) -> Result<Connection, TreeError> {
     recognized(&c).map_err(|_| failure("UNKNOWN_DATABASE"))?;
     if c.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
         .map_err(map_read)?
-        != 2 && c.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
-            .map_err(map_read)? != 3
+        != 2
+        && c.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
+            .map_err(map_read)?
+            != 3
     {
         return Err(failure("UNKNOWN_DATABASE"));
     }
@@ -337,8 +339,14 @@ fn open_recognized(path: &Path) -> Result<Connection, TreeError> {
 }
 fn counts(c: &Connection) -> Result<BTreeMap<String, i64>, TreeError> {
     let mut result = BTreeMap::new();
-    let version: i64 = c.pragma_query_value(None, "user_version", |row| row.get(0)).map_err(map_read)?;
-    for table in TABLES.iter().copied().chain(if version >= 3 { S8_TABLES.iter().copied() } else { [].iter().copied() }) {
+    let version: i64 = c
+        .pragma_query_value(None, "user_version", |row| row.get(0))
+        .map_err(map_read)?;
+    for table in TABLES.iter().copied().chain(if version >= 3 {
+        S8_TABLES.iter().copied()
+    } else {
+        [].iter().copied()
+    }) {
         let count: i64 = c
             .query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get(0))
             .map_err(map_read)?;
