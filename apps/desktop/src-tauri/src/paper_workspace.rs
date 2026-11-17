@@ -21,6 +21,10 @@ pub struct PaperRequest {
     usage: Option<String>,
     order_ids: Option<Vec<String>>,
     request_id: Option<String>,
+    candidate_query: Option<String>,
+    candidate_stage: Option<String>,
+    candidate_offset: Option<u32>,
+    candidate_limit: Option<u32>,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -82,6 +86,8 @@ struct Candidate {
 pub struct PaperSnapshot {
     papers: Vec<PaperRow>,
     candidates: Vec<Candidate>,
+    candidate_total_count: i64,
+    candidate_truncated: bool,
 }
 
 fn invalid() -> TreeError {
@@ -132,6 +138,17 @@ fn valid_version(c: &Connection, project: &str, version: &str) -> Result<String,
 }
 fn validate(r: &PaperRequest) -> Result<(), TreeError> {
     id(Some(&r.project_id))?;
+    if r.action == "candidates" {
+        if r.candidate_query.as_ref().is_some_and(|q| q.chars().count()>160 || q.chars().any(char::is_control))
+            || r.candidate_stage.as_ref().is_some_and(|s| !matches!(s.as_str(),"raw"|"processed"|"statistics"|"display"))
+            || r.candidate_offset.unwrap_or(0)>1_000_000
+            || !(1..=200).contains(&r.candidate_limit.unwrap_or(100)) {
+            return Err(invalid());
+        }
+    } else if r.candidate_query.is_some() || r.candidate_stage.is_some()
+        || r.candidate_offset.is_some() || r.candidate_limit.is_some() {
+        return Err(invalid());
+    }
     match r.action.as_str() {
         "list" | "candidates" => {
             if r.request_id.is_some() {
@@ -419,7 +436,7 @@ fn mutate(c: &Connection, r: &PaperRequest) -> Result<(), TreeError> {
 fn query(
     c: &Connection,
     project: &str,
-    include_candidates: bool,
+    request: &PaperRequest,
 ) -> Result<PaperSnapshot, TreeError> {
     let mut papers = Vec::new();
     let mut ps = c.prepare(
@@ -505,10 +522,38 @@ fn query(
         });
     }
     let mut candidates = Vec::new();
-    if include_candidates {
-        let mut stmt=c.prepare("SELECT DISTINCT v.id,v.asset_id,v.version_number,l.display_name,v.blob_sha256,l.stage,l.assay_id,l.group_id,l.replicate_id FROM asset_versions v JOIN data_assets da ON da.id=v.asset_id JOIN asset_links l ON l.asset_id=v.asset_id JOIN assays a ON a.id=l.assay_id JOIN themes t ON t.id=a.theme_id WHERE t.project_id=?1 AND t.deleted_at IS NULL AND a.deleted_at IS NULL AND l.deleted_at IS NULL AND da.deleted_at IS NULL ORDER BY l.display_name,v.version_number DESC LIMIT 500")?;
-        candidates = stmt
-            .query_map([project], |row| {
+    let mut candidate_total_count = 0;
+    let mut candidate_truncated = false;
+    if request.action == "candidates" {
+        let search = request.candidate_query.as_deref().unwrap_or("").trim();
+        let pattern = format!("%{}%",search);
+        let stage = request.candidate_stage.as_deref().unwrap_or("");
+        let offset = request.candidate_offset.unwrap_or(0);
+        let limit = request.candidate_limit.unwrap_or(100);
+        // Run exactly the same SQL predicate for total count and page contents.
+        // DISTINCT prevents multiple AssetLinks multiplying the same candidate.
+        let source = "FROM asset_versions v
+          JOIN data_assets da ON da.id=v.asset_id
+          JOIN asset_links l ON l.asset_id=v.asset_id
+          JOIN assays a ON a.id=l.assay_id
+          JOIN themes t ON t.id=a.theme_id
+          WHERE t.project_id=?1 AND t.deleted_at IS NULL
+            AND a.deleted_at IS NULL AND l.deleted_at IS NULL
+            AND da.deleted_at IS NULL
+            AND (?2='' OR l.display_name LIKE ?3 OR v.id LIKE ?3 OR da.name LIKE ?3)
+            AND (?4='' OR l.stage=?4)";
+        let columns = "v.id,v.asset_id,v.version_number,l.display_name,v.blob_sha256,
+                       l.stage,l.assay_id,l.group_id,l.replicate_id";
+        let count_sql = format!("SELECT count(*) FROM (SELECT DISTINCT {columns} {source})");
+        candidate_total_count = c.query_row(&count_sql,
+            params![project,search,pattern,stage],|row|row.get(0))?;
+        let sql=format!("SELECT DISTINCT {columns} {source}
+          ORDER BY l.display_name COLLATE NOCASE,v.version_number DESC,
+                   v.id,l.assay_id,l.group_id,l.replicate_id
+          LIMIT ?5 OFFSET ?6");
+        let mut stmt = c.prepare(&sql)?;
+        candidates = stmt.query_map(
+            params![project,search,pattern,stage,limit,offset], |row| {
                 Ok(Candidate {
                     asset_version_id: row.get(0)?,
                     asset_id: row.get(1)?,
@@ -520,10 +565,11 @@ fn query(
                     group_id: row.get(7)?,
                     replicate_id: row.get(8)?,
                 })
-            })?
-            .collect::<rusqlite::Result<Vec<_>>>()?;
+            }
+        )?.collect::<rusqlite::Result<Vec<_>>>()?;
+        candidate_truncated=i64::from(offset)+(candidates.len() as i64)<candidate_total_count;
     }
-    Ok(PaperSnapshot { papers, candidates })
+    Ok(PaperSnapshot { papers, candidates, candidate_total_count, candidate_truncated })
 }
 pub(super) fn execute_at(path: &Path, r: PaperRequest) -> Result<PaperSnapshot, TreeError> {
     validate(&r)?;
@@ -562,7 +608,7 @@ pub(super) fn execute_at(path: &Path, r: PaperRequest) -> Result<PaperSnapshot, 
             }
             tx.commit()?;
         }
-        query(c, &r.project_id, r.action == "candidates")
+        query(c, &r.project_id, &r)
     })
 }
 #[tauri::command]
@@ -608,6 +654,10 @@ mod tests {
             notes: None,
             order_ids: None,
             request_id: token.map(str::to_owned),
+            candidate_query: None,
+            candidate_stage: None,
+            candidate_offset: None,
+            candidate_limit: None,
         }
     }
     #[test]
