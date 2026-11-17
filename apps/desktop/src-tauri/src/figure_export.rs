@@ -1247,7 +1247,7 @@ mod tests {
         )
         .unwrap();
         mark_export_complete(&db, token).unwrap();
-        assert_eq!(published.file_name().unwrap(), format!("figure-{token}"));
+        assert_eq!(published.file_name().unwrap().to_str().unwrap(), format!("figure-{token}"));
         assert_eq!(
             claim_export_request(&db, token, "p", "paper", "fig", &dest).unwrap(),
             Claim::Existing
