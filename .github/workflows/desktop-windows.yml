@@ -8,6 +8,7 @@ on:
       - feat/s5-asset-link-copy-move
       - feat/s6-rename-recycle
       - feat/s7-integrity-backup-restore
+      - feat/s9-paper-figure-panel
     paths:
       - 'apps/desktop/**'
       - 'packages/**'
@@ -98,6 +99,99 @@ jobs:
         run: npm run test:e2e:desktop -- --grep "@S5"
       - name: S7 safety workbench browser flows (explicit renderer mock)
         run: npm run test:e2e:desktop -- --grep "@S7"
+      - name: S9 paper workspace UI E2E
+        run: npm run test:e2e:desktop -- --grep "@S9"
+      - name: S9 native SQLite paper and pinned-version regression
+        working-directory: apps/desktop/src-tauri
+        run: |
+          $discovered = cargo test --locked --no-default-features s9_ -- --list
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not ($discovered -match 's9_.*: test, manifest, corruption and isolated restore tests
+        working-directory: apps/desktop/src-tauri
+        run: |
+          $discovered = cargo test --locked --no-default-features s7_ -- --list
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not ($discovered -match 's7_.*: test$')) { throw 'S7 Rust suite must contain tests' }
+          cargo test --locked --no-default-features s7_
+      - name: S6 real workspace lifecycle and recycle browser flows (explicit renderer mock)
+        run: npm run test:e2e:desktop -- --grep "@S6"
+      - name: S6 native SQLite asset-link lifecycle and recycle invariants
+        working-directory: apps/desktop/src-tauri
+        run: |
+          $discovered = cargo test --locked --no-default-features s6_ -- --list
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not ($discovered -match 's6_.*: test$')) { throw 'S6 Rust suite must contain tests' }
+          cargo test --locked --no-default-features s6_
+      - name: S5 native SQLite asset-link transaction and invariants tests
+        working-directory: apps/desktop/src-tauri
+        run: |
+          $discovered = cargo test --locked --no-default-features s5_ -- --list
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not ($discovered -match 's5_.*: test$')) { throw 'S5 Rust suite must contain tests' }
+          cargo test --locked --no-default-features s5_
+      - name: S4 SQLite pagination and scoped identity tests
+        working-directory: apps/desktop/src-tauri
+        run: |
+          $discovered = cargo test --locked --no-default-features s4_ -- --list
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not ($discovered -match 's4_.*: test$')) { throw 'S4 Rust suite must contain tests' }
+          cargo test --locked --no-default-features s4_
+      - name: S3 source protection and crash recovery
+        working-directory: apps/desktop/src-tauri
+        run: |
+          $discovered = cargo test --locked --no-default-features s3_ -- --list
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not ($discovered -match 's3_.*: test$')) { throw 'S3 Rust suite must contain tests' }
+          cargo test --locked --no-default-features s3_
+      - name: S2 experiment persistence and sample identity
+        working-directory: apps/desktop/src-tauri
+        run: |
+          $discovered = cargo test --locked --no-default-features s2_ -- --list
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not ($discovered -match 's2_.*: test$')) { throw 'S2 Rust suite must contain tests' }
+          cargo test --locked --no-default-features s2_
+      - name: S1 project tree persistence and validation
+        working-directory: apps/desktop/src-tauri
+        run: |
+          $discovered = cargo test --locked --no-default-features s1_ -- --list
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not ($discovered -match 's1_.*: test$')) { throw 'S1 Rust suite must contain tests' }
+          cargo test --locked --no-default-features s1_
+      - name: S0 read-only Rust tests
+        working-directory: apps/desktop/src-tauri
+        run: |
+          $discovered = cargo test --locked --no-default-features s0_ -- --list
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not ($discovered -match 's0_.*: test$')) { throw 'S0 Rust suite must contain tests' }
+          cargo test --locked --no-default-features s0_
+      - name: Rust tests
+        working-directory: apps/desktop/src-tauri
+        run: cargo test --locked --no-default-features
+      - name: Rust check
+        working-directory: apps/desktop/src-tauri
+        run: cargo check --locked
+      - name: Build Windows executable (no installer yet)
+        run: npm run tauri:build
+      - name: Upload unsigned portable S9 EXE for Windows paper test
+        uses: actions/upload-artifact@v4
+        with:
+          name: data-m-s9-unsigned-portable-windows
+          path: apps/desktop/src-tauri/target/release/data-m-desktop.exe
+          if-no-files-found: error
+          retention-days: 14
+      - name: Export dependency lock corrections on failure
+        if: failure()
+        working-directory: apps/desktop/src-tauri
+        run: cargo generate-lockfile
+      - name: Upload Rust dependency lock
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s1-cargo-lock
+          path: apps/desktop/src-tauri/Cargo.lock
+          if-no-files-found: warn
+)) { throw 'S9 Rust suite must contain tests' }
+          cargo test --locked --no-default-features s9_
       - name: S7 native WAL snapshot, manifest, corruption and isolated restore tests
         working-directory: apps/desktop/src-tauri
         run: |
