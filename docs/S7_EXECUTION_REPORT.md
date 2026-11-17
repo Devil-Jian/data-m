@@ -1,6 +1,6 @@
 # S7 执行报告：SQLite/CAS 完整性检查、可验证快照与隔离恢复
 
-> TASK_ID=S7 · 2026-11-17 · 当前状态：**代码已提交；Windows CI / EXE 核验中，人工恢复演练暂不验收**。正式 `accepted` 未达成。
+> TASK_ID=S7 · 2026-11-17 · 当前状态：**`machine_passed / manual_pending`**。Windows CI、真实 Rust/SQLite 专项与 Windows EXE 全部完成；真实 Windows 11 WebView2 人工恢复演练由用户暂缓。正式 `accepted` 未达成，PR 仍 Draft。
 
 ## 开发基线与依赖边界
 
@@ -18,18 +18,29 @@
 5. 正式「项目管理」工作区新增 S7 安全工作台：手动完整性检查、备份确认勾选、快照查看/校验、恢复目录标签与二次确认、任务阶段进度、错误码与关系计数。浏览器 Mock 仅用于前端事件测试，真实 SQL/哈希由原生 Rust 测试承担。
 6. S0 严格授权 IPC 列表仅增加经审计的 `repository_safety`，Windows Actions 保留 S0–S6 所有机器测试并新增非零 `s7_`、`@S7` 及 Windows Release EXE。
 
-## Windows CI 机器验证（必须与最终代码 SHA 对齐）
+## 机器验收：已证实的 CI、代码 SHA 和 Windows EXE
 
-| 检查 | 当前状态 | 后续需回填证据 |
+- **机器验证代码 SHA**：`53818cff49d94cbe7fe4aa152bcaa882cc72d6c5`。此 SHA 是本次成功运行实际检出的源代码，后续文档-only 提交不冒充已重测的代码。
+- **[Windows desktop shell #43988872497](https://github.com/Devil-Jian/data-m/actions/runs/43988872497)**：`status=completed`，`conclusion=success`，逐个步骤结果已从 Windows GitHub Actions 原始日志核查，关联上述代码 SHA。
+- **[EXE Artifact #14287546424](https://github.com/Devil-Jian/data-m/actions/runs/43988872497/artifacts/14287546424)**：`data-m-s7-unsigned-portable-windows`，上传成功，ZIP 4,136,696 bytes。含未签名的 `data-m-desktop.exe`，不是正式安装包。**实际 EXE SHA-256 尚需下载后手动计算**，不可将 ZIP 体积或 GitHub Artifact ID 当成 EXE 哈希。
+- S7 旧失败 CI [#43911039553](https://github.com/Devil-Jian/data-m/actions/runs/43911039553) 的原生 Rust 阶段在编译时报告 2 个 `E0597`：`src/repository_safety.rs:350` 的 `blob_list` 和 `src/repository_safety.rs:364` 的 `version_list`。原因是 `rusqlite::Statement::query_map` 迭代器链处于函数末尾表达式，`stmt` drop 顺序导致借用生存期校验失败。修复为局部 `let result = ...collect(...)` 后返回；同一调用中的查询和结果类型保持不变。首次修复 SHA `6cd3179a305d9ad68a7c63b396697e6c953989ea` 在 [#43988721788](https://github.com/Devil-Jian/data-m/actions/runs/43988721788) 暴露仅格式检查失败，进一步按 runner `rustfmt` 的真实差异修正；最终成功 SHA 为 `53818cff...`。未降低任何安全校验或删除失败测试。
+
+| 验证项目 | Windows CI #43988872497 实测 | 结果 |
 |---|---|---|
-| Rust `cargo fmt --all -- --check` | CI 验证中 | 运行 URL、SHA、是否通过 |
-| 原生 `cargo test --locked --no-default-features s7_` | CI 验证中 | 实测发现数量、passed/failed |
-| S0–S6 原生 Rust 与前端专项回归 | CI 验证中 | 全套通过数量 |
-| Chromium `npm run test:e2e:desktop -- --grep "@S7"` | CI 验证中 | 浏览器 Mock，不能替代 Rust |
-| 桌面 Playwright 全量 | CI 验证中 | passed/failed |
-| `cargo check --locked` / Vite build | CI 验证中 | pass/fail |
-| Windows Release EXE + GitHub Artifact | CI 验证中 | 仅成功后填写有效 Artifact |
-| Windows 11 真实恢复演练 | `manual_pending` | 用户暂不验收；不可伪写 PASS |
+| Rust `cargo fmt --all -- --check` | 代码格式符合标准 | **PASS** |
+| TypeScript、Vite、S0 baseline 与 UI 基础测试 | 工作流各步骤全部成功 | **PASS** |
+| S7 原生 `cargo test --locked --no-default-features s7_` | **15 passed / 0 failed**，非零测试发现校验 | **PASS** |
+| S7 `@S7` 桌面 Playwright（显式 Mock） | **4 passed / 0 failed** | **PASS（仅 UI）** |
+| S7 + S0–S6 完整 Rust `cargo test --locked --no-default-features` | **95 passed / 0 failed** | **PASS** |
+| 桌面 Playwright 全量 | **37 passed** | **PASS** |
+| Windows Chromium pointer/keyboard `npm run test:e2e` | **29 passed** | **PASS** |
+| S6/S5/S4/S3/S2/S1/S0 原生专项回归 | 分别 **11/8/2/17/7/14/4 passed** | **PASS** |
+| `cargo check --locked` | Windows 完整编译检查 | **PASS** |
+| Windows Release EXE `npm run tauri:build` | 编译成功 | **PASS** |
+| S7 unsigned portable EXE 上传 | Artifact **#14287546424** 已核验 | **PASS** |
+| 真实 Windows 11 WebView2 备份与恢复演练、EXE/源文件 SHA-256 核验 | **尚未执行，用户明确暂缓** | **manual_pending** |
+
+**机器测试边界**：浏览器 `@S7` 使用明确注入的 Mock，仅证明 UI/交互；真正 SQLite/WAL/文件哈希/崩溃注入/隔离恢复由 `s7_` 原生临时数据测试承担。CI 通过不代表在真实 Windows 工作目录完成备份恢复演练，更不代表可以操作珍贵或唯一科研数据。
 
 ## 必须完成的 Windows 人工恢复演练（用户明确暂缓）
 
