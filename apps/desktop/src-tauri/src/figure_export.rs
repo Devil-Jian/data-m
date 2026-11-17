@@ -2,7 +2,7 @@
 //! A future native picker must supply the explicitly authorized destination.
 //! All source bytes are read from immutable, exact-version CAS objects.
 use crate::project_tree::{required, with_database_at, TreeError};
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::fs::{self, File, OpenOptions};
@@ -286,7 +286,7 @@ fn export_figure_with_hooks(
     let destination_guard = crate::import_jobs::filesystem::Directories::hold(&destination, false)?;
     #[cfg(windows)]
     let _source_guard = crate::import_jobs::filesystem::Directories::hold(&cas_root, false)?;
-    if destination.starts_with(repository) || repository.starts_with(&destination) {
+    if destination.starts_with(&repository) || repository.starts_with(&destination) {
         return Err(error("UNSAFE_PATH"));
     }
     let (items, analyses, created_at) = with_database_at(database, |c| {
