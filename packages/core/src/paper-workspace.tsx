@@ -196,7 +196,7 @@ export function PaperWorkspace({onClose}:{onClose?:()=>void}={}) {
        <h4>Figure 无损导出 · 固定版本</h4>
        <label>选择 Figure <select aria-label="选择导出 Figure" value={exportFigure?.id||''}
           disabled={exportBusy} onChange={e=>setExportFigureId(e.target.value)}>
-         {paper?.figures.map(f=><option key={f.id} value={f.id}>{f.label}</option>)}
+         {paper?.figures.map(f=><option key={f.id} value={f.id}>导出目标：{f.label}</option>)}
        </select></label>
        <div className="s9-actions">
         <button disabled={!paper||!exportFigure||exportBusy} onClick={()=>void previewExport()}>预览导出范围</button>
