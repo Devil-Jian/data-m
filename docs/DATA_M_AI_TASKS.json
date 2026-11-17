@@ -677,7 +677,7 @@
         15
       ],
       "initial_status": "prototype_only",
-      "evidence_snapshot": "S7 native WAL-safe SQLite VACUUM INTO snapshots, official flat S3 CAS integrity audit, manifest, isolated restore and real React safety UI committed. Windows CI still in verification; user explicitly waived waiting for S6 manual acceptance, not the S7 safety gate.",
+      "evidence_snapshot": "S7 code SHA 53818cff49d94cbe7fe4aa152bcaa882cc72d6c5, Windows Actions #43988872497 completed success. Rust s7_ 15/15 (WAL snapshots, manifest, blob corruption/orphans, injection, no-clobber restore), @S7 Playwright 4/4 (explicit UI mock), full Rust 95/95, full desktop Playwright 37/37, Windows Chromium 29/29, S0-S6 dedicated regressions, cargo fmt/check, Release EXE & Artifact #14287546424 all passed. Human Windows 11 backup/restore drill and EXE hashes manual_pending, no formal accepted or main merge.",
       "user_outcome": "对测试仓库核验、制作可验证快照，在空目录完整恢复文件和关系。",
       "frontend_scope": [
         "完整性检查/备份/恢复工作台，显示阶段进度、校验报告及风险提示",
@@ -730,15 +730,26 @@
       ],
       "safety_gate": "只有 S0–S7 全部通过且人工完成恢复演练，才可批准珍贵科研数据进入日常使用。",
       "suggested_branch": "feat/s7-",
-      "current_status": "in_progress",
-      "machine_status": "pending",
+      "current_status": "manual_pending",
+      "machine_status": "machine_passed",
       "human_status": "manual_pending",
       "development_branch": "feat/s7-integrity-backup-restore",
       "baseline_sha": "ce7c7dab933dbe4f09d98fe5c41acee00646de8a",
       "pr_url": "https://github.com/Devil-Jian/data-m/pull/51",
       "implementation_design": "S7_IMPLEMENTATION_DESIGN.md",
       "execution_report": "S7_EXECUTION_REPORT.md",
-      "execution_note": "S7 implementation in progress from S6 latest HEAD. S6 remains machine_passed/manual_pending, no formal accepted; S7 Windows 11 recovery drill manual_pending. S8-S11 unmodified and no main merge."
+      "execution_note": "S7 machine_passed; manual_pending per user instruction to postpone manual acceptance. PR #51 remains Draft stacked on S6 #50 (S6 also manual_pending), no main merge. GitHub CI verified code SHA; documentation-only handoff commits not claimed to have been retested. Preserve S7 external/unique science data gate.",
+      "planning_status": "implemented_machine_verified",
+      "ci_run_url": "https://github.com/Devil-Jian/data-m/actions/runs/43988872497",
+      "ci_tested_sha": "53818cff49d94cbe7fe4aa152bcaa882cc72d6c5",
+      "exe_artifact_url": "https://github.com/Devil-Jian/data-m/actions/runs/43988872497/artifacts/14287546424",
+      "machine_test_counts": {
+        "s7_native_sqlite": 15,
+        "s7_browser_mock": 4,
+        "all_rust": 95,
+        "all_desktop_browser": 37,
+        "windows_chromium_interaction": 29
+      }
     },
     {
       "id": "S8",
