@@ -709,6 +709,21 @@ fn s10_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
     )
     .unwrap();
     assert_eq!(reversed.total_count, 9);
+    let panel3_forward = crate::provenance_trace::execute_at(
+        &restored.join("project-tree.sqlite"),
+        serde_json::from_value(serde_json::json!({
+            "projectId":"p","action":"panel","id":"panel3"
+        })).unwrap(),
+    ).unwrap();
+    assert_eq!(panel3_forward.total_count, 2);
+    assert_eq!(
+        panel3_forward.edges.iter().map(|edge| edge.asset_version_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["version", "version-v3"]
+    );
+    assert!(panel3_forward.edges.iter().all(|edge| {
+        edge.sources.len() == 2 && edge.sources.iter().any(|s| s.deleted)
+    }));
     assert_eq!(
         reversed
             .edges
