@@ -14,9 +14,9 @@ mod experiment_tree;
 mod import_jobs;
 mod project_tree;
 mod repository_safety;
-mod statistical_analysis;
 #[cfg(test)]
 mod s1_ipc_tests;
+mod statistical_analysis;
 #[tauri::command]
 fn shell_status() -> &'static str {
     "data-m-desktop-shell"
