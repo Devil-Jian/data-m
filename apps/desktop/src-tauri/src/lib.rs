@@ -11,6 +11,7 @@ mod cas_audit;
 mod domain_db;
 mod drop_preview;
 mod experiment_tree;
+mod figure_export;
 mod import_jobs;
 mod paper_workspace;
 mod project_tree;
