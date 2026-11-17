@@ -21,3 +21,6 @@ S9 `paper_workspace` action `candidates` accepts optional `candidateQuery`, `can
 ## Real UI entry points (unaccepted)
 - Paper Panel detail: forward pinned-version provenance and version reverse references.
 - File detail in project AssetBrowser: derive Project from Assay→Theme→Project, then query all referenced versions with action `asset`. Missing Project ancestry fails closed. Full navigation to Analysis and export still pending.
+
+## Native export candidate API (not accepted)
+`figure_export({request:{action:"preview",projectId,paperId,figureId}})` returns `status:"preview"` and `preview:{figureId,panelCount,referenceCount,uniqueFileCount,uniqueBytes}`; bytes have not yet been verified. `figure_export({request:{action:"export",projectId,paperId,figureId,confirm:true,requestId}})` internally opens a Windows native folder dialog (no client path input), hashes and publishes a newly named folder, and only then returns `status:"complete",folderPath,manifest`. `figure_export_cancel({requestId})` signals a registered in-flight operation; `s10-figure-export-progress` events carry `requestId,completed,total`. This is a new candidate interface, currently **not verified by a successful Windows exact-SHA CI run**; do not treat it as stable S11 ABI. Durable idempotency, crash cleanup and user acceptance remain pending.
