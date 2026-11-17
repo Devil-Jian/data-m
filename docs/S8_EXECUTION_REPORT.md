@@ -32,3 +32,12 @@
 - [ ] 记录 EXE SHA-256、截图、原文件/CAS 哈希、测试执行者和日期。
 
 S8 不执行 t 检验/ANOVA，不修改 CAS 或 Panel 关系；S0–S7 未完成人工恢复验收前，禁止珍贵/唯一科研数据投入使用。禁止提前标为 accepted 或合并 main。
+
+
+## 已获得的 GitHub CI 证据（阶段性，不代表 S8 机器完成）
+- Draft PR：[S8 #52](https://github.com/Devil-Jian/data-m/pull/52)，base=S7。代码待验证 SHA：`9a94932325a91ddfcee3359a65785aca50ca141d`。
+- 首次 [Windows CI #43999891949](https://github.com/Devil-Jian/data-m/actions/runs/43999891949) 在 `cargo fmt --check` 阶段失败（未执行 Rust/Playwright/EXE）。已从原始 runner 日志提取 39 处格式差异，按对应六个 Rust 文件修复，并再次提交；未屏蔽格式检查。
+- 新 [Windows CI #44000227751](https://github.com/Devil-Jian/data-m/actions/runs/44000227751)：最后核查时仍为 `pending`，**没有** Rust 编译、S8 测试或 EXE 通过证据。该运行结果需复查，不能自动宣称通过。
+- [UI 工作流 #44000227712](https://github.com/Devil-Jian/data-m/actions/runs/44000227712)：`success`，包含三个 demo build 和浏览器交互流程；不能代替 `build:desktop`、`@S8` 或 Windows Rust/EXE。
+- 最新提交已增加 `s8_migrate_existing_v2_preserves_analysis_and_original_ids` 和 `s8_sealed_schema_v2_snapshot_still_verifies_and_restores`，因此当前源代码中共有 7 个 `s8_` 统计模块测试 + 1 个 S7 快照模块 `s8_` 兼容测试，以及 3 个 `@S8` Playwright Mock 用例；**均未得到本次 Windows CI 的通过结论**。
+- EXE Artifact：**尚无 S8 Release EXE 成功上传证据**。状态保持 `in_progress / manual_pending`。
