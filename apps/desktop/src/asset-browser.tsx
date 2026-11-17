@@ -1,4 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
+import {invoke} from '@tauri-apps/api/core';
+import {ProvenanceView} from '@data-m/core';
 import {assetApi} from './asset-browser.ts';
 import type {AssetApi,AssetQuery,AssetRow} from './asset-browser.ts';
 import {beginAssetDrag,dropAssets,endAssetDrag,getClipboard,hasAssetDrag,pasteAssets,putClipboard,safeTransferError,sourcesFromRows,transferApi} from './asset-transfer.ts';
@@ -12,6 +14,7 @@ export function AssetBrowser({query,api=assetApi,transfers=transferApi}:{query:A
   const [next,setNext]=useState<string|null>(null),[total,setTotal]=useState(0);
   const [chosen,setChosen]=useState<Set<string>>(new Set()),[anchor,setAnchor]=useState<string|null>(null);
   const [detail,setDetail]=useState<AssetRow|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+  const [traceProjectId,setTraceProjectId]=useState<string|null>(null);
   const [revision,setRevision]=useState(0),[feedback,setFeedback]=useState(''),[clipboardCount,setClipboardCount]=useState(0);
   const [menu,setMenu]=useState<{x:number;y:number;id:string}|null>(null);
   const epoch=useRef(0),rowRefs=useRef(new Map<string,HTMLButtonElement>()),listRef=useRef<HTMLDivElement>(null);
@@ -40,6 +43,22 @@ export function AssetBrowser({query,api=assetApi,transfers=transferApi}:{query:A
     },search?200:0);
     return ()=>{window.clearTimeout(timeout);++epoch.current;};
   },[api,query.assayId,query.stage,query.groupId,query.replicateId,search,sort,pageCursor,revision]);
+  useEffect(()=>{
+    let live=true;
+    setTraceProjectId(null);
+    if(!detail)return;
+    type Node={id:string;kind:string;parentId:string|null};
+    void invoke<{nodes:Node[]}>('project_tree',{request:{action:'list'}})
+      .then(data=>{
+        if(!live)return;
+        const nodes=data.nodes;
+        const assay=nodes.find(n=>n.kind==='assay'&&n.id===query.assayId);
+        const theme=nodes.find(n=>n.kind==='theme'&&n.id===assay?.parentId);
+        const project=nodes.find(n=>n.kind==='project'&&n.id===theme?.parentId);
+        setTraceProjectId(project?.id??null);
+      }).catch(()=>{if(live)setTraceProjectId(null)});
+    return()=>{live=false};
+  },[query.assayId,detail?.assetId]);
   function select(id:string,event:React.MouseEvent|React.KeyboardEvent){
     const index=page.findIndex(item=>item.assetLinkId===id);
     if(index<0)return;
@@ -158,6 +177,9 @@ export function AssetBrowser({query,api=assetApi,transfers=transferApi}:{query:A
       <h3>{detail.name}</h3><dl><dt>关联 ID</dt><dd>{detail.assetLinkId}</dd><dt>资产 ID</dt><dd>{detail.assetId}</dd>
       <dt>固定版本 ID</dt><dd>{detail.assetVersionId}</dd><dt>版本</dt><dd>{detail.versionNumber}</dd>
       <dt>阶段</dt><dd>{detail.stage}</dd><dt>大小</dt><dd>{detail.sizeBytes} B</dd>
-      <dt>SHA-256</dt><dd>{detail.sha256}</dd><dt>Panel 引用</dt><dd>{detail.referenced?'有':'无'}</dd></dl></aside>}
+      <dt>SHA-256</dt><dd>{detail.sha256}</dd><dt>Panel 引用</dt><dd>{detail.referenced?'有':'无'}</dd></dl>
+      {traceProjectId?<ProvenanceView key={traceProjectId+'-'+detail.assetId} projectId={traceProjectId} action="asset" id={detail.assetId}/>:
+       <p>当前无法从项目树核实所属科研项目，不能显示未经验证的跨项目反向引用。</p>}
+    </aside>}
   </section>;
 }

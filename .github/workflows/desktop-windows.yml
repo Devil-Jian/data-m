@@ -10,6 +10,7 @@ on:
       - feat/s7-integrity-backup-restore
       - feat/s8-statistics-sample-inclusion
       - feat/i1-s8-s9-integration
+      - feat/s10-bidirectional-trace-export
     paths:
       - 'apps/desktop/**'
       - 'packages/**'
@@ -68,6 +69,9 @@ jobs:
           name: s1-rustfmt-corrections
           path: rustfmt.patch
           if-no-files-found: warn
+      - name: S10 early native compile and integration smoke (full checks still follow)
+        working-directory: apps/desktop/src-tauri
+        run: cargo test --locked --no-default-features s10_
       - name: Install packages
         run: npm ci --no-audit --no-fund
       - name: S0 baseline contracts
@@ -104,6 +108,8 @@ jobs:
         run: npm run test:e2e:desktop -- --grep "@S7"
       - name: S9 paper workspace UI E2E
         run: npm run test:e2e:desktop -- --grep "@S9"
+      - name: S10 provenance UI E2E (explicit renderer IPC mock)
+        run: npm run test:e2e:desktop -- --grep "@S10"
       - name: I1 integrated workspace UI E2E
         run: npm run test:e2e:desktop -- --grep "@I1"
       - name: S9 native SQLite paper and pinned-version regression
@@ -121,6 +127,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not ($discovered -match 'i1_.*: test$')) { throw 'I1 native tests not discovered' }
           cargo test --locked --no-default-features i1_
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: S10 native exact-version provenance tests
+        working-directory: apps/desktop/src-tauri
+        run: |
+          $discovered = cargo test --locked --no-default-features s10_ -- --list
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not ($discovered -match 's10_.*: test$')) { throw 'S10 native tests not discovered' }
+          cargo test --locked --no-default-features s10_
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: S8 native SQLite analysis inclusion and freeze tests
         working-directory: apps/desktop/src-tauri
@@ -197,10 +211,10 @@ jobs:
         run: cargo check --locked
       - name: Build Windows executable (no installer yet)
         run: npm run tauri:build
-      - name: Upload unsigned portable S7 EXE for Windows safety rehearsal
+      - name: Upload unsigned portable S10 development EXE (not accepted)
         uses: actions/upload-artifact@v4
         with:
-          name: data-m-i1-unsigned-portable-windows
+          name: data-m-s10-unsigned-portable-windows
           path: apps/desktop/src-tauri/target/release/data-m-desktop.exe
           if-no-files-found: error
           retention-days: 14
