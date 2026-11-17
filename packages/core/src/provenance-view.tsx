@@ -1,11 +1,14 @@
 import React,{useEffect,useState} from 'react';
 import {invoke} from '@tauri-apps/api/core';
 
+type Source={linkId:string;assayId:string;groupId:string|null;replicateId:string|null;
+ stage:string;displayName:string;deleted:boolean};
 type Edge = {
   paperId:string|null;figureId:string|null;panelId:string|null;usage:string|null;
   analysisId:string|null;analysisRole:string|null;frozenAt:string|null;
   includedReplicateIds:string[];assetId:string;assetVersionId:string;
   versionNumber:number;blobSha256:string;sizeBytes:number;assetDeleted:boolean;
+  sources?:Source[];representativeReplicateIds?:string[];
 };
 type Response={edges:Edge[];totalCount:number;offset:number;limit:number;truncated:boolean};
 type Action='panel'|'asset'|'version';
@@ -45,6 +48,15 @@ export function ProvenanceView({projectId,action,id}:{projectId:string;action:Ac
     <small>Asset：{edge.assetId} · {edge.sizeBytes} bytes{edge.assetDeleted?' · 历史已删除':''}</small>
     <code title={edge.blobSha256}>SHA-256：{edge.blobSha256}</code>
     {edge.panelId&&<p>论文 {edge.paperId} / Figure {edge.figureId} / Panel {edge.panelId} · {edge.usage}</p>}
+    <details><summary>来源位置与历史状态（{(edge.sources??[]).length} 条）</summary>
+     {(edge.sources??[]).length===0?<p>未找到属于当前项目的 AssetLink 来源。</p>:
+       (edge.sources??[]).map(s=><p key={s.linkId}>
+         实验 {s.assayId} / 分组 {s.groupId||'未指定'} / Replicate {s.replicateId||'未指定'} · {s.stage}
+         {s.deleted?' · 历史链接已移除':' · 当前链接'} · {s.displayName}
+       </p>)}
+     {!!edge.representativeReplicateIds?.length&&
+       <p>该 Panel 明确设定的代表样本：{edge.representativeReplicateIds.join(', ')}</p>}
+    </details>
     {edge.analysisId&&<p>分析 {edge.analysisId} · {edge.analysisRole} · {edge.frozenAt?'冻结 '+edge.frozenAt:'未冻结'}
       · 历史纳入 n={edge.includedReplicateIds.length}</p>}
     {edge.analysisId&&<details><summary>查看分析当次纳入的 Replicate ID</summary>
