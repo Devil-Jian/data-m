@@ -1277,6 +1277,23 @@ mod tests {
                 .code,
             "EXPORT_INDETERMINATE"
         );
+        // Replaying a previously published package cannot traverse a
+        // replacement symlink to matching-looking bytes outside that package.
+        let outside = dir.path().join("external-export-bytes");
+        fs::create_dir(&outside).unwrap();
+        fs::write(outside.join(&sha), original).unwrap();
+        fs::write(outside.join(&second_sha), second_bytes).unwrap();
+        fs::remove_dir_all(published.join("files")).unwrap();
+        #[cfg(windows)]
+        std::os::windows::fs::symlink_dir(&outside, published.join("files")).unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&outside, published.join("files")).unwrap();
+        assert_eq!(
+            verified_replay(&db, "p", "paper", "fig", &dest, token)
+                .unwrap_err()
+                .code,
+            "EXPORT_INDETERMINATE"
+        );
         fs::write(objects.join(&sha), vec![b'X'; original.len()]).unwrap();
         assert_eq!(
             export_figure_at(&db, "p", "paper", "fig", &dest)
