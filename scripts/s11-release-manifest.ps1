@@ -6,6 +6,8 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 if ($SourceSha -notmatch '^[a-f0-9]{40}$') { throw "Invalid exact source SHA" }
+$actualCheckout = (git rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0 -or $actualCheckout -ne $SourceSha) { throw "SourceSha mismatch: checked-out commit differs from manifest" }
 if ($BuildRunUrl -notmatch '^https://github.com/[^/]+/[^/]+/actions/runs/[0-9]+$') { throw "Invalid run URL" }
 $root = (Resolve-Path ".").Path
 $target = Join-Path $root "apps/desktop/src-tauri/target/release"
