@@ -16,6 +16,17 @@ pub struct TraceRequest {
 }
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct TraceSource {
+    link_id: String,
+    assay_id: String,
+    group_id: Option<String>,
+    replicate_id: Option<String>,
+    stage: String,
+    display_name: String,
+    deleted: bool,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TraceEdge {
     pub(crate) paper_id: Option<String>,
     pub(crate) figure_id: Option<String>,
@@ -31,6 +42,8 @@ pub struct TraceEdge {
     pub(crate) blob_sha256: String,
     pub(crate) size_bytes: i64,
     pub(crate) asset_deleted: bool,
+    sources: Vec<TraceSource>,
+    representative_replicate_ids: Vec<String>,
 }
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -136,10 +149,43 @@ fn execute(c: &Connection, r: TraceRequest) -> Result<TraceResult, TreeError> {
                 blob_sha256: row.get(10)?,
                 size_bytes: row.get(11)?,
                 asset_deleted: row.get(12)?,
+                sources: Vec::new(),
+                representative_replicate_ids: Vec::new(),
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     for edge in &mut edges {
+        // All provenance locations are returned independently, including
+        // historical soft-deleted links. Never pick the first source.
+        let mut links = c.prepare(
+            "SELECT l.id,l.assay_id,l.group_id,l.replicate_id,l.stage,
+                    l.display_name,l.deleted_at IS NOT NULL
+             FROM asset_links l
+             JOIN assays a ON a.id=l.assay_id
+             JOIN themes t ON t.id=a.theme_id
+             WHERE l.asset_id=?1 AND t.project_id=?2
+             ORDER BY l.id",
+        )?;
+        edge.sources = links.query_map(params![edge.asset_id, r.project_id], |row| {
+            Ok(TraceSource {
+                link_id: row.get(0)?,
+                assay_id: row.get(1)?,
+                group_id: row.get(2)?,
+                replicate_id: row.get(3)?,
+                stage: row.get(4)?,
+                display_name: row.get(5)?,
+                deleted: row.get(6)?,
+            })
+        })?.collect::<rusqlite::Result<Vec<_>>>()?;
+        if let Some(panel) = &edge.panel_id {
+            let mut reps = c.prepare(
+                "SELECT replicate_id FROM representative_sources
+                 WHERE panel_id=?1 AND asset_version_id=?2 ORDER BY replicate_id"
+            )?;
+            edge.representative_replicate_ids = reps.query_map(
+                params![panel, edge.asset_version_id], |row| row.get(0)
+            )?.collect::<rusqlite::Result<Vec<String>>>()?;
+        }
         if let Some(analysis_id) = &edge.analysis_id {
             let mut included = c.prepare("SELECT replicate_id FROM analysis_samples WHERE analysis_id=?1 AND included=1 ORDER BY replicate_id")?;
             edge.included_replicate_ids = included
@@ -245,7 +291,11 @@ mod tests {
              INSERT INTO projects(id,name) VALUES('unrelated','Other');",
         )
         .unwrap();
-        assert_eq!(execute(&c, req("version", "v1")).unwrap().total_count, 2);
+        let historic = execute(&c, req("version", "v1")).unwrap();
+        assert_eq!(historic.total_count, 2);
+        assert_eq!(historic.edges[0].sources.len(), 2);
+        assert_eq!(historic.edges[0].sources[0].link_id, "l");
+        assert!(historic.edges[0].sources[0].deleted);
         assert_eq!(execute(&c, req("asset", "d")).unwrap().total_count, 2);
         assert_eq!(execute(&c, req("version", "v2")).unwrap().total_count, 0);
         let mut other = req("version", "v1");
