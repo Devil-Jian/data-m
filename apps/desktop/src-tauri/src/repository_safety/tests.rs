@@ -748,3 +748,70 @@ fn s10_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
     assert_eq!(fs::read(&f.source).unwrap(), before);
     assert_eq!(fs::read(&f.object).unwrap(), before);
 }
+
+#[test]
+fn s10_g0_01_v1_and_v2_upgrade_to_v3_preserve_pinned_references_and_reject_future() {
+    // Each path is disposable; a genuinely branded historical schema must
+    // migrate through the production project_tree::with_database_at path.
+    for historical_version in [1_i64, 2_i64] {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join(format!("legacy-v{historical_version}.sqlite"));
+        {
+            let c = Connection::open(&path).unwrap();
+            c.pragma_update(None, "foreign_keys", "ON").unwrap();
+            c.execute_batch(include_str!("../../migrations/0001_initial.sql")).unwrap();
+            c.execute_batch(crate::project_tree::REQUEST_SCHEMA).unwrap();
+            if historical_version == 2 {
+                c.execute_batch(include_str!("../../migrations/0002_import_jobs.sql"))
+                    .unwrap();
+            }
+            c.execute_batch(
+                "INSERT INTO projects(id,name) VALUES('p','Project');
+                 INSERT INTO themes(id,project_id,name) VALUES('t','p','Theme');
+                 INSERT INTO assays(id,theme_id,name) VALUES('a','t','Assay');
+                 INSERT INTO papers(id,project_id,title) VALUES('paper','p','Paper');
+                 INSERT INTO figures(id,paper_id,label) VALUES('fig','paper','F1');
+                 INSERT INTO panels(id,figure_id,label) VALUES('panel','fig','A');
+                 INSERT INTO blobs(sha256,size_bytes)
+                  VALUES('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',5);
+                 INSERT INTO data_assets(id,name) VALUES('asset','raw.tif');
+                 INSERT INTO asset_versions(id,asset_id,version_number,blob_sha256,source_name)
+                  VALUES('v1','asset',1,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','raw.tif');
+                 INSERT INTO panel_asset_versions(panel_id,asset_version_id,usage)
+                  VALUES('panel','v1','display');",
+            ).unwrap();
+            c.pragma_update(None, "application_id", 0x444d5331_i64).unwrap();
+            c.pragma_update(None, "user_version", historical_version).unwrap();
+        }
+        with_database_at(&path, |c| {
+            let version: i64 = c.pragma_query_value(None, "user_version", |r| r.get(0))?;
+            assert_eq!(version, 3);
+            let pins: (String, String) = c.query_row(
+                "SELECT v.id,v.blob_sha256 FROM panel_asset_versions pav
+                 JOIN asset_versions v ON v.id=pav.asset_version_id
+                 WHERE pav.panel_id='panel'",
+                [], |r| Ok((r.get(0)?, r.get(1)?)),
+            )?;
+            assert_eq!(pins.0, "v1");
+            assert_eq!(pins.1, "a".repeat(64));
+            Ok(())
+        }).unwrap();
+        // Reopening never reassigns a version or replays a migration.
+        with_database_at(&path, |c| {
+            let count: i64 = c.query_row(
+                "SELECT count(*) FROM schema_migrations", [], |r| r.get(0),
+            )?;
+            assert_eq!(count, 3);
+            Ok(())
+        }).unwrap();
+        // A future version is NOT auto-downgraded or initialized.
+        {
+            let c = Connection::open(&path).unwrap();
+            c.pragma_update(None, "user_version", 4).unwrap();
+        }
+        let before = fs::read(&path).unwrap();
+        let rejected = with_database_at(&path, |_c| Ok(()));
+        assert_eq!(rejected.unwrap_err().code, "UNKNOWN_DATABASE");
+        assert_eq!(fs::read(&path).unwrap(), before);
+    }
+}
