@@ -205,10 +205,10 @@ jobs:
         run: cargo check --locked
       - name: Build Windows executable (no installer yet)
         run: npm run tauri:build
-      - name: Upload unsigned portable S7 EXE for Windows safety rehearsal
+      - name: Upload unsigned portable S10 in-progress development EXE (not accepted)
         uses: actions/upload-artifact@v4
         with:
-          name: data-m-i1-unsigned-portable-windows
+          name: data-m-s10-unsigned-portable-windows
           path: apps/desktop/src-tauri/target/release/data-m-desktop.exe
           if-no-files-found: error
           retention-days: 14
