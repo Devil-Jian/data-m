@@ -465,15 +465,16 @@ fn export_figure_with_hooks(
         stage.path(),
         target
     );
-    let staging_path = stage.keep();
-    match fs::rename(&staging_path, &target) {
+    // Never detach TempDir ownership before publication. On any rename
+    // failure its Drop removes unpublished bytes; on success the old path
+    // disappears and Drop cannot affect the newly published target.
+    match fs::rename(stage.path(), &target) {
         Ok(()) => Ok((target, manifest)),
         Err(rename_error) => {
             #[cfg(test)]
             eprintln!("S10 export: publish OS error {:?}", rename_error);
             #[cfg(not(test))]
             let _ = &rename_error;
-            let _ = fs::remove_dir_all(&staging_path);
             Err(error("DISK_WRITE_FAILED"))
         }
     }
@@ -512,6 +513,44 @@ pub struct FigureExportProgress {
     request_id: String,
     completed: usize,
     total: usize,
+}
+// A committed claim in the existing v3 idempotency table survives process
+// restarts. We never blindly retry an ambiguous export with the same token.
+// This provides durable at-most-once execution, not response replay.
+fn claim_export_request(
+    database: &Path,
+    token: &str,
+    project: &str,
+    paper: &str,
+    figure: &str,
+) -> Result<(), TreeError> {
+    if token.len() != 36
+        || !token.bytes().enumerate().all(|(i, b)| {
+            if matches!(i, 8 | 13 | 18 | 23) {
+                b == b'-'
+            } else {
+                b.is_ascii_hexdigit()
+            }
+        })
+    {
+        return Err(error("INVALID_REQUEST"));
+    }
+    let key = format!("s10-figure-export-{token}");
+    let payload = serde_json::json!({
+        "action": "figure_export", "projectId": project, "paperId": paper,
+        "figureId": figure
+    }).to_string();
+    with_database_at(database, |c| {
+        // Single SQLite constraint handles racing processes as well as restarts.
+        let inserted = c.execute(
+            "INSERT OR IGNORE INTO s1_requests(request_id,payload) VALUES(?1,?2)",
+            params![key, payload],
+        )?;
+        if inserted != 1 {
+            return Err(error("REQUEST_REPLAY_BLOCKED"));
+        }
+        Ok(())
+    })
 }
 static IN_FLIGHT: OnceLock<Mutex<HashMap<String, Arc<AtomicBool>>>> = OnceLock::new();
 fn active_exports() -> &'static Mutex<HashMap<String, Arc<AtomicBool>>> {
@@ -610,6 +649,13 @@ pub async fn figure_export<R: tauri::Runtime>(
                     },
                 );
             };
+            // Claim only after the native picker returns; user cancellation of
+            // the picker does not consume a token. A crash after this claim
+            // requires a fresh token and an explicit inspection of the target.
+            claim_export_request(
+                &database, &token, &request.project_id, &request.paper_id,
+                &request.figure_id,
+            )?;
             let (folder, manifest) = export_figure_with_hooks(
                 &database,
                 &request.project_id,
