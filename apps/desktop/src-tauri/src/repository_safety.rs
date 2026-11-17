@@ -41,6 +41,7 @@ const TABLES: &[&str] = &[
     "import_jobs",
     "import_files",
 ];
+const S8_TABLES: &[&str] = &["analysis_asset_versions"];
 const MAX_ISSUES: usize = 100;
 const CHUNK: usize = 1024 * 1024;
 
@@ -328,6 +329,9 @@ fn open_recognized(path: &Path) -> Result<Connection, TreeError> {
     if c.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
         .map_err(map_read)?
         != 2
+        && c.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
+            .map_err(map_read)?
+            != 3
     {
         return Err(failure("UNKNOWN_DATABASE"));
     }
@@ -335,11 +339,18 @@ fn open_recognized(path: &Path) -> Result<Connection, TreeError> {
 }
 fn counts(c: &Connection) -> Result<BTreeMap<String, i64>, TreeError> {
     let mut result = BTreeMap::new();
-    for table in TABLES {
+    let version: i64 = c
+        .pragma_query_value(None, "user_version", |row| row.get(0))
+        .map_err(map_read)?;
+    for table in TABLES.iter().copied().chain(if version >= 3 {
+        S8_TABLES.iter().copied()
+    } else {
+        [].iter().copied()
+    }) {
         let count: i64 = c
             .query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get(0))
             .map_err(map_read)?;
-        result.insert((*table).into(), count);
+        result.insert(table.into(), count);
     }
     Ok(result)
 }

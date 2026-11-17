@@ -16,6 +16,7 @@ mod project_tree;
 mod repository_safety;
 #[cfg(test)]
 mod s1_ipc_tests;
+mod statistical_analysis;
 #[tauri::command]
 fn shell_status() -> &'static str {
     "data-m-desktop-shell"
@@ -35,7 +36,8 @@ pub fn run() {
             project_tree::project_tree,
             experiment_tree::experiment_tree,
             import_jobs::import_jobs,
-            repository_safety::repository_safety
+            repository_safety::repository_safety,
+            statistical_analysis::statistical_analysis
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Data-M desktop");

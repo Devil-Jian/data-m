@@ -4,6 +4,7 @@ import {projectTreeApi,projectTreeMode,safeProjectTreeError,validateProjectTreeR
 import type {ProjectTreeApi,ProjectTreeKind,ProjectTreeNode,ProjectTreeRequest} from './project-tree.ts';
 import {ExperimentTreeManager} from './experiment-tree.tsx';
 import {RepositorySafetyPanel} from './repository-safety.tsx';
+import {StatisticalAnalysisPanel} from './statistical-analysis.tsx';
 import type {ImportDropRegistrar} from './import-jobs.ts';
 import './project-tree.css';
 
@@ -20,6 +21,7 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
   const [editor,setEditor]=useState<Editor|null>(null);
   const [experiment,setExperiment]=useState<{id:string;name:string}|null>(null);
   const [safetyOpen,setSafetyOpen]=useState(false);
+  const [statistics,setStatistics]=useState<{id:string;name:string}|null>(null);
   const alive=useRef(true);
   const busy=useRef(false);
   const dialog=useRef<HTMLDialogElement>(null);
@@ -88,6 +90,7 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
     </li>);
   }
 
+  if(statistics)return <StatisticalAnalysisPanel key={statistics.id} assayId={statistics.id} assayName={statistics.name} onClose={()=>setStatistics(null)}/>;
   if(safetyOpen)return <RepositorySafetyPanel onClose={()=>setSafetyOpen(false)}/>;
   if(experiment)return <ExperimentTreeManager key={experiment.id} assayId={experiment.id} assayName={experiment.name}
     onClose={()=>setExperiment(null)} onBusyChange={onBusyChange} registerImportDrop={registerImportDrop}/>;
@@ -117,6 +120,7 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
             <div><dt>直接下级</dt><dd>{nodes.filter(node=>node.parentId===selected.id).length} 项</dd></div></dl>
           <div className="dm-project-detail-actions">
             {selected.kind==='assay'&&<Button variant="primary" disabled={pending} onClick={()=>setExperiment({id:selected.id,name:selected.name})}>分组与样本</Button>}
+            {selected.kind==='assay'&&<Button disabled={pending} onClick={()=>setStatistics({id:selected.id,name:selected.name})}>统计分析 (S8)</Button>}
             {childKind&&<Button variant="primary" disabled={pending} onClick={()=>open({action:'create',kind:childKind,parentId:selected.id,name:''})}>新建{labels[childKind]}</Button>}
             <Button disabled={pending} onClick={()=>open({action:'rename',kind:selected.kind,target:selected,name:selected.name})}>重命名</Button>
             <Button variant="danger" disabled={pending} onClick={()=>open({action:'delete',kind:selected.kind,target:selected,name:selected.name})}>删除</Button>

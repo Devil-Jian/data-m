@@ -764,7 +764,7 @@
         14
       ],
       "initial_status": "prototype_only",
-      "evidence_snapshot": "已有 StatisticalAnalysis/AnalysisSample 表和演示 UI；没有真实分析 CRUD/输入版本锁定。",
+      "evidence_snapshot": "S8 implemented and verified at code SHA d52b1e9c9851d718ff9ae80d4e0c700290c6da22: Windows Actions #44003979357 SUCCESS. Rust s8_ 8/8, @S8 browser mock 3/3, full Rust 103/103, desktop Playwright 40/40, Chromium 29/29, S0–S7 native dedicated regressions, fmt/check, Windows Release EXE and Artifact #14293614430 uploaded. Windows 11 WebView2 manual acceptance remains pending.",
       "user_outcome": "记录某次统计选择了哪些生物学重复和哪些固定版本输入/结果，不执行统计计算。",
       "frontend_scope": [
         "统计分析列表/编辑器，选择纳入样本并关联文件版本",
@@ -815,7 +815,28 @@
         "不读专用实验格式算图"
       ],
       "safety_gate": "每次统计的 included 与输入版本为关系级语义；不得通过文件级 boolean 全局表达。",
-      "suggested_branch": "feat/s8-"
+      "suggested_branch": "feat/s8-",
+      "current_status": "manual_pending",
+      "machine_status": "machine_passed",
+      "human_status": "manual_pending",
+      "development_branch": "feat/s8-statistics-sample-inclusion",
+      "baseline_sha": "15e784a6bf939cf509254aacdea33bb120cf9165",
+      "implementation_design": "S8_IMPLEMENTATION_DESIGN.md",
+      "execution_report": "S8_EXECUTION_REPORT.md",
+      "execution_note": "Machine passed, manual pending. Stack Draft PR #52 on S7 PR #51; do not merge main, mark accepted or unlock precious raw science data. Windows CI tested code SHA separate from later documentation-only commits.",
+      "planning_status": "implemented_machine_verified",
+      "pr_url": "https://github.com/Devil-Jian/data-m/pull/52",
+      "ci_run_url": "https://github.com/Devil-Jian/data-m/actions/runs/44003979357",
+      "ci_tested_sha": "d52b1e9c9851d718ff9ae80d4e0c700290c6da22",
+      "exe_artifact_url": "https://github.com/Devil-Jian/data-m/actions/runs/44003979357/artifacts/14293614430",
+      "machine_test_counts": {
+        "s8_native_sqlite": 8,
+        "s8_browser_mock": 3,
+        "s7_native_sqlite": 15,
+        "all_rust": 103,
+        "all_desktop_browser": 40,
+        "windows_chromium_interaction": 29
+      }
     },
     {
       "id": "S9",
