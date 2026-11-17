@@ -50,6 +50,39 @@ impl Directories {
         result.validate()?;
         Ok(result)
     }
+    /// Separate S10 destination guard: share DELETE so Windows can atomically
+    /// rename a completed child directory. S3 import guards stay unchanged.
+    pub(crate) fn hold_export(path: &Path) -> Result<Self, TreeError> {
+        if !path.is_absolute() {
+            return Err(failure("UNSAFE_PATH"));
+        }
+        let mut current = PathBuf::new();
+        let mut handles = Vec::new();
+        for component in path.components() {
+            match component {
+                Component::Prefix(_) => {
+                    current.push(component.as_os_str());
+                    continue;
+                }
+                Component::RootDir => current.push(component.as_os_str()),
+                Component::Normal(name) => {
+                    let parent = handles.last().ok_or_else(|| failure("UNSAFE_PATH"))?;
+                    let name = name.to_str().ok_or_else(|| failure("UNSAFE_PATH"))?;
+                    handles.push(export_relative_directory(parent, name)?);
+                    current.push(component.as_os_str());
+                    continue;
+                }
+                _ => return Err(failure("UNSAFE_PATH")),
+            }
+            handles.push(export_open_directory(&current)?);
+        }
+        let result = Self {
+            _handles: handles,
+            _pins: Vec::new(),
+        };
+        result.validate()?;
+        Ok(result)
+    }
     pub fn leaf(&self) -> Result<&File, TreeError> {
         self._handles.last().ok_or_else(|| failure("UNSAFE_PATH"))
     }
@@ -269,6 +302,34 @@ mod relative {
         }
         Ok(())
     }
+}
+
+#[cfg(windows)]
+fn export_relative_directory(parent: &File, name: &str) -> Result<File, TreeError> {
+    relative::open(parent, name, 0x81, 7, 1, true)
+        .map_err(|_| failure("UNSAFE_PATH"))
+}
+#[cfg(not(windows))]
+fn export_relative_directory(_: &File, _: &str) -> Result<File, TreeError> {
+    Err(failure("UNSUPPORTED_PLATFORM"))
+}
+#[cfg(windows)]
+fn export_open_directory(path: &Path) -> Result<File, TreeError> {
+    use std::os::windows::fs::OpenOptionsExt;
+    use windows_sys::Win32::Storage::FileSystem::*;
+    let file = OpenOptions::new()
+        .read(true)
+        .access_mode(FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES)
+        .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
+        .custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT)
+        .open(path)
+        .map_err(|_| failure("UNSAFE_PATH"))?;
+    plain_directory(&file)?;
+    Ok(file)
+}
+#[cfg(not(windows))]
+fn export_open_directory(_: &Path) -> Result<File, TreeError> {
+    Err(failure("UNSUPPORTED_PLATFORM"))
 }
 
 #[cfg(windows)]
