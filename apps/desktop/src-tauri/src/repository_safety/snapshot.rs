@@ -62,7 +62,11 @@ fn load_manifest(root: &Path, id: &str) -> Result<Manifest, TreeError> {
         || m.table_counts.len() != TABLES.len() + usize::from(m.schema_version >= 3)
         || TABLES
             .iter()
-            .chain(if m.schema_version >= 3 { S8_TABLES.iter() } else { [].iter() })
+            .chain(if m.schema_version >= 3 {
+                S8_TABLES.iter()
+            } else {
+                [].iter()
+            })
             .any(|table| !m.table_counts.contains_key(*table))
     {
         return Err(failure("SNAPSHOT_CORRUPT"));
@@ -107,7 +111,9 @@ fn inspect_snapshot(
     }
     let db = open_recognized(&database).map_err(|_| failure("SNAPSHOT_CORRUPT"))?;
     let current = counts(&db).map_err(|_| failure("SNAPSHOT_CORRUPT"))?;
-    let snapshot_version: i64 = db.pragma_query_value(None, "user_version", |row| row.get(0)).map_err(|_| failure("SNAPSHOT_CORRUPT"))?;
+    let snapshot_version: i64 = db
+        .pragma_query_value(None, "user_version", |row| row.get(0))
+        .map_err(|_| failure("SNAPSHOT_CORRUPT"))?;
     if snapshot_version != m.schema_version
         || current != m.table_counts
         || blob_list(&db).map_err(|_| failure("SNAPSHOT_CORRUPT"))? != m.blobs
@@ -284,7 +290,9 @@ fn backup_inner(
     let m = Manifest {
         format_version: 1,
         snapshot_id: id,
-        schema_version: snapdb.pragma_query_value(None, "user_version", |row| row.get(0)).map_err(map_read)?,
+        schema_version: snapdb
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .map_err(map_read)?,
         database_sha256,
         database_size_bytes,
         created_at,
