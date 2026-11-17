@@ -12,7 +12,7 @@ pub(super) struct Identity {
     pub mtime: String,
 }
 
-pub(super) struct Directories {
+pub(crate) struct Directories {
     _handles: Vec<File>,
     _pins: Vec<File>,
 }
