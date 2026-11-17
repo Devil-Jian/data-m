@@ -578,6 +578,9 @@ fn claim_export_request(
     destination: &Path,
 ) -> Result<Claim, TreeError> {
     let key = export_key(token)?;
+    // Persist the verified canonical folder, not the caller's equivalent
+    // noncanonical spelling. Recovery must compare the same path identity.
+    let destination = safe_dir(destination)?;
     let identity = serde_json::json!({
         "action":"figure_export","projectId":project,"paperId":paper,
         "figureId":figure,"destination":destination.to_string_lossy()
