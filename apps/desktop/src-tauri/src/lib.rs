@@ -14,6 +14,7 @@ mod experiment_tree;
 mod import_jobs;
 mod paper_workspace;
 mod project_tree;
+mod provenance_trace;
 mod repository_safety;
 #[cfg(test)]
 mod s1_ipc_tests;
@@ -39,7 +40,8 @@ pub fn run() {
             import_jobs::import_jobs,
             repository_safety::repository_safety,
             statistical_analysis::statistical_analysis,
-            paper_workspace::paper_workspace
+            paper_workspace::paper_workspace,
+            provenance_trace::provenance_trace
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Data-M desktop");
