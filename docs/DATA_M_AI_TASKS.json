@@ -881,11 +881,17 @@
       ],
       "safety_gate": "默认阻止断链操作：已引用 AssetVersion 不能被静默物理删除或替换。",
       "suggested_branch": "feat/s9-",
-      "current_status": "in_progress",
+      "current_status": "machine_passed",
       "implementation_branch": "feat/s9-paper-figure-panel",
       "draft_pr": "https://github.com/Devil-Jian/data-m/pull/53",
-      "machine_verification": "pending",
-      "manual_verification": "manual_pending"
+      "machine_verification": "machine_passed",
+      "manual_verification": "manual_pending",
+      "machine_passed_code_sha": "d61eb8349eba668071dd123e2452a2b61d933658",
+      "windows_ci_url": "https://github.com/Devil-Jian/data-m/actions/runs/44002053468",
+      "windows_exe_artifact_url": "https://github.com/Devil-Jian/data-m/actions/runs/44002053468/artifacts/14292513472",
+      "native_rust_tests_passed": 101,
+      "s9_rust_tests_passed": 6,
+      "s9_playwright_tests_passed": 1
     },
     {
       "id": "S10",
