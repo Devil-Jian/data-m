@@ -20,3 +20,9 @@
 - `repository_safety/tests.rs`: new disposable SQLite/CAS G0 combined v3 backup → verify → isolated restore test with two Figures, six Panels, frozen 5/6 analyses, and reverse trace count.
 - `paper_workspace.rs`: server-side candidates search/paging with real total, plus native 605-row regression; formal Paper UI migrated to use that API.
 - All new test results **pending**; there is no asserted G0 acceptance and no S10 successful Windows Release EXE evidence.
+
+## Windows CI diagnostics through 2026-11-17
+- #44051935200: failed `cargo fmt --check`; 18 hunks from real Windows job applied to `figure_export.rs`, `paper_workspace.rs`, `repository_safety/tests.rs` in subsequent commits.
+- #44052241943: Rust fmt, S8/S9/S10 renderer E2E passed; failed G0 combined native test because restore label `combined-v3` began with forbidden Windows device prefix `com`. Fixed test label to `safe-v3-restore` and restricted name to `s10_` (instead of also matching `i1_`). All downstream Rust tests and EXE build were not reached in that run.
+- Added formal asset detail reverse lookup with project ancestry validation and separate `@S10` renderer mock regression. Neither proves actual native runtime.
+- Latest complete S10 CI remains pending: do NOT label `machine_passed` or supply unsigned EXE artifact URL from failed runs.
