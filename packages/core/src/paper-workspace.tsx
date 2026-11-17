@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {invoke} from '@tauri-apps/api/core';
 import './paper-workspace.css';
+import {ProvenanceView} from './provenance-view';
 
 type Asset={assetVersionId:string;usage:string;versionNumber:number;name:string;sha256:string;stage:string;assayId:string;replicateId:string|null};
 type Rep={replicateId:string;assetVersionId:string|null};
@@ -23,6 +24,7 @@ export function PaperWorkspace({onClose}:{onClose?:()=>void}={}) {
  const [snapshot,setSnapshot]=useState<Snapshot>(empty);
  const [selectedPaper,setSelectedPaper]=useState('');
  const [selectedPanel,setSelectedPanel]=useState('');
+ const [reverseVersion,setReverseVersion]=useState('');
  const [name,setName]=useState('');
  const [search,setSearch]=useState('');
  const [stage,setStage]=useState('');
@@ -49,7 +51,7 @@ export function PaperWorkspace({onClose}:{onClose?:()=>void}={}) {
      .catch(e=>{if(!cancelled){setError('无法连接真实项目数据库：'+errorText(e));setReady(true)}});
    return()=>{cancelled=true};
  },[]);
- useEffect(()=>{setError('');setSelectedPaper('');setSelectedPanel('');setSelectedVersions([]);refresh(projectId).catch(e=>setError(errorText(e)))},[projectId,refresh]);
+ useEffect(()=>{setError('');setSelectedPaper('');setSelectedPanel('');setReverseVersion('');setSelectedVersions([]);refresh(projectId).catch(e=>setError(errorText(e)))},[projectId,refresh]);
  const paper=snapshot.papers.find(p=>p.id===selectedPaper)||snapshot.papers[0];
  const panel=paper?.figures.flatMap(f=>f.panels).find(p=>p.id===selectedPanel);
  useEffect(()=>{setPaperStatus(paper?.status||'draft');setPaperNotes(paper?.notes||'')},[paper?.id,paper?.status,paper?.notes]);
@@ -130,6 +132,13 @@ export function PaperWorkspace({onClose}:{onClose?:()=>void}={}) {
          <code title={a.sha256}>SHA-256: {a.sha256}</code>
          <div className="s9-actions"><span>已固定引用</span><button disabled={busy} onClick={()=>mutate('detach',{id:panel.id,versionId:a.assetVersionId,usage:a.usage})}>仅移除引用</button></div>
        </article>)}
+       <ProvenanceView key={projectId+'-'+panel.id} projectId={projectId} action="panel" id={panel.id}/>
+       <h4>反向查找固定文件版本</h4>
+       <label>被哪些论文和统计引用 <select aria-label="选择反向查询版本" value={reverseVersion} onChange={e=>setReverseVersion(e.target.value)}>
+        <option value="">选择文件版本</option>
+        {panel.assets.map(a=><option key={a.assetVersionId} value={a.assetVersionId}>{a.name} · v{a.versionNumber}</option>)}
+       </select></label>
+       {reverseVersion&&<ProvenanceView key={projectId+'-'+reverseVersion} projectId={projectId} action="version" id={reverseVersion}/>}
        <h4>代表性生物学重复</h4>
        {panel.representatives.map(r=><div key={r.replicateId} className="s9-actions"><span>{r.replicateId} → {r.assetVersionId}</span>
          <button disabled={busy} onClick={()=>mutate('clearRepresentative',{id:panel.id,replicateId:r.replicateId})}>移除代表来源</button></div>)}
