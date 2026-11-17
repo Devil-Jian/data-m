@@ -703,4 +703,48 @@ fn s10_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
             .count(),
         2
     );
+    // One disposable end-to-end fixture exercises S7 v3 restore, both
+    // frozen S8 populations, S9 exact Figure pins, S10 trace, real CAS
+    // copy, manifest logical edges and exported physical byte hashes.
+    let export_dest = f._dir.path().join("s10-figure-exports");
+    fs::create_dir(&export_dest).unwrap();
+    let (export_root, manifest) = crate::figure_export::export_figure_at(
+        &restored.join("project-tree.sqlite"),
+        "p",
+        "paper",
+        "fig",
+        &export_dest,
+    )
+    .unwrap();
+    assert_eq!(manifest.manifest_version, 1);
+    assert_eq!(manifest.schema_version, 3);
+    assert_eq!(manifest.panels.len(), 3);
+    assert_eq!(manifest.reference_count, 4);
+    assert_eq!(manifest.physical_file_count, 1);
+    assert_eq!(manifest.analyses.len(), 2);
+    assert_eq!(manifest.analyses[0].included_replicate_ids.len(), 5);
+    assert_eq!(manifest.analyses[1].included_replicate_ids.len(), 6);
+    assert!(manifest.references.iter().all(|edge| {
+        edge.asset_version_id == "version"
+            && edge.asset_id == "asset"
+            && edge.sha256 == f.sha
+            && edge.verified
+    }));
+    assert_eq!(
+        fs::read(export_root.join("files").join(&f.sha)).unwrap(),
+        before
+    );
+    assert_eq!(
+        crate::cas::hash_file(&export_root.join("files").join(&f.sha))
+            .unwrap()
+            .0,
+        f.sha
+    );
+    let disk_manifest: crate::figure_export::FigureManifest = serde_json::from_slice(
+        &fs::read(export_root.join("figure-manifest.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(disk_manifest.reference_count, manifest.reference_count);
+    assert_eq!(fs::read(&f.source).unwrap(), before);
+    assert_eq!(fs::read(&f.object).unwrap(), before);
 }
