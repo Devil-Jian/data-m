@@ -69,7 +69,6 @@ async function setup(page:Page,{behavior='complete',unavailable=false}={}){
   await enter(page);
 }
 async function enter(page:Page){
-  await page.getByRole('button',{name:'项目管理',exact:true}).click();
   await page.getByRole('button',{name:'实验：导入测试实验',exact:true}).click();
   await page.getByRole('button',{name:'分组与样本',exact:true}).click();
   await page.getByRole('button',{name:'样本：R1',exact:true}).click();
@@ -204,6 +203,6 @@ test('@S3 restored prepared job retains its fixed target and requires explicit c
   await expect(panel(page)).toContainText('待处理任务固定目标：导入测试实验 / STATISTICS');
   await expect(panel(page).getByText('待确认',{exact:true})).toBeVisible();
   expect(await page.evaluate(()=>(window as any).__S3_TEST__.requests.filter((r:any)=>r.action==='start').length)).toBe(0);
-  await expect(page.getByRole('button',{name:'演示工作区',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'演示工作区',exact:true})).toHaveCount(0);
   await panel(page).getByRole('button',{name:'取消任务',exact:true}).click();
 });
