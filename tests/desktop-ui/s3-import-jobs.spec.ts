@@ -88,6 +88,7 @@ test('@S3 drop only prepares; explicit confirmation imports 100 files and preser
   await expect(panel(page).getByRole('button',{name:'确认导入（仅限可丢弃测试文件）',exact:true})).toBeEnabled();
   expect(await page.evaluate(()=>(window as any).__S3_TEST__.requests.filter((r:any)=>r.action==='start').length)).toBe(0);
   await expect(page.getByRole('button',{name:'返回项目管理',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'项目概览',exact:true})).toBeDisabled();
   await expect(page.getByRole('button',{name:/^Processed /})).toBeDisabled();
   await expect(page.getByRole('button',{name:'样本：R2',exact:true})).toBeDisabled();
   await expect(panel(page)).toContainText('file-100.dat');
