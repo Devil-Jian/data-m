@@ -16,6 +16,8 @@ interface Editor {action:'create'|'rename'|'delete';kind:ProjectTreeKind;target?
 export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,registerImportDrop}:{api?:ProjectTreeApi;onClose?:()=>void;onBusyChange?:(busy:boolean)=>void;registerImportDrop?:ImportDropRegistrar}){
   const [nodes,setNodes]=useState<ProjectTreeNode[]>([]);
   const [selectedId,setSelectedId]=useState<string|null>(null);
+  const [history,setHistory]=useState<string[]>([]);
+  const [historyIndex,setHistoryIndex]=useState(-1);
   const [loaded,setLoaded]=useState(false);
   const [pending,setPending]=useState(false);
   const [error,setError]=useState('');
@@ -36,6 +38,8 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
     setNodes(snapshot.nodes);
     setLoaded(true);
     setSelectedId(id=>snapshot.nodes.some(node=>node.id===id)?id:null);
+    setHistory(previous=>previous.filter(id=>snapshot.nodes.some(node=>node.id===id)));
+    // Deleted IDs are discarded; the selected node is independently checked above.
   }
   async function reload(){
     if(busy.current)return;
@@ -80,11 +84,47 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
     finally{busy.current=false;if(alive.current)setPending(false);}
   }
 
+  function navigate(id:string){
+    if(!nodes.some(node=>node.id===id))return;
+    setSelectedId(id);
+    setHistory(previous=>{
+      const current=previous.slice(0,historyIndex+1);
+      if(current.at(-1)===id)return current;
+      return [...current,id].slice(-100);
+    });
+    setHistoryIndex(index=>Math.min(index+1,99));
+  }
+  function travel(direction:-1|1){
+    const valid=history.filter(id=>nodes.some(node=>node.id===id));
+    const currentIndex=valid.indexOf(selectedId??'');
+    const nextIndex=currentIndex<0?-1:currentIndex+direction;
+    if(nextIndex<0||nextIndex>=valid.length)return;
+    setSelectedId(valid[nextIndex]);
+    setHistory(valid);
+    setHistoryIndex(nextIndex);
+  }
+  useEffect(()=>{
+    const onKey=(event:KeyboardEvent)=>{
+      if(!event.altKey||event.ctrlKey||event.metaKey||!['ArrowLeft','ArrowRight'].includes(event.key))return;
+      if((event.target as HTMLElement|null)?.closest('input,textarea,[contenteditable="true"],dialog'))return;
+      event.preventDefault();
+      travel(event.key==='ArrowLeft'?-1:1);
+    };
+    window.addEventListener('keydown',onKey);
+    return ()=>window.removeEventListener('keydown',onKey);
+  });
+  const breadcrumbs:ProjectTreeNode[]=[];
+  let breadcrumbNode=selected;
+  while(breadcrumbNode){
+    breadcrumbs.unshift(breadcrumbNode);
+    breadcrumbNode=nodes.find(node=>node.id===breadcrumbNode?.parentId);
+  }
+
   function branch(parentId:string|null):React.ReactNode{
     return nodes.filter(node=>node.parentId===parentId).map(node=><li key={node.id}>
       <button type="button" className="dm-project-node" aria-label={`${labels[node.kind]}：${node.name}`}
         aria-current={selectedId===node.id?'true':undefined} disabled={pending}
-        onClick={()=>setSelectedId(node.id)}>
+        onClick={()=>navigate(node.id)}>
         <span aria-hidden="true" className={`dm-project-kind ${node.kind}`}>{node.kind==='project'?'P':node.kind==='theme'?'T':'A'}</span>
         <span>{node.name}</span>
       </button>
@@ -105,6 +145,16 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
         {onClose&&<Button disabled={pending} onClick={onClose}>返回工作台</Button>}
       </div>
     </header>
+    <nav className="dm-project-breadcrumbs" aria-label="科研位置">
+      <button type="button" onClick={()=>travel(-1)} disabled={pending||!selectedId||historyIndex<=0} aria-label="后退">←</button>
+      <button type="button" onClick={()=>travel(1)} disabled={pending||historyIndex>=history.length-1} aria-label="前进">→</button>
+      <span>项目位置：</span>
+      {breadcrumbs.length?breadcrumbs.map((node,index)=><React.Fragment key={node.id}>
+        {index>0&&<span aria-hidden="true"> / </span>}
+        <button type="button" aria-current={selectedId===node.id?'page':undefined} disabled={pending}
+          onClick={()=>navigate(node.id)}>{node.name}</button>
+      </React.Fragment>):<span>尚未选择项目</span>}
+    </nav>
     <div className="dm-project-toolbar">
       <Button variant="primary" disabled={pending||!loaded} onClick={()=>open({action:'create',kind:'project',name:''})}>新建项目</Button>
       <Button disabled={pending||Boolean(editor)} onClick={()=>void reload()}>重新加载</Button>
