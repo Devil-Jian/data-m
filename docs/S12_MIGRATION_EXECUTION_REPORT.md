@@ -9,7 +9,7 @@ Draft PR: https://github.com/Devil-Jian/data-m/pull/59
 
 - S12-00 **partial**: Audited S11 PR #57, root, project-tree implementation, desktop package and Windows workflow; created `docs/S12_UI_ARCHITECTURE.md`. Full UI screenshots and event matrix pending.
 - S12-01 **partial**: Root no longer switches between demo and production. Official desktop directly mounts real `ProjectTreeManager`. Obsolete P2 import warning replaced. Added basic `@S12` renderer smoke. Breadcrumb history, integrated shell and resilient route persistence pending.
-- S12-02 **not done**: Explorer grid/list/table and native AssetLink interaction parity.
+- S12-02 **partial**: Added grid/list/table to existing real AssetBrowser, preserving page size, `AssetLinkId` selection and server-side listing. Full keyboard parity, scope/error tests and native UI evidence outstanding.
 - S12-03 **not done**: Integrated import/transfer/lifecycle task UI.
 - S12-04 **not done**: Common navigation shell across analyses, paper, provenance, safety.
 - S12-05 **partial**: Demo no longer mounted in official desktop root. Demo source and legacy regression fixtures retained. README/user handbook pending.
@@ -20,6 +20,7 @@ Draft PR: https://github.com/Devil-Jian/data-m/pull/59
 - `apps/desktop/src/main.tsx`: production root, remove demo switch and obsolete P2 copy.
 - `tests/desktop-ui/s12-unified-entry.spec.ts`: explicit @S12 renderer smoke (mock/no native GUI guarantees).
 - `.github/workflows/desktop-windows.yml`: @S12 test gate.
+- `apps/desktop/src/asset-browser.tsx` and `.css`: three display modes over existing bounded real-asset result.
 - `docs/S12_UI_ARCHITECTURE.md`: S12 data and navigation boundaries.
 - `docs/S12_MIGRATION_EXECUTION_REPORT.md`: this report.
 - `docs/S12_MACHINE_ACCEPTANCE_MATRIX.md`: evidence matrix.
