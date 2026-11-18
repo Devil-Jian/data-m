@@ -44,3 +44,15 @@
 .dm-lifecycle-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
 .dm-lifecycle-actions button{padding:8px 14px;border-radius:6px}
 @media(max-width:650px){.dm-recycle-list [role=option]{grid-template-columns:1fr 1fr}.dm-recycle-list [role=option]>small{grid-column:1/-1}}
+
+/* S12: all display modes operate on the same bounded, real SQLite page. */
+.dm-asset-view-switch{display:flex;gap:3px;padding:3px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc}
+.dm-asset-view-switch button{border:0;border-radius:5px;background:transparent}
+.dm-asset-view-switch button[aria-pressed=true]{background:#dbeafe;color:#1d4ed8;font-weight:600}
+.dm-asset-list[data-view=table] [role=option]{grid-template-columns:minmax(150px,2fr) minmax(75px,1fr) minmax(80px,1fr) 50px 55px;font-size:12px;border-bottom:1px solid #cbd5e1}
+.dm-asset-list[data-view=grid]{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:10px;align-content:start}
+.dm-asset-list[data-view=grid] [role=option]{display:flex;flex-direction:column;align-items:flex-start;gap:7px;min-width:0;padding:12px;border:1px solid #d5deea;border-radius:9px;background:#fff}
+.dm-asset-list[data-view=grid] [role=option].is-selected{background:#e9f0fe;border-color:#3775d6}
+.dm-asset-list[data-view=grid] [role=option]>button:first-child{width:100%;min-height:72px;border:0;background:#f1f5f9;border-radius:6px;padding:8px;text-align:left;word-break:break-word}
+.dm-asset-list[data-view=grid] [role=option]>button:last-child{align-self:flex-end}
+@media(max-width:540px){.dm-asset-list[data-view=table] [role=option]{grid-template-columns:minmax(120px,1fr) 56px 66px 35px 45px;font-size:11px;gap:3px}}
