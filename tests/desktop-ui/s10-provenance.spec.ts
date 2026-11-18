@@ -94,7 +94,6 @@ test('@S10 formal asset detail reverse reference is project scoped (renderer IPC
   };
  });
  await page.goto('/');
- await page.getByRole('button',{name:'项目管理',exact:true}).click();
  await page.getByRole('button',{name:'实验：实验'}).click();
  await page.getByRole('button',{name:'分组与样本',exact:true}).click();
  await page.getByRole('button',{name:'样本：R1'}).click();
