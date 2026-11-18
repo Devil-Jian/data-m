@@ -40,3 +40,18 @@ test('@S12 real node IDs drive breadcrumbs, history and deleted-target fallback 
   await expect(page.getByRole('button',{name:'实验：ROS'})).toHaveCount(0);
   await expect(location.getByRole('button',{name:'ROS'})).toHaveCount(0);
 });
+
+test('@S12 safety module keeps the real project sidebar and restores project overview (renderer mock)',async ({page})=>{
+  await page.addInitScript(()=>{
+    (window as any).__S1_PROJECT_TREE_MOCK__=async (request:any)=>{
+      if(request.action!=='list')throw {code:'INVALID_REQUEST'};
+      return {nodes:[{id:'p12',kind:'project',parentId:null,name:'真实测试项目'}]};
+    };
+  });
+  await page.goto('/');
+  await page.getByRole('button',{name:'数据完整性与备份恢复 (S7)'}).click();
+  await expect(page.getByRole('complementary',{name:'科研项目导航'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'项目：真实测试项目'})).toBeVisible();
+  await page.getByRole('button',{name:'项目概览'}).click();
+  await expect(page.getByRole('main',{name:'项目管理工作区'})).toBeVisible();
+});
