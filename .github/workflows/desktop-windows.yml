@@ -114,6 +114,8 @@ jobs:
         run: npm run test:e2e:desktop -- --grep "@S10"
       - name: S11 renderer paging and nested-context-menu E2E (mock)
         run: npm run test:e2e:desktop -- --grep "@S11"
+      - name: S12 unified production entry E2E (renderer only)
+        run: npm run test:e2e:desktop -- --grep "@S12"
       - name: I1 integrated workspace UI E2E
         run: npm run test:e2e:desktop -- --grep "@I1"
       - name: S9 native SQLite paper and pinned-version regression
