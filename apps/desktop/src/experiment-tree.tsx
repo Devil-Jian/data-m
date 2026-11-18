@@ -149,7 +149,7 @@ export function ExperimentTreeManager({assayId,assayName,api=experimentApi,onClo
             <Badge tone={stage.scope==='replicate'?'blue':'green'}>{stage.scope==='replicate'?'样本级':'实验级'}</Badge>
             <h2>{stage.label} · {stageNames[stage.id]}</h2>
             {targetAvailable?<><p>当前目标：{stage.scope==='replicate'?`${selectedGroup?.name} / ${selectedReplicate?.label}`:assayName}</p>
-              <AssetBrowser query={{assayId,stage:stageId,...(stage.scope==='replicate'?{groupId:selectedGroup!.id,replicateId:selectedReplicate!.id}:{})}}/></>:<div className="dm-experiment-stage-empty"><strong>请先选择一个样本</strong><p>Raw 和 Processed 属于单个生物学重复。</p></div>}
+              <AssetBrowser key={[assayId,stageId,stage.scope==='replicate'?selectedReplicate!.id:'assay'].join(':')} query={{assayId,stage:stageId,...(stage.scope==='replicate'?{groupId:selectedGroup!.id,replicateId:selectedReplicate!.id}:{})}}/></>:<div className="dm-experiment-stage-empty"><strong>请先选择一个样本</strong><p>Raw 和 Processed 属于单个生物学重复。</p></div>}
           </section>}
           {importsOpen&&<ImportJobsPanel assayId={assayId} target={importTarget} targetLabel={importTargetLabel}
             onClose={()=>setImportsOpen(false)} onLockChange={setImportLocked} registerImportDrop={registerImportDrop}
