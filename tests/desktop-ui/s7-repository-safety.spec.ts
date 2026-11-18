@@ -45,7 +45,6 @@ async function setup(page:import('@playwright/test').Page) {
   };
  });
  await page.goto('/');
- await page.getByRole('button',{name:'项目管理',exact:true}).click();
  await page.getByRole('button',{name:'数据完整性与备份恢复 (S7)'}).click();
  const root=page.getByRole('main',{name:'S7 完整性与备份恢复工作台'});
  await expect(root).toBeVisible();
