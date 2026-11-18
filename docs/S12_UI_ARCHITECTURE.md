@@ -37,7 +37,10 @@ Status: **in_progress**. Base: S11 `e7b12d7022ed40d33bccc42f9a628b305e91ccf9`. N
 ## Status
 
 S12-00 audit and baseline contract: **partial**; formal screenshot and complete module contract matrix outstanding.
-S12-01 root-only entry migration: **partial**; shared shell/navigation history and refresh persistence outstanding.
-S12-02 through S12-06: **not completed**.
+S12-01 **partial**: real-ID project breadcrumbs/history added, deleted node guarded; persistence and integrated deep links pending.
+S12-02 **partial**: bounded real-asset grid/list/table and remount on scope change.
+S12-04 **partial**: project tree remains visible during Experiment/Statistics/Paper/Safety panels.
+S12-05 **partial**: README rewritten; demo remains isolated.
+S12-06 **in progress**: legacy S0/S1/S2/S3 entry assertions migrated; recent failed Windows CI is documented. Other S12-03/06 P0 gates not completed.
 
 This is not a claim of full S12 acceptance.
