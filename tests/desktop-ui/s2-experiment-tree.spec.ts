@@ -199,6 +199,7 @@ test('@S2 mutation failure preserves sample labels and count; pending disables n
   await page.getByRole('button',{name:'保存',exact:true}).click();
   await expect(page.getByRole('button',{name:'保存',exact:true})).toBeDisabled();
   await expect(page.getByRole('button',{name:'返回项目管理',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'项目概览',exact:true})).toBeDisabled();
   await expect(page.getByRole('button',{name:'演示工作区',exact:true})).toHaveCount(0);
   await expect(page.getByRole('textbox',{name:'名称',exact:true})).toBeDisabled();
   await expect(page.getByRole('alert')).toContainText('暂时无法');
