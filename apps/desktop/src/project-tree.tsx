@@ -15,7 +15,9 @@ interface Editor {action:'create'|'rename'|'delete';kind:ProjectTreeKind;target?
 
 export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,registerImportDrop}:{api?:ProjectTreeApi;onClose?:()=>void;onBusyChange?:(busy:boolean)=>void;registerImportDrop?:ImportDropRegistrar}){
   const [nodes,setNodes]=useState<ProjectTreeNode[]>([]);
-  const [selectedId,setSelectedId]=useState<string|null>(null);
+  const [selectedId,setSelectedId]=useState<string|null>(()=>{
+    try{return window.localStorage.getItem('data-m.s12.active-node');}catch{return null;}
+  });
   const [navigation,setNavigation]=useState<{entries:string[];index:number}>({entries:[],index:-1});
   const [loaded,setLoaded]=useState(false);
   const [pending,setPending]=useState(false);
@@ -56,6 +58,14 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
     void reload();
     return ()=>{alive.current=false;};
   },[api]);
+  useEffect(()=>{
+    if(!loaded)return;
+    // Preference only: project_tree must validate the ID on each fresh load.
+    try{
+      if(selectedId)window.localStorage.setItem('data-m.s12.active-node',selectedId);
+      else window.localStorage.removeItem('data-m.s12.active-node');
+    }catch{/* Browser storage unavailable; remain usable with live repository IDs. */}
+  },[loaded,selectedId]);
   useEffect(()=>{
     if(editor&&!dialog.current?.open)dialog.current?.showModal();
     if(!editor&&dialog.current?.open)dialog.current.close();
