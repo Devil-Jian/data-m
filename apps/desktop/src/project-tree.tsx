@@ -16,8 +16,7 @@ interface Editor {action:'create'|'rename'|'delete';kind:ProjectTreeKind;target?
 export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,registerImportDrop}:{api?:ProjectTreeApi;onClose?:()=>void;onBusyChange?:(busy:boolean)=>void;registerImportDrop?:ImportDropRegistrar}){
   const [nodes,setNodes]=useState<ProjectTreeNode[]>([]);
   const [selectedId,setSelectedId]=useState<string|null>(null);
-  const [history,setHistory]=useState<string[]>([]);
-  const [historyIndex,setHistoryIndex]=useState(-1);
+  const [navigation,setNavigation]=useState<{entries:string[];index:number}>({entries:[],index:-1});
   const [loaded,setLoaded]=useState(false);
   const [pending,setPending]=useState(false);
   const [error,setError]=useState('');
@@ -38,8 +37,11 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
     setNodes(snapshot.nodes);
     setLoaded(true);
     setSelectedId(id=>snapshot.nodes.some(node=>node.id===id)?id:null);
-    setHistory(previous=>previous.filter(id=>snapshot.nodes.some(node=>node.id===id)));
-    // Deleted IDs are discarded; the selected node is independently checked above.
+    setNavigation(previous=>{
+      const selected=previous.entries[previous.index];
+      const entries=previous.entries.filter(id=>snapshot.nodes.some(node=>node.id===id));
+      return {entries,index:entries.indexOf(selected)};
+    });
   }
   async function reload(){
     if(busy.current)return;
@@ -87,21 +89,20 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
   function navigate(id:string){
     if(!nodes.some(node=>node.id===id))return;
     setSelectedId(id);
-    setHistory(previous=>{
-      const current=previous.slice(0,historyIndex+1);
-      if(current.at(-1)===id)return current;
-      return [...current,id].slice(-100);
+    setNavigation(previous=>{
+      const entries=previous.entries.slice(0,previous.index+1);
+      if(entries.at(-1)===id)return previous;
+      const capped=[...entries,id].slice(-100);
+      return {entries:capped,index:capped.length-1};
     });
-    setHistoryIndex(index=>Math.min(index+1,99));
   }
   function travel(direction:-1|1){
-    const valid=history.filter(id=>nodes.some(node=>node.id===id));
-    const currentIndex=valid.indexOf(selectedId??'');
-    const nextIndex=currentIndex<0?-1:currentIndex+direction;
-    if(nextIndex<0||nextIndex>=valid.length)return;
-    setSelectedId(valid[nextIndex]);
-    setHistory(valid);
-    setHistoryIndex(nextIndex);
+    const index=navigation.index+direction;
+    if(index<0||index>=navigation.entries.length)return;
+    const id=navigation.entries[index];
+    if(!nodes.some(node=>node.id===id))return;
+    setSelectedId(id);
+    setNavigation(previous=>({...previous,index}));
   }
   useEffect(()=>{
     const onKey=(event:KeyboardEvent)=>{
@@ -146,8 +147,8 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
       </div>
     </header>
     <nav className="dm-project-breadcrumbs" aria-label="科研位置">
-      <button type="button" onClick={()=>travel(-1)} disabled={pending||!selectedId||historyIndex<=0} aria-label="后退">←</button>
-      <button type="button" onClick={()=>travel(1)} disabled={pending||historyIndex>=history.length-1} aria-label="前进">→</button>
+      <button type="button" onClick={()=>travel(-1)} disabled={pending||!selectedId||navigation.index<=0} aria-label="后退">←</button>
+      <button type="button" onClick={()=>travel(1)} disabled={pending||navigation.index>=navigation.entries.length-1} aria-label="前进">→</button>
       <span>项目位置：</span>
       {breadcrumbs.length?breadcrumbs.map((node,index)=><React.Fragment key={node.id}>
         {index>0&&<span aria-hidden="true"> / </span>}
