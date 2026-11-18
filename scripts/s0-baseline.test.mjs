@@ -46,11 +46,13 @@ test('S0 shell retains authorized metadata/import IPC without storage work at st
   assert.doesNotMatch(run,/Connection::|domain_db::|cas::|\.setup\(/);
 });
 
-test('S0 both renderer entries consume the canonical UI and styles',()=>{
-  for(const entry of ['apps/desktop/src/main.tsx','demos/shadcn/src/main.tsx']){
-    const source=read(entry);
-    assert.match(source,/@data-m\/ui\/workbench-ui/);
-  }
+test('S0 desktop uses the shared UI through the real project manager; demo retains canonical UI',()=>{
+  const desktop=read('apps/desktop/src/main.tsx');
+  const manager=read('apps/desktop/src/project-tree.tsx');
+  assert.match(desktop,/ProjectTreeManager/);
+  assert.doesNotMatch(desktop,/<Workbench\b|INITIAL_PROJECTS|演示工作区/);
+  assert.match(manager,/@data-m\/ui\/workbench-ui/);
+  assert.match(read('demos/shadcn/src/main.tsx'),/@data-m\/ui\/workbench-ui/);
   assert.match(read('apps/desktop/src/main.tsx'),/@data-m\/ui\/style.css/);
   assert.match(read('demos/shadcn/src/style.css'),/@data-m\/ui\/style.css/);
   for(const name of ['button','checkbox','input','select','badge']){
