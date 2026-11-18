@@ -10,10 +10,10 @@ Draft PR: https://github.com/Devil-Jian/data-m/pull/59
 - S12-00 **partial**: Audited S11 PR #57, root, project-tree implementation, desktop package and Windows workflow; created `docs/S12_UI_ARCHITECTURE.md`. Full UI screenshots and event matrix pending.
 - S12-01 **partial**: Sole real desktop entry, accurate import warning, real-ID project breadcrumbs, bounded back/forward history and deleted-ID filtering. Cross-module deep-link persistence remains pending. Added explicit @S12 renderer mocks for navigation.
 - S12-02 **partial**: Added grid/list/table to existing real AssetBrowser, preserving page size, `AssetLinkId` selection and server-side listing. Full keyboard parity, scope/error tests and native UI evidence outstanding.
-- S12-03 **not done**: Integrated import/transfer/lifecycle task UI.
+- S12-03 **partial**: Existing real import/transfer/lifecycle APIs remain wired. Shared module sidebar now rejects navigation during experiment mutations and import lock; S2/S3 tests assert the lock. Unified long-task drawer and full safety E2E remain pending.
 - S12-04 **partial**: Kept real project navigation sidebar visible when entering Experiment, Statistics, Paper and RepositorySafety modules, without changing their IPC. Full shared details layout and deep linking remain pending.
 - S12-05 **partial**: Demo no longer mounted in official desktop root. Demo source and legacy regression fixtures retained. Updated README with real workspace, four stages and Windows NSIS candidate process; final user-manual screenshots pending.
-- S12-06 **in progress**: Actual S12 commit `166e1bde727a763d69d41bde6298327310f70978` ran Windows CI `44308671524` (failed at legacy S0 canonical-workbench-import assertion); UI CI `44308671488` succeeded. S0 regression assertion updated for the S12 real-manager boundary; old S1/S2/S3 mode-toggle tests adapted without deleting functional assertions. Latest SHA CI still pending.
+- S12-06 **in progress**: Actual S12 commit `166e1bde727a763d69d41bde6298327310f70978` ran Windows CI `44308671524` (failed at legacy S0 canonical-workbench-import assertion); UI CI `44308671488` succeeded. S0 regression assertion updated for the S12 real-manager boundary. A subsequent Windows run `44311352353` passed S0 source checks and early Rust smoke but failed old `@S0` browser tests asserting the removed demo ROS project. The original demo Explorer keyboard/menu test has been preserved in `tests/e2e/demo-legacy-workbench.spec.ts`, while `desktop-preview.spec.ts` checks the live desktop entry. S1–S8, S10, S11 and I1 tests that relied on removed mode buttons were migrated; S11 nested Demo menu coverage moved into `tests/e2e/s11-demo-context.spec.ts`. Latest code SHA still requires full green CI.
 
 ## File modifications
 
@@ -23,7 +23,8 @@ Draft PR: https://github.com/Devil-Jian/data-m/pull/59
 - `apps/desktop/src/asset-browser.tsx` and `.css`: three display modes over existing bounded real-asset result.
 - `apps/desktop/src/project-tree.tsx` and `.css`: ID breadcrumbs, keyboard history and persistent project navigation during modules.
 - `apps/desktop/src/experiment-tree.tsx`: key real-asset view by exact assay/stage/replicate scope.
-- `scripts/s0-baseline.test.mjs` and S1/S2/S3 renderer tests: align entry assumptions with true unified desktop (retain API regression assertions).
+- `scripts/s0-baseline.test.mjs`, `tests/desktop-ui/desktop-preview.spec.ts` and S1–S8, S10, S11, I1 renderer tests: align entry assumptions with true unified desktop (retain functional and data API assertions).
+- `tests/e2e/demo-legacy-workbench.spec.ts`, `tests/e2e/s11-demo-context.spec.ts`: preserve original demo-only right-click, F2, copy and nested-menu tests against the isolated shadcn demo instead of injecting fake demo data into the production root.
 - `README.md`: correct obsolete S1-only, no-NSIS and demo-first guidance.
 - `docs/S12_UI_ARCHITECTURE.md`: S12 data and navigation boundaries.
 - `docs/S12_MIGRATION_EXECUTION_REPORT.md`: this report.
@@ -32,7 +33,7 @@ Draft PR: https://github.com/Devil-Jian/data-m/pull/59
 ## Machine evidence
 
 Head of first @S12 test/workflow commit: `87ad1965ddd32085f07546578e35b267363e542c`.
-Verified after prior observation: UI run https://github.com/Devil-Jian/data-m/actions/runs/44308671488 succeeded. Windows run https://github.com/Devil-Jian/data-m/actions/runs/44308671524 failed at S0 source contract before the full suite; root cause was old expectation that the desktop itself imports `workbench-ui` rather than indirectly via the real `ProjectTreeManager`. That test is updated, and a new run on the latest head is still required. No successful S12 Windows build, installer, portable EXE, release SHA manifest, full regressions or native GUI pass is claimed. The full S0–S11 regressions may need updates because existing tests expected the old demo as default; do not disable tests to hide failures.
+Verified after prior observation: UI run https://github.com/Devil-Jian/data-m/actions/runs/44308671488 succeeded. Windows run https://github.com/Devil-Jian/data-m/actions/runs/44308671524 failed at S0 source contract before the full suite; root cause was old expectation that the desktop itself imports `workbench-ui` rather than indirectly via the real `ProjectTreeManager`. That source contract test was updated. The next Windows run `44311352353` passed S0 source checks but failed `@S0` renderer assumptions still expecting demo assets; these have now been migrated to real desktop checks and isolated demo tests. A new run on the latest head is still required. No successful S12 Windows build, installer, portable EXE, release SHA manifest, full regressions or native GUI pass is claimed. The full S0–S11 regressions may need updates because existing tests expected the old demo as default; do not disable tests to hide failures.
 
 ## Safety / acceptance
 
