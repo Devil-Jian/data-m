@@ -87,7 +87,6 @@ async function setup(page:Page){
     };
   });
   await page.goto('/');
-  await page.getByRole('button',{name:'项目管理',exact:true}).click();
   await page.getByRole('button',{name:'实验：S5实验'}).click();
   await page.getByRole('button',{name:'分组与样本',exact:true}).click();
 }
