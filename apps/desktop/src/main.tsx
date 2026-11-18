@@ -4,7 +4,6 @@ import {getCurrentWebview} from '@tauri-apps/api/webview';
 import {invoke,isTauri} from '@tauri-apps/api/core';
 import {dropReducer,formatDropSize,initialDropState} from './drop-preview';
 import type {DropPreview} from './drop-preview';
-import {shadcnUI} from '@data-m/ui/workbench-ui';
 import '@data-m/core/style.css';
 import '@data-m/ui/style.css';
 import './desktop.css';
