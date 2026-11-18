@@ -19,6 +19,7 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
   const [navigation,setNavigation]=useState<{entries:string[];index:number}>({entries:[],index:-1});
   const [loaded,setLoaded]=useState(false);
   const [pending,setPending]=useState(false);
+  const [moduleBusy,setModuleBusy]=useState(false);
   const [error,setError]=useState('');
   const [editor,setEditor]=useState<Editor|null>(null);
   const [experiment,setExperiment]=useState<{id:string;name:string}|null>(null);
@@ -59,7 +60,7 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
     if(editor&&!dialog.current?.open)dialog.current?.showModal();
     if(!editor&&dialog.current?.open)dialog.current.close();
   },[editor]);
-  useEffect(()=>{onBusyChange?.(pending);return ()=>onBusyChange?.(false);},[pending,onBusyChange]);
+  useEffect(()=>{onBusyChange?.(pending||moduleBusy);return ()=>onBusyChange?.(false);},[pending,moduleBusy,onBusyChange]);
 
   function open(value:Editor){setError('');setEditor(value);}
   function closeEditor(){if(!busy.current){setEditor(null);setError('');}}
@@ -87,7 +88,7 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
   }
 
   function navigate(id:string){
-    if(!nodes.some(node=>node.id===id))return;
+    if(pending||moduleBusy||!nodes.some(node=>node.id===id))return;
     setSelectedId(id);
     setExperiment(null);setStatistics(null);setSafetyOpen(false);setPaperOpen(false);
     setNavigation(previous=>{
@@ -99,7 +100,7 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
   }
   function travel(direction:-1|1){
     const index=navigation.index+direction;
-    if(index<0||index>=navigation.entries.length)return;
+    if(pending||moduleBusy||index<0||index>=navigation.entries.length)return;
     const id=navigation.entries[index];
     if(!nodes.some(node=>node.id===id))return;
     setSelectedId(id);
@@ -125,7 +126,7 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
   function branch(parentId:string|null):React.ReactNode{
     return nodes.filter(node=>node.parentId===parentId).map(node=><li key={node.id}>
       <button type="button" className="dm-project-node" aria-label={`${labels[node.kind]}：${node.name}`}
-        aria-current={selectedId===node.id?'true':undefined} disabled={pending}
+        aria-current={selectedId===node.id?'true':undefined} disabled={pending||moduleBusy}
         onClick={()=>navigate(node.id)}>
         <span aria-hidden="true" className={`dm-project-kind ${node.kind}`}>{node.kind==='project'?'P':node.kind==='theme'?'T':'A'}</span>
         <span>{node.name}</span>
@@ -138,11 +139,11 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
     statistics?<StatisticalAnalysisPanel key={statistics.id} assayId={statistics.id} assayName={statistics.name} onClose={()=>setStatistics(null)}/>:
     safetyOpen?<RepositorySafetyPanel onClose={()=>setSafetyOpen(false)}/>:
     experiment?<ExperimentTreeManager key={experiment.id} assayId={experiment.id} assayName={experiment.name}
-      onClose={()=>setExperiment(null)} onBusyChange={onBusyChange} registerImportDrop={registerImportDrop}/>:null;
+      onClose={()=>setExperiment(null)} onBusyChange={setModuleBusy} registerImportDrop={registerImportDrop}/>:null;
   if(modulePanel)return <div className="dm-unified-module-shell" aria-label="统一科研工作区">
     <aside className="dm-unified-module-sidebar" aria-label="科研项目导航">
       <h2>Data-M · 科研项目</h2>
-      <button type="button" onClick={()=>{setExperiment(null);setStatistics(null);setSafetyOpen(false);setPaperOpen(false);}}>项目概览</button>
+      <button type="button" disabled={pending||moduleBusy} onClick={()=>{setExperiment(null);setStatistics(null);setSafetyOpen(false);setPaperOpen(false);}}>项目概览</button>
       <nav aria-label="项目主题实验"><ul className="dm-project-tree">{branch(null)}</ul></nav>
     </aside>
     <div className="dm-unified-module-content">{modulePanel}</div>
