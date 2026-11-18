@@ -89,6 +89,7 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
   function navigate(id:string){
     if(!nodes.some(node=>node.id===id))return;
     setSelectedId(id);
+    setExperiment(null);setStatistics(null);setSafetyOpen(false);setPaperOpen(false);
     setNavigation(previous=>{
       const entries=previous.entries.slice(0,previous.index+1);
       if(entries.at(-1)===id)return previous;
@@ -133,11 +134,19 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
     </li>);
   }
 
-  if(paperOpen)return <PaperWorkspace onClose={()=>setPaperOpen(false)}/>;
-  if(statistics)return <StatisticalAnalysisPanel key={statistics.id} assayId={statistics.id} assayName={statistics.name} onClose={()=>setStatistics(null)}/>;
-  if(safetyOpen)return <RepositorySafetyPanel onClose={()=>setSafetyOpen(false)}/>;
-  if(experiment)return <ExperimentTreeManager key={experiment.id} assayId={experiment.id} assayName={experiment.name}
-    onClose={()=>setExperiment(null)} onBusyChange={onBusyChange} registerImportDrop={registerImportDrop}/>;
+  const modulePanel:React.ReactNode=paperOpen?<PaperWorkspace onClose={()=>setPaperOpen(false)}/>:
+    statistics?<StatisticalAnalysisPanel key={statistics.id} assayId={statistics.id} assayName={statistics.name} onClose={()=>setStatistics(null)}/>:
+    safetyOpen?<RepositorySafetyPanel onClose={()=>setSafetyOpen(false)}/>:
+    experiment?<ExperimentTreeManager key={experiment.id} assayId={experiment.id} assayName={experiment.name}
+      onClose={()=>setExperiment(null)} onBusyChange={onBusyChange} registerImportDrop={registerImportDrop}/>:null;
+  if(modulePanel)return <div className="dm-unified-module-shell" aria-label="统一科研工作区">
+    <aside className="dm-unified-module-sidebar" aria-label="科研项目导航">
+      <h2>Data-M · 科研项目</h2>
+      <button type="button" onClick={()=>{setExperiment(null);setStatistics(null);setSafetyOpen(false);setPaperOpen(false);}}>项目概览</button>
+      <nav aria-label="项目主题实验"><ul className="dm-project-tree">{branch(null)}</ul></nav>
+    </aside>
+    <div className="dm-unified-module-content">{modulePanel}</div>
+  </div>;
 
   return <main className="dm-project-manager" aria-label="项目管理工作区" aria-busy={pending}>
     <header className="dm-project-header">
