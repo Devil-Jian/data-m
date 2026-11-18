@@ -18,7 +18,7 @@ Status: **in_progress**. Base: S11 `e7b12d7022ed40d33bccc42f9a628b305e91ccf9`. N
 | External Windows drop | `inspect_drop_paths` preview | Removed obsolete “P2 unavailable” copy | Explicit safe import target UX |
 | Project/Theme/Assay | `ProjectTreeManager` | Reuse existing real IPC | Shared breadcrumb + back/forward |
 | Group/Replicate | `ExperimentTreeManager` | Retain existing real IPC | Unified sidebar |
-| Files | `AssetBrowser` | Retain existing real IPC | Explorer grid/list/table and keyboard parity |
+| Files | `AssetBrowser` | Added grid/list/table presentation over existing bounded real `AssetRow` page | Further keyboard parity and view-mode E2E |
 | Statistics/Paper/Safety | Existing panels | Retain real APIs | Common navigation/side panel |
 | Demo test fixtures | `packages/core` | No longer rendered at production root | Isolated test/demo entry |
 
