@@ -4,21 +4,21 @@ Status recorded from actual implementation/evidence, not planned tests. `rendere
 
 | ID | State | Evidence / outstanding |
 | --- | --- | --- |
-| S12-UI-01 | renderer_test_added | Production root no longer mounts Demo; newly added @S12 smoke not yet executed |
-| S12-UI-02 | pending | Real-ID navigation and history across contexts |
+| S12-UI-01 | renderer_test_added | Production root no longer mounts Demo; @S12 smoke added; no successful S12 Windows gate yet |
+| S12-UI-02 | implemented_unverified | Project breadcrumb, Alt-arrow history, deleted-ID filtering and explicit renderer test; CI confirmation pending |
 | S12-UI-03 | pending | Group/Replicate n and copy invariants in unified workflow |
-| S12-UI-04 | pending | Sample vs Assay stage target regression |
+| S12-UI-04 | partial_unverified | Existing distinct sample/Assay scope preserved; browser key now isolates query lifecycle on context change |
 | S12-UI-05 | implemented_unverified | Grid/list/table selector added on existing real `list_assets` paging; no CI pass evidence |
 | S12-UI-06 | pending | Ctrl/Shift/context menu/F2/Delete/Ctrl+C/X/V in real Explorer |
 | S12-UI-07 | pending | Native file drag vs AssetLink drag safety |
 | S12-UI-08 | pending | Prepare/start/cancel/retry real import |
 | S12-UI-09 | pending | Lifecycle conflict and reference protection |
 | S12-UI-10 | pending | Independent inclusion n; freeze/revise |
-| S12-UI-11 | pending | Exact pinned Paper/Panel/Provenance refs |
+| S12-UI-11 | partial_unverified | Existing real Paper/Provenance APIs retained and shared project sidebar added; end-to-end pinned-reference regression pending |
 | S12-UI-12 | pending | Figure SHA manifest/confirm/cancel |
 | S12-UI-13 | pending | Read-only audit, snapshot, isolated restore |
 | S12-UI-14 | pending | GUI at 10,024 real assets; SQLite-only S11 benchmark not GUI evidence |
 | S12-UI-15 | pending | Persistent state after Windows EXE restart |
-| S12-UI-16 | pending | Full S0–S11 regression and same-SHA NSIS/portable artifact |
+| S12-UI-16 | blocked | Windows CI 44308671524 failed old S0 import assumption, corrected but no passing newer S12 SHA, no same-SHA NSIS/portable evidence |
 
 No native Windows 11 manual tests have been executed as part of S12. Current status: `in_progress / manual_pending`.
