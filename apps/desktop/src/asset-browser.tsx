@@ -10,6 +10,7 @@ import './asset-browser.css';
 
 export function AssetBrowser({query,api=assetApi,transfers=transferApi}:{query:AssetQuery;api?:AssetApi;transfers?:TransferApi}){
   const [search,setSearch]=useState(''),[sort,setSort]=useState<AssetQuery['sort']>('name');
+  const [view,setView]=useState<'list'|'grid'|'table'>('list');
   const [pages,setPages]=useState<string[]>([]),[page,setPage]=useState<AssetRow[]>([]);
   const [next,setNext]=useState<string|null>(null),[total,setTotal]=useState(0);
   const [chosen,setChosen]=useState<Set<string>>(new Set()),[anchor,setAnchor]=useState<string|null>(null);
@@ -128,6 +129,10 @@ export function AssetBrowser({query,api=assetApi,transfers=transferApi}:{query:A
       <select aria-label="文件排序" value={sort} onChange={event=>setSort(event.target.value as AssetQuery['sort'])}>
         <option value="name">名称</option><option value="newest">最新版本时间</option><option value="size">文件大小</option>
       </select>
+      <div className="dm-asset-view-switch" role="group" aria-label="文件显示方式">
+        {(['list','grid','table'] as const).map(mode=><button type="button" key={mode}
+          aria-pressed={view===mode} onClick={()=>setView(mode)}>{mode==='list'?'列表':mode==='grid'?'网格':'表格'}</button>)}
+      </div>
       <button type="button" disabled={busy||page.length===0} onClick={()=>setChosen(new Set(page.map(item=>item.assetLinkId)))}>选择本页</button>
       <button type="button" onClick={()=>setChosen(new Set())}>取消选择</button>
       <button type="button" disabled={!chosen.size||busy} onClick={()=>capture('copy')}>复制 (Ctrl+C)</button>
@@ -138,7 +143,7 @@ export function AssetBrowser({query,api=assetApi,transfers=transferApi}:{query:A
     <p className="dm-asset-hint">目标：{target?target.stage+' / '+(target.replicateId??'实验级'):'未选择合法阶段'} · 剪贴板 {clipboardCount} 条 · Ctrl+拖拽复制，Shift+拖拽移动。</p>
     {feedback&&<p className="dm-asset-feedback" aria-live="polite">{feedback}</p>}
     {error&&<p role="alert">{error}</p>}
-    <div ref={listRef} className="dm-asset-list" role="listbox" aria-label="资产文件列表" aria-multiselectable="true"
+    <div ref={listRef} className="dm-asset-list" data-view={view} role="listbox" aria-label="资产文件列表" aria-multiselectable="true"
       onKeyDown={event=>{
         if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='a'){event.preventDefault();setChosen(new Set(page.map(x=>x.assetLinkId)));return;}
         if(!['ArrowDown','ArrowUp'].includes(event.key))return;
