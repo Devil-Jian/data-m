@@ -8,7 +8,7 @@ Status recorded from actual implementation/evidence, not planned tests. `rendere
 | S12-UI-02 | pending | Real-ID navigation and history across contexts |
 | S12-UI-03 | pending | Group/Replicate n and copy invariants in unified workflow |
 | S12-UI-04 | pending | Sample vs Assay stage target regression |
-| S12-UI-05 | pending | SQLite list/search/sort/pagination plus view modes |
+| S12-UI-05 | implemented_unverified | Grid/list/table selector added on existing real `list_assets` paging; no CI pass evidence |
 | S12-UI-06 | pending | Ctrl/Shift/context menu/F2/Delete/Ctrl+C/X/V in real Explorer |
 | S12-UI-07 | pending | Native file drag vs AssetLink drag safety |
 | S12-UI-08 | pending | Prepare/start/cancel/retry real import |
