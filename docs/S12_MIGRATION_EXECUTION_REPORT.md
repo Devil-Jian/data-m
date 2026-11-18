@@ -8,7 +8,7 @@ Draft PR: https://github.com/Devil-Jian/data-m/pull/59
 ## Verified changes
 
 - S12-00 **partial**: Audited S11 PR #57, root, project-tree implementation, desktop package and Windows workflow; created `docs/S12_UI_ARCHITECTURE.md`. Full UI screenshots and event matrix pending.
-- S12-01 **partial**: Sole real desktop entry, accurate import warning, real-ID project breadcrumbs, bounded back/forward history and deleted-ID filtering. Cross-module deep-link persistence remains pending. Added explicit @S12 renderer mocks for navigation.
+- S12-01 **partial**: Sole real desktop entry, accurate import warning, real-ID project breadcrumbs, bounded back/forward history and deleted-ID filtering. Last-valid-node preference now restores on reload only if live project tree confirms the ID; cross-module deep links remain pending. Added explicit @S12 renderer mocks for navigation.
 - S12-02 **partial**: Added grid/list/table to existing real AssetBrowser, preserving page size, `AssetLinkId` selection and server-side listing. Full keyboard parity, scope/error tests and native UI evidence outstanding.
 - S12-03 **partial**: Existing real import/transfer/lifecycle APIs remain wired. Shared module sidebar now rejects navigation during experiment mutations and import lock; S2/S3 tests assert the lock. Unified long-task drawer and full safety E2E remain pending.
 - S12-04 **partial**: Kept real project navigation sidebar visible when entering Experiment, Statistics, Paper and RepositorySafety modules, without changing their IPC. Full shared details layout and deep linking remain pending.
@@ -33,7 +33,7 @@ Draft PR: https://github.com/Devil-Jian/data-m/pull/59
 ## Machine evidence
 
 Head of first @S12 test/workflow commit: `87ad1965ddd32085f07546578e35b267363e542c`.
-Verified after prior observation: UI run https://github.com/Devil-Jian/data-m/actions/runs/44308671488 succeeded. Windows run https://github.com/Devil-Jian/data-m/actions/runs/44308671524 failed at S0 source contract before the full suite; root cause was old expectation that the desktop itself imports `workbench-ui` rather than indirectly via the real `ProjectTreeManager`. That source contract test was updated. The next Windows run `44311352353` passed S0 source checks but failed `@S0` renderer assumptions still expecting demo assets; these have now been migrated to real desktop checks and isolated demo tests. A new run on the latest head is still required. No successful S12 Windows build, installer, portable EXE, release SHA manifest, full regressions or native GUI pass is claimed. The full S0–S11 regressions may need updates because existing tests expected the old demo as default; do not disable tests to hide failures.
+Verified after prior observation: UI run https://github.com/Devil-Jian/data-m/actions/runs/44308671488 succeeded. Windows run https://github.com/Devil-Jian/data-m/actions/runs/44308671524 failed at S0 source contract before the full suite; root cause was old expectation that the desktop itself imports `workbench-ui` rather than indirectly via the real `ProjectTreeManager`. That source contract test was updated. The next Windows run `44311352353` passed S0 source checks but failed `@S0` renderer assumptions still expecting demo assets; these have now been migrated to real desktop checks and isolated demo tests. Windows run `44313726030` subsequently passed S0 and 47/48 desktop tests, failing one unconverted S1 unavailable-mode button action; it has now been corrected. Latest-head rerun remains required. No successful S12 Windows build, installer, portable EXE, release SHA manifest, full regressions or native GUI pass is claimed. The full S0–S11 regressions may need updates because existing tests expected the old demo as default; do not disable tests to hide failures.
 
 ## Safety / acceptance
 
@@ -41,3 +41,9 @@ No SQLite migration or CAS modification. No sample data import. No main merge.
 Machine status: `in_progress` (not `machine_passed`).
 Human status: `manual_pending`.
 Windows 11 manual checklist remains the source S12 task document §7.2.
+
+## Follow-up machine triage (2026-11-18)
+
+- [Windows #44313726030](https://github.com/Devil-Jian/data-m/actions/runs/44313726030) failed after 47 desktop UI tests passed, 1 failed; the final failing S1 test had an obsolete `项目管理` mode click. No actual SQLite/CAS regression was demonstrated by that failure, but the run is **not passed**. Removed the stale click, keeping unavailable-backend assertions.
+- The latest code also adds ID-validated last project selection from optional local preference. Project tree always re-queries real backend; a stale persisted ID is discarded rather than creating a phantom project. New @S12 E2E covers reload and stale ID.
+- Following this commit a new Windows and UI run must finish before any `machine_passed` declaration. The Windows installer / executable SHA and native GUI manual checklist remain pending.
