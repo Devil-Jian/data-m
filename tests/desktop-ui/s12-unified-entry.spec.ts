@@ -55,3 +55,22 @@ test('@S12 safety module keeps the real project sidebar and restores project ove
   await page.getByRole('button',{name:'项目概览'}).click();
   await expect(page.getByRole('main',{name:'项目管理工作区'})).toBeVisible();
 });
+
+test('@S12 saved project route restores only after backend confirms the real ID (renderer mock)',async ({page})=>{
+  await page.addInitScript(()=>{
+    (window as any).__S1_PROJECT_TREE_MOCK__=async ()=>({nodes:[
+      {id:'persistent-p',kind:'project',parentId:null,name:'持久导航项目'},
+      {id:'other-p',kind:'project',parentId:null,name:'另一项目'}
+    ]});
+  });
+  await page.goto('/');
+  await page.getByRole('button',{name:'项目：持久导航项目'}).click();
+  await expect(page.getByRole('button',{name:'项目：持久导航项目'})).toHaveAttribute('aria-current','true');
+  await page.reload();
+  await expect(page.getByRole('button',{name:'项目：持久导航项目'})).toHaveAttribute('aria-current','true');
+  // Invalid persisted preferences do not create phantom rows or a selected deleted node.
+  await page.evaluate(()=>window.localStorage.setItem('data-m.s12.active-node','deleted-node'));
+  await page.reload();
+  await expect(page.getByRole('button',{name:'项目：持久导航项目'})).not.toHaveAttribute('aria-current','true');
+  await expect(page.getByRole('button',{name:'项目：deleted-node'})).toHaveCount(0);
+});
