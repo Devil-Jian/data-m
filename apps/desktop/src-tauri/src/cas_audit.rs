@@ -254,6 +254,30 @@ mod tests {
     }
 
     #[test]
+    fn missing_cas_fanout_is_reported_without_creating_directories() {
+        let (workspace, db, _, object) = fixture();
+        let root = workspace.path().join("repository");
+        let object_path = root.join(&object);
+        let fanout = object_path.parent().unwrap();
+        fs::remove_file(&object_path).unwrap();
+        fs::remove_dir(fanout).unwrap();
+
+        let before_source = fs::read(workspace.path().join("original_肝脏.tif")).unwrap();
+        let report = audit_registered_blobs(&db, &root).unwrap();
+
+        assert_eq!(report.checked_blobs, 1);
+        assert_eq!(report.verified_blobs, 0);
+        assert_eq!(report.blob_issues.len(), 1);
+        assert_eq!(report.blob_issues[0].kind, BlobIssueKind::Missing);
+        assert!(!report.is_clean());
+        assert!(!fanout.exists(), "read-only audit must not recreate CAS directories");
+        assert_eq!(
+            fs::read(workspace.path().join("original_肝脏.tif")).unwrap(),
+            before_source
+        );
+    }
+
+    #[test]
     fn refuses_missing_or_relative_cas_root_without_creating_it() {
         let (workspace, db, _, _) = fixture();
         let missing = workspace.path().join("missing");
