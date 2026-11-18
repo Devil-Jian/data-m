@@ -98,7 +98,7 @@ function DesktopApp(){
       <strong>Data-M · 科研数据工作区</strong>
       <span>项目 → 主题 → 实验 → 分组 → 样本</span>
       <span role="status">{projectBusy?"正在处理项目操作…":"真实项目与资产数据"}</span>
-      <small className="dm-release-candidate" aria-label="安装及版本信息">0.1.0 S11 测试构建 · 未签名 · 支持仓库 Schema v1–v3 · 非正式 v1.0</small>
+      <small className="dm-release-candidate" aria-label="安装及版本信息">0.1.0 S12 开发候选 · 未签名 · 仓库 Schema v1–v3 · 未完成人工验收</small>
     </nav>
     <div className="dm-desktop-content">
       <ProjectTreeManager onBusyChange={setProjectBusy} registerImportDrop={registerImportDrop}/>
