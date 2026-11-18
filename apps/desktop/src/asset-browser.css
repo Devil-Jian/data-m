@@ -56,3 +56,10 @@
 .dm-asset-list[data-view=grid] [role=option]>button:first-child{width:100%;min-height:72px;border:0;background:#f1f5f9;border-radius:6px;padding:8px;text-align:left;word-break:break-word}
 .dm-asset-list[data-view=grid] [role=option]>button:last-child{align-self:flex-end}
 @media(max-width:540px){.dm-asset-list[data-view=table] [role=option]{grid-template-columns:minmax(120px,1fr) 56px 66px 35px 45px;font-size:11px;gap:3px}}
+
+/* S12 contextual file details: on wide Windows windows keep metadata beside, not below, the live asset page. */
+@media(min-width:960px){
+  .dm-asset-browser:has(> .dm-asset-detail){display:grid;grid-template-columns:minmax(0,1fr) minmax(245px,30%);column-gap:14px;align-content:start}
+  .dm-asset-browser:has(> .dm-asset-detail)>:not(.dm-asset-detail){grid-column:1;min-width:0}
+  .dm-asset-browser:has(> .dm-asset-detail)>.dm-asset-detail{grid-column:2;grid-row:1/span 12;min-width:0;max-height:70vh;overflow:auto;margin:0}
+}
