@@ -1,59 +1,36 @@
 import {expect,test} from '@playwright/test';
 
+// S12 production root is intentionally different from isolated demo.
+// This browser test uses an explicitly injected mock; it does not verify native IPC.
 test.beforeEach(async ({page})=>{
+  await page.addInitScript(()=>{
+    (window as any).__S1_PROJECT_TREE_MOCK__=async (request:any)=>{
+      if(request.action!=='list')throw {code:'INVALID_REQUEST'};
+      return {nodes:[{id:'p-s0',kind:'project',parentId:null,name:'S0测试项目'}]};
+    };
+  });
   await page.goto('/');
-  await expect(page.getByRole('heading',{name:'ROS 活性氧荧光染色'})).toBeVisible();
+  await expect(page.getByRole('main',{name:'项目管理工作区'})).toBeVisible();
 });
 
-test('@S0 desktop renderer has generated shadcn utility CSS (not unstyled HTML)',async ({page})=>{
-  const selectedGroup=page.locator('.dm-group-tabs button[data-variant="primary"]').first();
-  await expect(selectedGroup).toBeVisible();
-  const actual=await selectedGroup.evaluate(element=>{
+test('@S0 desktop renderer uses styled shared project UI without demo injection',async ({page})=>{
+  const node=page.getByRole('button',{name:'项目：S0测试项目'});
+  await expect(node).toBeVisible();
+  const actual=await node.evaluate(element=>{
     const style=getComputedStyle(element);
-    return {color:style.backgroundColor,radius:style.borderRadius,height:element.getBoundingClientRect().height};
+    return {display:style.display,padding:style.paddingTop,radius:style.borderRadius};
   });
-  // Tailwind bg-blue-600, rounded-md and h-7; without cross-workspace
-  // CSS scanning these become transparent/native WebView controls.
-  // Tailwind v4 can expose its palette as OKLCH in Chromium.
-  expect(actual.color).toMatch(/^(oklch\(0\.546\s+0\.245\s+262\.881\)|rgb\(37, 99, 235\))$/);
-  expect(parseFloat(actual.radius)).toBeGreaterThanOrEqual(5);
-  expect(actual.height).toBeGreaterThanOrEqual(26);
-  const search=page.getByPlaceholder('搜索样本文件…');
-  const searchStyle=await search.evaluate(element=>{
-    const style=getComputedStyle(element);
-    return {height:element.getBoundingClientRect().height,padding:style.paddingLeft};
-  });
-  expect(searchStyle.height).toBeGreaterThanOrEqual(30);
-  expect(parseFloat(searchStyle.padding)).toBeGreaterThanOrEqual(10);
+  expect(actual.display).toBe('flex');
+  expect(parseFloat(actual.padding)).toBeGreaterThan(0);
+  expect(parseFloat(actual.radius)).toBeGreaterThan(0);
+  await expect(page.getByRole('button',{name:'演示工作区'})).toHaveCount(0);
+  await expect(page.getByText('ROS 活性氧荧光染色')).toHaveCount(0);
 });
 
-test('@S0 desktop browser preview can right-click a file and use keyboard shortcuts',async ({page})=>{
-  const file=page.locator('[data-explorer-id="asset:raw:ros-g1-r1"]');
-  await expect(file).toBeVisible();
-  await file.click({button:'right'});
-  const menu=page.getByRole('menu',{name:'文件操作菜单'});
-  await expect(menu).toBeVisible();
-  await expect(menu.getByRole('menuitem',{name:/重命名/})).toBeEnabled();
-  await menu.getByRole('menuitem',{name:/复制/}).click();
-  await expect(page.locator('.dm-toast')).toContainText('已选择复制 1 个演示项');
-  await file.click();
-  await page.keyboard.press('F2');
-  await expect(page.getByRole('textbox',{name:'重命名文件'})).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(file).toBeVisible();
-});
-
-test('right-click inside a file action opens file menu, toolbar remains usable',async ({page})=>{
-  // Stage-specific display assets can be exercised without touching real paths.
-  await page.getByRole('button',{name:'分阶段'}).click();
-  await page.getByRole('button',{name:/04_Display/}).first().click();
-  const display=page.locator('[data-explorer-id^="asset:display:"]').first();
-  await expect(display).toBeVisible();
-  const innerAction=display.locator('button').first();
-  if(await innerAction.count()){
-    await innerAction.click({button:'right'});
-  }else{
-    await display.click({button:'right'});
-  }
-  await expect(page.getByRole('menu',{name:'文件操作菜单'})).toBeVisible();
+test('@S0 desktop project selection and keyboard focus use real ID navigation',async ({page})=>{
+  const node=page.getByRole('button',{name:'项目：S0测试项目'});
+  await node.focus();
+  await page.keyboard.press('Enter');
+  await expect(node).toHaveAttribute('aria-current','true');
+  await expect(page.getByRole('navigation',{name:'科研位置'}).getByRole('button',{name:'S0测试项目'})).toHaveAttribute('aria-current','page');
 });
