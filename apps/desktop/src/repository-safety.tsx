@@ -10,10 +10,11 @@ const phases:Record<string,string>={
  verify_blobs:'检查快照哈希及版本',published:'封存备份',
  restore_sqlite:'复制隔离恢复数据库',restore_blobs:'恢复并核验 CAS',restore_published:'隔离恢复已完成'
 };
-export function RepositorySafetyPanel({onClose,api=safetyApi,listenProgress=safetyListen}:
- {onClose:()=>void;api?:SafetyApi;listenProgress?:ProgressListen}){
+export function RepositorySafetyPanel({onClose,onBusyChange,api=safetyApi,listenProgress=safetyListen}:
+ {onClose:()=>void;onBusyChange?:(busy:boolean)=>void;api?:SafetyApi;listenProgress?:ProgressListen}){
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const activeTask=useRef<string|null>(null);
+ useEffect(()=>{onBusyChange?.(busy);return ()=>onBusyChange?.(false);},[busy,onBusyChange]);
  const [snapshots,setSnapshots]=useState<SnapshotSummary[]>([]);
  const [report,setReport]=useState<SafetyReport|null>(null),[progress,setProgress]=useState<SafetyProgress|null>(null);
  const [backupConfirm,setBackupConfirm]=useState(false);
