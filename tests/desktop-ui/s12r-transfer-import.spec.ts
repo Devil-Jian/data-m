@@ -88,7 +88,10 @@ test('@S12R import panel exposes real S3 target without creating ZIP illusion',a
   const dialog=page.getByRole('dialog',{name:'受控安全导入'});
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText('ZIP 不能直接解包');
-  await expect(dialog).toContainText('当前目标：');
+  await expect(dialog).toContainText('尚未选择有效目标');
+  const picker=dialog.getByRole('combobox',{name:'导入目标样本'});
+  await picker.click();
+  await page.getByRole('option',{name:'R1'}).click();
   await expect(dialog).toContainText('R1');
   await expect(dialog.getByRole('region',{name:'安全导入任务'})).toBeVisible();
 });
