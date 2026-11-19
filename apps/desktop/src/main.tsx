@@ -1,6 +1,7 @@
 import React, {useCallback,useEffect,useReducer,useRef} from 'react';
 import {createRoot} from 'react-dom/client';
 import {ProductionWorkbench} from './production-workbench';
+import {shadcnUI} from '@data-m/ui/workbench-ui';
 import {getCurrentWebview} from '@tauri-apps/api/webview';
 import {invoke,isTauri} from '@tauri-apps/api/core';
 import {dropReducer,formatDropSize,initialDropState} from './drop-preview';
@@ -105,7 +106,7 @@ function DesktopApp(){
         ?<React.Suspense fallback={<div role="status">加载开发测试工作区…</div>}>
           <LegacyDevelopmentHarness registerImportDrop={registerImportDrop}/>
         </React.Suspense>
-        :<ProductionWorkbench registerImportDrop={registerImportDrop}/>}
+        :<ProductionWorkbench registerImportDrop={registerImportDrop} ui={shadcnUI}/>}
     </div>
     {drop.kind!=='idle'&&<section
       className={'dm-native-drop '+(drop.kind==='over'?'is-over':'')}
