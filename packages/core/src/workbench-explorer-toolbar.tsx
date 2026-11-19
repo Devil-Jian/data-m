@@ -50,7 +50,7 @@ export function WorkbenchExplorerToolbar<S extends string>({
         {available.map(id=>{
           const Icon=icons[id];
           return <UI.Button key={id} small variant={view===id?'primary':'ghost'}
-            onClick={()=>onView(id)} title={id}><Icon size={15}/></UI.Button>;
+            onClick={()=>onView(id)} title={mode==='stage'?(id==='list'?'虚拟文件列表':id==='grid'?'卡片视图':'表格视图'):id}><Icon size={15}/></UI.Button>;
         })}
       </div>
     </div>
