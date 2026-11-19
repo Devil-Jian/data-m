@@ -39,6 +39,25 @@ test('@S4 @S12 real-context asset browsing pagination search and selection (expl
     await expect(list).toHaveAttribute('data-view',mode);
     await expect(list.getByRole('option')).toHaveCount(50);
   }
+  const first=browser.getByRole('button',{name:'选择 sample000.png'});
+  await first.focus();
+  await first.press('Shift+F10');
+  const menu=page.getByRole('menu',{name:'资产右键菜单'});
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole('menuitem',{name:'重命名'})).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(menu.getByRole('menuitem',{name:'移至回收区'})).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+  await expect(first).toBeFocused();
+  await first.press('F2');
+  await expect(page.getByRole('dialog',{name:'文件操作确认'})).toBeVisible();
+  await expect(page.getByRole('textbox',{name:'新的文件名称'})).toHaveValue('sample000.png');
+  await page.getByRole('button',{name:'取消',exact:true}).click();
+  await first.focus();
+  await first.press('Delete');
+  await expect(page.getByRole('dialog',{name:'文件操作确认'})).toContainText('不会删除任何磁盘文件');
+  await page.getByRole('button',{name:'取消',exact:true}).click();
   await browser.getByRole('button',{name:'下一页'}).click();
   await expect(list.getByRole('option')).toHaveCount(50);
   await expect(browser.getByRole('button',{name:'选择 sample050.png'})).toBeVisible();
