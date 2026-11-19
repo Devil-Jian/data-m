@@ -19,6 +19,8 @@ export function AssetBrowser({query,api=assetApi,transfers=transferApi}:{query:A
   const [revision,setRevision]=useState(0),[feedback,setFeedback]=useState(''),[clipboardCount,setClipboardCount]=useState(0);
   const [transferPending,setTransferPending]=useState(false);
   const [menu,setMenu]=useState<{x:number;y:number;id:string}|null>(null);
+  const [marquee,setMarquee]=useState<{x:number;y:number;width:number;height:number}|null>(null);
+  const marqueeStart=useRef<{x:number;y:number;additive:boolean;base:Set<string>}|null>(null);
   const menuRef=useRef<HTMLDivElement>(null);
   const epoch=useRef(0),rowRefs=useRef(new Map<string,HTMLButtonElement>()),listRef=useRef<HTMLDivElement>(null);
   const target:AssetScope|null=query.stage?{assayId:query.assayId,stage:query.stage,groupId:query.groupId??null,replicateId:query.replicateId??null}:null;
@@ -89,6 +91,38 @@ export function AssetBrowser({query,api=assetApi,transfers=transferApi}:{query:A
       }).catch(()=>{if(live)setTraceProjectId(null)});
     return()=>{live=false};
   },[query.assayId,detail?.assetId]);
+  // Rubber-band selection works only on the current bounded SQLite page.
+  // It starts on empty Explorer space, never on a file drag handle or a form.
+  function beginMarquee(event:React.PointerEvent<HTMLDivElement>){
+    if(event.button!==0||event.target!==event.currentTarget||busy||transferPending)return;
+    marqueeStart.current={x:event.clientX,y:event.clientY,additive:event.ctrlKey||event.metaKey,base:new Set(chosen)};
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setMarquee({x:event.nativeEvent.offsetX,y:event.nativeEvent.offsetY,width:0,height:0});
+  }
+  function moveMarquee(event:React.PointerEvent<HTMLDivElement>){
+    const start=marqueeStart.current;
+    if(!start)return;
+    const bounds=event.currentTarget.getBoundingClientRect();
+    const left=Math.min(start.x,event.clientX),right=Math.max(start.x,event.clientX);
+    const top=Math.min(start.y,event.clientY),bottom=Math.max(start.y,event.clientY);
+    setMarquee({x:left-bounds.left+event.currentTarget.scrollLeft,
+      y:top-bounds.top+event.currentTarget.scrollTop,width:right-left,height:bottom-top});
+    const visible=page.filter(item=>{
+      const row=rowRefs.current.get(item.assetLinkId)?.closest('[role="option"]');
+      if(!row)return false;
+      const box=row.getBoundingClientRect();
+      return box.right>=left&&box.left<=right&&box.bottom>=top&&box.top<=bottom;
+    });
+    const ids=new Set(start.additive?[...start.base,...visible.map(item=>item.assetLinkId)]:
+      visible.map(item=>item.assetLinkId));
+    setChosen(ids);
+    setAnchor(visible.at(-1)?.assetLinkId??null);
+  }
+  function endMarquee(event:React.PointerEvent<HTMLDivElement>){
+    if(!marqueeStart.current)return;
+    marqueeStart.current=null;setMarquee(null);
+    if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);
+  }
   function showContextMenu(id:string,x:number,y:number){
     if(busy||transferPending||!page.some(item=>item.assetLinkId===id))return;
     if(!chosen.has(id)){setChosen(new Set([id]));setAnchor(id);}
@@ -185,6 +219,7 @@ export function AssetBrowser({query,api=assetApi,transfers=transferApi}:{query:A
     {feedback&&<p className="dm-asset-feedback" aria-live="polite">{feedback}</p>}
     {error&&<p role="alert">{error}</p>}
     <div ref={listRef} className="dm-asset-list" data-view={view} role="listbox" aria-label="资产文件列表" aria-multiselectable="true"
+      onPointerDown={beginMarquee} onPointerMove={moveMarquee} onPointerUp={endMarquee} onPointerCancel={endMarquee}
       onKeyDown={event=>{
         if(busy||transferPending||menu)return;
         if(event.key==='ContextMenu'||(event.shiftKey&&event.key==='F10')){
@@ -214,6 +249,7 @@ export function AssetBrowser({query,api=assetApi,transfers=transferApi}:{query:A
         <span>v{item.versionNumber}</span><button type="button" onClick={()=>void open(item)}>详情</button>
       </div>)}
       {!busy&&!error&&!page.length&&<p>该范围尚无已入库文件。</p>}
+      {marquee&&<div className="dm-asset-marquee" aria-hidden="true" style={{left:marquee.x,top:marquee.y,width:marquee.width,height:marquee.height}}/>}
     </div>
     {menu&&<div ref={menuRef} className="dm-asset-context" role="menu" aria-label="资产右键菜单" style={{left:menu.x,top:menu.y}}
       onKeyDown={event=>{
