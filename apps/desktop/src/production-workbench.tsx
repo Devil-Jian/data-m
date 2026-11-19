@@ -285,7 +285,7 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
   const toggle=(id:string,on:boolean)=>explorer.toggle(id,on);
   useEffect(()=>{
     if(!group)return;
-    setImportReplicateId(old=>group.replicates.some(r=>r.id===old)?old:group.replicates[0]?.id??'');
+    setImportReplicateId(old=>group.replicates.some(r=>r.id===old)?old:'');
   },[groupId,snapshot]);
   const assetCell=(files:AssetRow[])=><div className="dm-real-asset-stack">
     {files.length===0?<span className="dm-muted">尚无文件</span>:files.map(f=>
@@ -513,8 +513,10 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
           {(stage==='raw'||stage==='processed')&&<>
             <UI.Select ariaLabel="导入目标分组" value={groupId}
               onChange={id=>chooseGroup(id)} options={(snapshot?.groups??[]).map(g=>({value:g.id,label:g.name}))}/>
-            <UI.Select ariaLabel="导入目标样本" value={importReplicateId}
-              onChange={v=>{if(!importLocked)setImportReplicateId(v)}} options={(group?.replicates??[]).map(rep=>({value:rep.id,label:rep.label}))}/>
+            <UI.Select ariaLabel="导入目标样本" value={importReplicateId||'__none__'}
+              onChange={v=>{if(!importLocked)setImportReplicateId(v==='__none__'?'':v)}}
+              options={[{value:'__none__',label:'请明确选择目标样本'},
+                ...(group?.replicates??[]).map(rep=>({value:rep.id,label:rep.label}))]}/>
           </>}
           <p>仅支持已解压的真实文件或文件夹；ZIP 不能直接解包。系统不会按文件名自动创建科研关联。</p>
         </div>
