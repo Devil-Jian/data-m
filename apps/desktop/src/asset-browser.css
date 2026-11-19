@@ -63,3 +63,8 @@
   .dm-asset-browser:has(> .dm-asset-detail)>:not(.dm-asset-detail){grid-column:1;min-width:0}
   .dm-asset-browser:has(> .dm-asset-detail)>.dm-asset-detail{grid-column:2;grid-row:1/span 12;min-width:0;max-height:70vh;overflow:auto;margin:0}
 }
+
+/* S12 bounded rubber-band selection; geometry is computed from visible DOM rows only. */
+.dm-asset-list{position:relative;touch-action:pan-y}
+.dm-asset-marquee{position:absolute;z-index:4;border:1px solid #2563eb;background:#2563eb26;pointer-events:none;box-sizing:border-box}
+.dm-asset-list[data-view=grid]>.dm-asset-marquee{grid-column:1/-1}
