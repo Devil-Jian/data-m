@@ -93,6 +93,21 @@ jobs:
         run: ./scripts/test-p1-drop-source.ps1 -SelfTest
       - name: Install Chromium for Windows interaction tests
         run: npx playwright install chromium
+      - name: Capture immutable e7b12d Demo Workbench baseline for visual comparison
+        shell: pwsh
+        run: |
+          git fetch --no-tags --depth=1 origin e7b12d7022ed40d33bccc42f9a628b305e91ccf9
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $baseline = Join-Path $env:RUNNER_TEMP 's12r-original-ui'
+          git worktree add --detach $baseline e7b12d7022ed40d33bccc42f9a628b305e91ccf9
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Push-Location $baseline
+          try {
+            npm ci --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally { Pop-Location }
+          node scripts/capture-s12r-baseline.mjs $baseline s12r-evidence/baseline
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Windows Chromium pointer and keyboard E2E
         run: npm run test:e2e
       - name: S0 renderer consistency
@@ -252,6 +267,15 @@ jobs:
           path: s11-release-artifacts/*
           if-no-files-found: error
           retention-days: 30
+      - name: Upload S12R visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s12r-visual-evidence
+          path: |
+            s12r-evidence
+            test-results
+          if-no-files-found: warn
       - name: Export dependency lock corrections on failure
         if: failure()
         working-directory: apps/desktop/src-tauri
