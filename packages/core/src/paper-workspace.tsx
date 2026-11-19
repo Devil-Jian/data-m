@@ -23,7 +23,7 @@ function errorText(error:unknown):string {
   return String(error);
 }
 export type PaperExportStatus={requestId:string;phase:'running'|'completed'|'failed';completed:number;total:number;detail:string};
-export function PaperWorkspace({onClose,onExportStatus}:{onClose?:()=>void;onExportStatus?:(entry:PaperExportStatus)=>void}={}) {
+export function PaperWorkspace({onClose,onExportStatus,onBusyChange}:{onClose?:()=>void;onExportStatus?:(entry:PaperExportStatus)=>void;onBusyChange?:(busy:boolean)=>void}={}) {
  const [projects,setProjects]=useState<ProjectNode[]>([]);
  const [projectId,setProjectId]=useState('');
  const [snapshot,setSnapshot]=useState<Snapshot>(empty);
@@ -50,6 +50,7 @@ export function PaperWorkspace({onClose,onExportStatus}:{onClose?:()=>void;onExp
  const [exportBusy,setExportBusy]=useState(false);
  const [exportRequestId,setExportRequestId]=useState<string|null>(null);
  const [exportProgress,setExportProgress]=useState<ExportProgress|null>(null);
+ useEffect(()=>{onBusyChange?.(busy||exportBusy);return ()=>onBusyChange?.(false);},[busy,exportBusy,onBusyChange]);
  const refreshGeneration=useRef(0);
  const refresh=useCallback(async(project:string)=>{
    const generation=++refreshGeneration.current;
