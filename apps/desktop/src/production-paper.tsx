@@ -13,9 +13,10 @@ const blank:PaperSnapshot={papers:[],candidates:[]};
 /** S9/S10 native data in the same Figure/Panel card-and-drawer hierarchy as Demo. */
 export interface PaperPosition{paperId:string;panelId:string|null}
 export function ProductionPaperWorkbench({
-  projectId,onJumpToAssay,initialPosition,onPositionChange
+  projectId,onJumpToAssay,initialPosition,onPositionChange,exportSignal=0
 }:{projectId:string;onJumpToAssay:(assayId:string)=>void;
   initialPosition?:PaperPosition;onPositionChange?:(value:PaperPosition)=>void;
+  exportSignal?:number;
 }){
   const [snapshot,setSnapshot]=useState<PaperSnapshot>(blank);
   const [loaded,setLoaded]=useState(false);
@@ -114,6 +115,15 @@ export function ProductionPaperWorkbench({
       setExportPreview(result.preview);
     }catch{setExportStatus('预览失败；未导出文件。');}
   }
+  useEffect(()=>{
+    if(exportSignal===0)return;
+    const first=paper?.figures[0];
+    if(!first){setExportStatus('当前论文没有可导出的 Figure，请先创建并固定关联文件。');return;}
+    if(!isTauri()){setExportStatus('真实投稿导出仅由 Windows 原生服务执行。');return;}
+    setExportFigureId(first.id);setExportPreview(null);
+    void previewExport(first.id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[exportSignal]);
   async function exportPinnedFigure(){
     if(!paper||!figure||!exportPreview||exportPreview.figureId!==figure.id||!isTauri())return;
     if(!window.confirm('确认从固定版本 CAS 导出 '+exportPreview.uniqueFileCount+' 个唯一文件，并校验 SHA-256？'))return;
