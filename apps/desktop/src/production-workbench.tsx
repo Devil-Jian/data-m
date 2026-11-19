@@ -17,6 +17,7 @@ import {ImportJobsPanel} from './import-jobs.tsx';
 import {ProductionPaperWorkbench} from './production-paper';
 import {RepositorySafetyPanel} from './repository-safety.tsx';
 import {ProductionAnalysisDrawer} from './production-analysis';
+import {ProductionRecycleDrawer} from './production-recycle';
 import type {AnalysisEvidence} from './production-analysis';
 import {useProductionStageAssets} from './use-production-stage-assets';
 import type {ImportDropRegistrar,ImportTarget} from './import-jobs.ts';
@@ -55,6 +56,7 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
   const [detail,setDetail]=useState<AssetRow|null>(null);
   const [importOpen,setImportOpen]=useState(false);
   const [safetyOpen,setSafetyOpen]=useState(false);
+  const [recycleOpen,setRecycleOpen]=useState(false);
   const [analysisOpen,setAnalysisOpen]=useState(false);
   const [analysisEvidence,setAnalysisEvidence]=useState<AnalysisEvidence|null>(null);
   const [inclusionFilter,setInclusionFilter]=useState<'all'|'included'|'excluded'>('all');
@@ -362,6 +364,7 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
           <UI.Button small variant="secondary" disabled={!assayId||busy} onClick={()=>setAnalysisOpen(true)}>
             统计分析{analysisEvidence?.frozenAt?` · 已冻结 n=${analysisEvidence.includedN}`:''}
           </UI.Button>
+          <UI.Button small variant="ghost" disabled={!assayId||busy} onClick={()=>setRecycleOpen(true)}>回收区</UI.Button>
         </div>
         <div className="dm-filter-toolbar">
           {mode==='overview'&&analysisEvidence?.frozenAt&&<div className="dm-real-inclusion-filter">
@@ -467,6 +470,9 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
       <div className="dm-real-modal-actions"><UI.Button disabled={busy} onClick={()=>{setEditor(null);setError('')}}>取消</UI.Button>
         <UI.Button disabled={busy} variant={editor.action==='delete'?'danger':'primary'} onClick={()=>void submit()}>确认</UI.Button></div>
     </section></div>}
+    {recycleOpen&&assay&&<ProductionRecycleDrawer assayId={assayId} groupId={groupId}
+      onRecovered={()=>{stageView.refresh();void refreshAssay(assayId)}}
+      onClose={()=>setRecycleOpen(false)}/>}
     {analysisOpen&&assay&&<ProductionAnalysisDrawer assayId={assayId} assayName={assay.name}
       onEvidence={setAnalysisEvidence} onClose={()=>setAnalysisOpen(false)}/>}
     {safetyOpen&&<div className="dm-real-modal-backdrop dm-real-safety-overlay">
