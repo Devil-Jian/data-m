@@ -16,7 +16,7 @@ test('@S9 native paper workspace uses persisted IPC rather than demo paper data'
      metadata:{currentWindow:{label:'main'}}
    };
  });
- await page.goto('/');
+ await page.goto('/?legacy=1');
  await page.getByRole('button',{name:'论文管理'}).click();
  await expect(page.getByLabel('S9 真实论文管理工作区')).toBeVisible();
  await expect(page.getByText('测试论文')).toBeVisible();
