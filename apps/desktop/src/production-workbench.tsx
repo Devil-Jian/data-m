@@ -1,5 +1,6 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {shadcnUI as UI} from '@data-m/ui/workbench-ui';
+import {VirtualAssetList,virtualAssetRects} from '@data-m/core';
 import {projectTreeApi,safeProjectTreeError} from './project-tree';
 import type {ProjectTreeKind,ProjectTreeRequest} from './project-tree';
 import {experimentApi,safeExperimentError} from './experiment-tree';
@@ -75,11 +76,13 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
       ?rows.flatMap(row=>row[stage]):snapshot.assayFiles[stage];
     return source.filter(f=>!search||f.name.toLowerCase().includes(search.toLowerCase()));
   },[snapshot,stage,rows,search]);
+  const virtualAssets=useMemo(()=>assets.map(file=>({id:file.assetLinkId,filename:file.name,stage:file.stage,version:file.versionNumber,sha256:file.sha256})),[assets]);
   const visibleFiles=useMemo(()=>mode==='stage'?assets:rows.flatMap(r=>[...r.raw,...r.processed]),
     [mode,assets,rows]);
   const visibleIds=useMemo(()=>visibleFiles.map(f=>f.assetLinkId),[visibleFiles]);
   const explorer=useExplorerInteraction({
     visibleIds,enabled:module==='experiment'&&!editor&&!detail&&!busy&&!transferDraft,
+    getVirtualItems:()=>virtualAssetRects(virtualAssets,100_000),
     onDrop:({itemIds,targetId,operation})=>beginTransfer(operation,itemIds,targetId),
     onCopy:ids=>beginTransfer('copy',ids),
     onCut:ids=>beginTransfer('move',ids),
@@ -375,7 +378,11 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
             {!rows.length&&<div className="dm-empty">当前分组暂无样本或没有匹配结果</div>}
           </>:<>
             <p className="dm-real-scope">{stage==='raw'||stage==='processed'?'当前分组内的样本级文件':'当前实验全部分组共享的实验级文件（不代表样本已经关联）'}</p>
-            <div className={view==='grid'?'dm-real-file-grid':'dm-real-file-list'}>
+            {view==='list'?<VirtualAssetList assets={virtualAssets} selected={explorer.selectedSet}
+              focusedId={explorer.focusedId} onToggle={toggle}
+              renderName={item=>item.filename}
+              renderSubtitle={item=>`v${item.version} · SHA-256 ${item.sha256.slice(0,12)}… · 真实文件关联`}
+              renderType={item=>labels[item.stage as ProductionStage]}/>:<div className={view==='grid'?'dm-real-file-grid':'dm-real-file-list'}>
               {assets.map(file=><div data-explorer-id={file.assetLinkId} className={"dm-content-card dm-real-file-card dm-selectable-asset"+(explorer.selectedSet.has(file.assetLinkId)?" selected":"")} key={file.assetLinkId}>
                 <label><input type="checkbox" checked={selectedIds.includes(file.assetLinkId)}
                   onChange={e=>toggle(file.assetLinkId,e.target.checked)}/> 选择</label>
@@ -383,7 +390,7 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
                   <span>▣</span><strong>{file.name}</strong></button>
                 <small>v{file.versionNumber} · {file.sizeBytes} bytes · SHA-256 {file.sha256.slice(0,12)}…</small>
               </div>)}
-            </div>
+            </div>}
             {!assets.length&&<div className="dm-empty">当前阶段暂无文件</div>}
           </>}
           {explorer.contextMenu&&<div className="dm-explorer-context-menu" data-explorer-context-menu role="menu"
