@@ -117,6 +117,13 @@ jobs:
         run: npm run test:e2e:desktop -- --grep "@S10"
       - name: S11 renderer paging and nested-context-menu E2E (mock)
         run: npm run test:e2e:desktop -- --grep "@S11"
+      - name: S12R production Workbench interactions and native mocks
+        run: |
+          $tests = npx playwright test -c playwright.desktop.config.ts --list --grep "@S12R"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not ($tests -match '@S12R')) { throw 'S12R Playwright tests missing' }
+          npm run test:e2e:desktop -- --grep "@S12R"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: I1 integrated workspace UI E2E
         run: npm run test:e2e:desktop -- --grep "@I1"
       - name: S9 native SQLite paper and pinned-version regression
