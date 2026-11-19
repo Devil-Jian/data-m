@@ -33,7 +33,26 @@ Draft PR: https://github.com/Devil-Jian/data-m/pull/59
 ## Machine evidence
 
 Head of first @S12 test/workflow commit: `87ad1965ddd32085f07546578e35b267363e542c`.
-Verified after prior observation: UI run https://github.com/Devil-Jian/data-m/actions/runs/44308671488 succeeded. Windows run https://github.com/Devil-Jian/data-m/actions/runs/44308671524 failed at S0 source contract before the full suite; root cause was old expectation that the desktop itself imports `workbench-ui` rather than indirectly via the real `ProjectTreeManager`. That source contract test was updated. The next Windows run `44311352353` passed S0 source checks but failed `@S0` renderer assumptions still expecting demo assets; these have now been migrated to real desktop checks and isolated demo tests. Windows run `44313726030` subsequently passed S0 and 47/48 desktop tests, failing one unconverted S1 unavailable-mode button action; it has now been corrected. Latest-head rerun remains required. No successful S12 Windows build, installer, portable EXE, release SHA manifest, full regressions or native GUI pass is claimed. The full S0–S11 regressions may need updates because existing tests expected the old demo as default; do not disable tests to hide failures.
+Verified after prior observation: UI run https://github.com/Devil-Jian/data-m/actions/runs/44308671488 succeeded. Windows run https://github.com/Devil-Jian/data-m/actions/runs/44308671524 failed at S0 source contract before the full suite; root cause was old expectation that the desktop itself imports `workbench-ui` rather than indirectly via the real `ProjectTreeManager`. That source contract test was updated. The next Windows run `44311352353` passed S0 source checks but failed `@S0` renderer assumptions still expecting demo assets; these have now been migrated to real desktop checks and isolated demo tests. Windows run `44313726030` subsequently passed S0 and 47/48 desktop tests, failing one unconverted S1 unavailable-mode button action; it has now been corrected. Latest-head rerun remains required. A later S12 baseline SHA `f72e67f...` **did** pass Windows install/portable EXE and complete CI (see follow-on section). No newer follow-on head success is claimed until its own CI completes. The full S0–S11 regressions may need updates because existing tests expected the old demo as default; do not disable tests to hide failures.
+
+## S12 follow-on interaction implementation (2026-11-19)
+
+Changes on the **same S12 Draft PR #59**, after previously green Windows build `f72e67fdb58f6a45c238c61319961032051a1e3e`:
+
+- **S12-02 actual Explorer:** bounded page-only rubber-band selection (including Ctrl additive mode), keyboard context menu via `Shift+F10` / Menu, up/down menu focus, Escape restore to the selected real asset, outside-click dismissal, viewport-bound menu placement. F2/Delete still enter the existing **real S6 confirmation and lifecycle IPC**, never delete CAS bytes. Current-page `AssetLinkId` identity, backend paging and disabled actions during transfer preserved.
+- **S12-03 genuine task summary:** `apps/desktop/src/task-tray.tsx` is a compact, optional read-only progress tray. Only validated import responses, S7 operations/progress and S10 native export confirmation publish statuses. Prepared is not completed, cancellation requests are not final cancellation, and failed/uncertain calls never display complete. Existing cancel/retry remains inside each source module; task tray cannot issue persistence operations. Long tasks disable project navigation; tests cover S3 prepared/completed and S7 sealed-snapshot reporting.
+- **S12-04 common navigation:** Project/Theme/Assay live-ID trail is visible in Experiment, Analysis, Paper, and RepositorySafety modules; alt-arrow history leaving one module does not keep stale content. S7/S8/S9 busy state blocks cross-module navigation. Paper initial project context and its project selector synchronize real Project IDs with the shared sidebar.
+- **S12-05 guidance:** `docs/S12_USER_WORKFLOW.md` now describes four-stage scopes, keyboard/marquee selection, S3 safe prepare/start, S5 transfer, S6 recovery, task status semantics, pinned version export and isolated recovery.
+- **S12-06 new E2E:** augmented `@S12` / S4 real asset Explorer context/F2/Delete tests, S3 and S7 progress-tray checks, Paper real project-switch test. Browser tests explicitly inject Mock/IPC fixtures and do not claim native WebView2 evidence.
+
+**Prior fully passing exact-SHA machine baseline (before this follow-on):**
+
+- Windows https://github.com/Devil-Jian/data-m/actions/runs/44315421546 — `completed/success`, Rust suite, S0–S12 renderer CI, 10,024 real SQLite/CAS asset benchmark, NSIS + portable EXE, release SHA verification and artifact upload.
+- UI https://github.com/Devil-Jian/data-m/actions/runs/44315421442 — `completed/success`.
+- Baseline SHA: `f72e67fdb58f6a45c238c61319961032051a1e3e`.
+- **Those green runs do not validate the additional commits above.** A final green Windows/UI run and same-SHA artifact are required before recording the new S12 head as `machine_passed`.
+
+Remaining evidence: compare screenshots from genuine Windows WebView2, actual Windows drag gestures and native 10k GUI performance, full disposable-data closed-loop manual verification (never assume completed). No SQLite/CAS schema change or `main` merge.
 
 ## Safety / acceptance
 
