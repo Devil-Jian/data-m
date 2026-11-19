@@ -59,7 +59,7 @@ test('@S12R real transfer requires explicit sample before copy commit',async({pa
     assayId:'assay-1',stage:'raw',groupId:'group-1',replicateId:'rep-1'
   });
   expect(requests[0].items[0].assetVersionId).toBe('version-1');
-  await expect(page.getByText(/1 个生物学重复/)).toBeVisible();
+  await expect(page.locator('.dm-workspace-head').getByText(/1 个生物学重复/)).toBeVisible();
 });
 
 test('@S12R import panel exposes real S3 target without creating ZIP illusion',async({page})=>{
@@ -88,7 +88,7 @@ test('@S12R import panel exposes real S3 target without creating ZIP illusion',a
   });
   await page.goto('/');
   await expect(page.getByRole('heading',{name:'ROS'})).toBeVisible();
-  await page.getByRole('button',{name:/导入文件/}).click();
+  await page.getByRole('button',{name:'导入实验归档包'}).click();
   const dialog=page.getByRole('dialog',{name:'受控安全导入'});
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText('ZIP 不能直接解包');
