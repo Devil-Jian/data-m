@@ -1,6 +1,7 @@
 import {describe,expect,it,vi} from 'vitest';
 import {captureProductionTransfer,validatedProductionTarget,commitProductionTransfer} from './production-transfer';
 import type {AssetRow} from './asset-browser';
+import type {TransferRequest,TransferResult} from './asset-transfer';
 
 const asset:AssetRow={
   assetId:'asset-a',assetLinkId:'link-a',assetVersionId:'version-a',versionNumber:1,
@@ -26,7 +27,7 @@ describe('S12R live transfer safety',()=>{
   it('commits one exact request ID and rejects other assay',async()=>{
     const intent=captureProductionTransfer('assay-a',[asset],['link-a'],'move');
     const target=validatedProductionTarget('assay-a','processed','group-a','rep-a');
-    const backend=vi.fn(async request=>({
+    const backend=vi.fn(async (request:TransferRequest):Promise<TransferResult>=>({
       requestId:request.requestId,action:request.action,target:request.target,
       links:[{sourceLinkId:'link-a',resultLinkId:'link-a',assetId:'asset-a',assetVersionId:'version-a'}]
     }));
