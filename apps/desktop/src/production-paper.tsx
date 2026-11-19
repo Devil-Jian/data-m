@@ -11,13 +11,16 @@ type Editor={action:'create'|'rename'|'delete';kind:'paper'|'figure'|'panel';id?
 const blank:PaperSnapshot={papers:[],candidates:[]};
 
 /** S9/S10 native data in the same Figure/Panel card-and-drawer hierarchy as Demo. */
+export interface PaperPosition{paperId:string;panelId:string|null}
 export function ProductionPaperWorkbench({
-  projectId,onJumpToAssay
-}:{projectId:string;onJumpToAssay:(assayId:string)=>void}){
+  projectId,onJumpToAssay,initialPosition,onPositionChange
+}:{projectId:string;onJumpToAssay:(assayId:string)=>void;
+  initialPosition?:PaperPosition;onPositionChange?:(value:PaperPosition)=>void;
+}){
   const [snapshot,setSnapshot]=useState<PaperSnapshot>(blank);
   const [loaded,setLoaded]=useState(false);
-  const [paperId,setPaperId]=useState('');
-  const [panelId,setPanelId]=useState<string|null>(null);
+  const [paperId,setPaperId]=useState(initialPosition?.paperId??'');
+  const [panelId,setPanelId]=useState<string|null>(initialPosition?.panelId??null);
   const [view,setView]=useState<PaperView>('grid');
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
@@ -55,10 +58,14 @@ export function ProductionPaperWorkbench({
     }
   },[]);
   useEffect(()=>{
-    setLoaded(false);setSnapshot(blank);setPaperId('');setPanelId(null);setError('');
+    setLoaded(false);setSnapshot(blank);
+    setPaperId(initialPosition?.paperId??'');setPanelId(initialPosition?.panelId??null);setError('');
     void reload(projectId).catch(e=>{setLoaded(true);setError(e instanceof Error?e.message:'论文查询失败')});
     return ()=>{serial.current++;};
   },[projectId,reload]);
+  useEffect(()=>{
+    if(paperId)onPositionChange?.({paperId,panelId});
+  },[paperId,panelId,onPositionChange]);
   useEffect(()=>{
     setCandidates([]);setSelectedVersions([]);
     if(!projectId||!panelId)return;
