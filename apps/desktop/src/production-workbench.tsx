@@ -53,6 +53,7 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
   const [module,setModule]=useState<'experiment'|'paper'>('experiment');
   const [paperPosition,setPaperPosition]=useState<PaperPosition|undefined>();
   const [paperReturn,setPaperReturn]=useState(false);
+  const [paperExportSignal,setPaperExportSignal]=useState(0);
   const [editor,setEditor]=useState<Editor|null>(null);
   const [busy,setBusy]=useState(false);
   const [loaded,setLoaded]=useState(false);
@@ -320,8 +321,9 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
       module={module} onModuleChange={setModule} onProjectChange={selectProject}
       canBack={false} canForward={false} onBack={()=>{}} onForward={()=>{}}
       onNewProject={()=>open('project','project','create')}
-      onImport={()=>{setMode('stage');setImportOpen(true)}}
-      importDisabled={!assay||importLocked||module==='paper'}/>
+      onImport={()=>{if(module==='paper')setPaperExportSignal(v=>v+1);
+        else{setMode('stage');setImportOpen(true)}}}
+      importDisabled={module==='paper'?!projectId:!assay||importLocked}/>
     {module==='experiment'&&paperReturn&&paperPosition?.panelId&&
       <div className="dm-trace-banner">
         <strong>版本溯源导航</strong>
@@ -350,7 +352,7 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
         </>}/>}
       <main className="dm-workspace">
       {module==='paper'?<ProductionPaperWorkbench projectId={projectId}
-        initialPosition={paperPosition} onPositionChange={setPaperPosition}
+        exportSignal={paperExportSignal} initialPosition={paperPosition} onPositionChange={setPaperPosition}
         onJumpToAssay={id=>{
           const owner=project?.themes.find(t=>t.assays.some(a=>a.id===id));
           if(!owner){setError('目标实验不在当前科研项目中，已阻止跨项目跳转。');return;}
