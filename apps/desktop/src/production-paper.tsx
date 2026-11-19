@@ -1,6 +1,6 @@
 import React,{useCallback,useEffect,useRef,useState} from 'react';
 import {isTauri,invoke} from '@tauri-apps/api/core';
-import {ProvenanceView} from '@data-m/core';
+import {ProvenanceView,WorkbenchFigureList} from '@data-m/core';
 import {shadcnUI as UI} from '@data-m/ui/workbench-ui';
 import {productionPaperApi} from './production-paper';
 import type {NativePanel,PaperCandidate,PaperRequest,PaperSnapshot} from './production-paper';
@@ -141,22 +141,27 @@ export function ProductionPaperWorkbench({
           <UI.Button key={v} small variant={view===v?'primary':'ghost'} onClick={()=>setView(v)}>
             {v==='grid'?'网格':v==='list'?'列表':'表格'}</UI.Button>)}
       </div>
-      {paper.figures.map(f=><section className="dm-paper-figure" key={f.id}>
-        <header><h2>{f.label}</h2><small>{f.panels.length} 个 Panel</small>
+      <WorkbenchFigureList view={view}
+        figures={paper.figures.map(figure=>({
+          id:figure.id,label:figure.label,caption:`${figure.panels.length} 个真实 Panel`,
+          panels:figure.panels.map(panel=>({
+            id:panel.id,label:panel.label,title:panel.label,
+            subtitle:`固定引用 ${panel.assets.length} · 代表来源 ${panel.representatives.length}`,
+            preview:<div className="dm-real-panel-no-preview">
+              <span>▣</span><small>真实文件固定版本 · 不显示示意图</small>
+            </div>
+          }))
+        }))}
+        onPanelSelect={id=>{
+          const owner=paper.figures.find(f=>f.panels.some(panel=>panel.id===id));
+          const panel=owner?.panels.find(p=>p.id===id);
+          if(owner&&panel)openPanel(panel,owner.id);
+        }}
+        figureActions={f=><div className="dm-real-figure-actions">
           <UI.Button small variant="secondary" onClick={()=>begin('panel',f.id)}>＋ Panel</UI.Button>
-          <UI.Button small disabled={!isTauri()} onClick={()=>{setExportFigureId(f.id);setExportPreview(null);void previewExport(f.id)}}>预览导出</UI.Button>
-        </header>
-        <div className={view==='grid'?'dm-paper-card-grid':'dm-paper-card-list'}>
-          {f.panels.map(p=><button className="dm-paper-panel-card" type="button" key={p.id}
-            onClick={()=>openPanel(p,f.id)}>
-            <div className="dm-paper-panel-thumbnail">▣<small>真实文件版本 · 无示意图</small></div>
-            <strong>{p.label}</strong>
-            <span>固定引用 {p.assets.length} · 代表来源 {p.representatives.length}</span>
-            <small>{p.assets.map(a=>a.name).join(' / ')||'尚无固定版本'}</small>
-          </button>)}
-        </div>
-        {!f.panels.length&&<p className="dm-muted">尚无 Panel。可以在当前 Figure 中添加。</p>}
-      </section>)}
+          <UI.Button small disabled={!isTauri()}
+            onClick={()=>{setExportFigureId(f.id);setExportPreview(null);void previewExport(f.id)}}>预览导出</UI.Button>
+        </div>}/>
       {exportPreview&&<div className="dm-paper-export" role="region" aria-label="Figure 导出核验">
         <strong>{figure?.label} · 待确认导出</strong>
         <p>{exportPreview.panelCount} 个 Panel，{exportPreview.referenceCount} 条引用，
