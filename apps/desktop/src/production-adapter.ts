@@ -76,20 +76,23 @@ export function createProductionAdapter(deps:{
 }):ProductionDataAdapter {
   const maxPages=deps.maxPages??10;
   if(!Number.isSafeInteger(maxPages)||maxPages<1)throw new Error('maxPages must be positive');
-  async function listStage(assayId:string,stage:ProductionStage):Promise<{items:AssetRow[];incomplete:boolean}>{
+  async function listStage(assayId:string,stage:ProductionStage):Promise<{items:AssetRow[];incomplete:boolean;total:number}>{
     const items:AssetRow[]=[];
     const visited=new Set<string>();
     let cursor:string|undefined;
+    let lastTotal=0;
     for(let i=0;i<maxPages;i++){
       const page=await deps.assets.list({assayId,stage,limit:100,...(cursor?{cursor}:{})});
       if(page.items.some(asset=>asset.stage!==stage))throw new Error('Asset stage mismatch');
+      lastTotal=page.total;
       items.push(...page.items);
-      if(!page.nextCursor)return {items,incomplete:items.length<page.total};
+      if(!page.nextCursor)return {items,incomplete:items.length<page.total,total:page.total};
       if(visited.has(page.nextCursor))throw new Error('Repeated asset cursor');
       visited.add(page.nextCursor);
       cursor=page.nextCursor;
     }
-    return {items,incomplete:true};
+    const total=items.length===0?0:Math.max(items.length,lastTotal);
+    return {items,incomplete:true,total};
   }
   return {
     async loadProjects(){
@@ -100,13 +103,24 @@ export function createProductionAdapter(deps:{
       const tree=await deps.experiments({action:'list',assayId});
       const stages=await Promise.all(PRODUCTION_STAGES.map(stage=>listStage(assayId,stage)));
       const [raw,processed,statistics,display]=stages;
+      // O(files + replicates) indexing: never scan every asset for every sample.
+      const byReplicate=(files:AssetRow[])=>{
+        const index=new Map<string,AssetRow[]>();
+        for(const file of files){
+          if(!file.replicateId)continue;
+          const list=index.get(file.replicateId)??[];
+          list.push(file);index.set(file.replicateId,list);
+        }
+        return index;
+      };
+      const rawIndex=byReplicate(raw.items),processedIndex=byReplicate(processed.items);
       // Note: never reassign assay-level files to each biological replicate.
       const rows=tree.groups.flatMap(group=>group.replicates.map(rep=>({
         id:rep.id,name:rep.label,groupId:group.id,
-        raw:raw.items.filter(file=>file.replicateId===rep.id),
-        processed:processed.items.filter(file=>file.replicateId===rep.id),
-        statistics:{scope:'assay' as const,status:'unlinked' as const,count:statistics.items.length},
-        display:{scope:'assay' as const,status:'unlinked' as const,count:display.items.length}
+        raw:rawIndex.get(rep.id)??[],
+        processed:processedIndex.get(rep.id)??[],
+        statistics:{scope:'assay' as const,status:'unlinked' as const,count:statistics.total},
+        display:{scope:'assay' as const,status:'unlinked' as const,count:display.total}
       })));
       return {
         assayId,groups:tree.groups,rows,
