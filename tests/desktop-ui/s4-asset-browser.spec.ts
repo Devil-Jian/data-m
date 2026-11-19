@@ -44,9 +44,9 @@ test('@S4 @S12 real-context asset browsing pagination search and selection (expl
   await first.press('Shift+F10');
   const menu=page.getByRole('menu',{name:'资产右键菜单'});
   await expect(menu).toBeVisible();
-  await expect(menu.getByRole('menuitem',{name:'重命名'})).toBeFocused();
+  await expect(menu.getByRole('menuitem',{name:'复制',exact:true})).toBeFocused();
   await page.keyboard.press('ArrowDown');
-  await expect(menu.getByRole('menuitem',{name:'移至回收区'})).toBeFocused();
+  await expect(menu.getByRole('menuitem',{name:'剪切'})).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(menu).toHaveCount(0);
   await expect(first).toBeFocused();
