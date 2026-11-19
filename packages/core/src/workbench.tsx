@@ -12,6 +12,7 @@ import {WorkbenchHeader} from './workbench-header';
 import {ResearchNavigationTree,WorkbenchStatusBar} from './workbench-navigation';
 import {WorkbenchExplorerToolbar} from './workbench-explorer-toolbar';
 import {WorkbenchFigureList} from './workbench-figure-list';
+import {PaperWorkspace} from './paper-workspace';
 import {InlineRename} from './inline-rename';
 import {renameValidationError} from './rename-validation';
 import {makeVirtualStressAssets,virtualAssetRects} from './virtual-layout';
@@ -42,7 +43,7 @@ export interface UIKit {
   Check: React.ComponentType<CheckProps>;
   Badge: React.ComponentType<BadgeProps>;
 }
-export interface WorkbenchProps { ui: UIKit; variant: 'shadcn' | 'mantine' | 'fluent'; }
+export interface WorkbenchProps { ui: UIKit; variant: 'shadcn' | 'mantine' | 'fluent'; legacyNativePaper?:boolean; }
 
 function Preview({type,large=false}:{type:string;large?:boolean}) {
   const bars = [32,72,48,84,59,91,63];
@@ -72,7 +73,7 @@ function meanText(assay:Assay, grpIndex:number) {
   return s.n ? s.mean.toFixed(2)+' ± '+s.sd.toFixed(2) : '—';
 }
 
-export function Workbench({ui: UI,variant}: WorkbenchProps) {
+export function Workbench({ui: UI,variant,legacyNativePaper=false}: WorkbenchProps) {
   const [projects,setProjects]=useState<Project[]>(()=>structuredClone(INITIAL_PROJECTS));
   const [projectId,setProjectId]=useState('prj-01');
   const [themeId,setThemeId]=useState('theme-ox');
@@ -481,7 +482,7 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
         themes={project.themes} themeId={theme.id} assayId={assay.id}
         onTheme={chooseTheme} onAssay={chooseAssay} footerText="本地单机 · 演示数据"/>}
       <main className="dm-workspace">
-        {module==='experiment'?<>
+        {module==='paper'&&legacyNativePaper?<PaperWorkspace/>:module==='experiment'?<>
           <div className="dm-workspace-head">
             <div className="dm-crumb">{project.code}<ChevronRight size={13}/>{theme.name}<ChevronRight size={13}/>{assay.name}</div>
             <h1>{assay.name}</h1><p>{assay.code} · {assay.modality} · {assay.metricName}（{assay.metricUnit}）</p>
