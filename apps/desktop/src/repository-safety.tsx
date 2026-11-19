@@ -45,7 +45,7 @@ export function RepositorySafetyPanel({onClose,api=safetyApi,listenProgress=safe
   const taskId='safety:'+request.action;
   if(track){
     activeTask.current=taskId;
-    reportTask({id:taskId,kind:request.action,title:'仓库安全 · '+actionLabels[request.action],phase:'running',completed:0,total:0,detail:'正在等待真实 S7 IPC 结果'});
+    reportTask({id:taskId,kind:request.action==='list'?'audit':request.action,title:'仓库安全 · '+actionLabels[request.action],phase:'running',completed:0,total:0,detail:'正在等待真实 S7 IPC 结果'});
   }
   try{
     const result=await api(request);
@@ -59,12 +59,12 @@ export function RepositorySafetyPanel({onClose,api=safetyApi,listenProgress=safe
     if(request.action==='backup'||request.action==='restore'||request.action==='list'){
       const latest=await api({action:'list'});setSnapshots(latest.snapshots);
     }
-    if(track)reportTask({id:taskId,kind:request.action,title:'仓库安全 · '+actionLabels[request.action],phase:status==='issues_found'?'failed':'completed',completed:status==='issues_found'?0:1,total:1,detail:status==='issues_found'?'发现完整性问题；查看仓库报告':'已收到原生 S7 确认结果；不代表异地备份'});
+    if(track)reportTask({id:taskId,kind:request.action==='list'?'audit':request.action,title:'仓库安全 · '+actionLabels[request.action],phase:status==='issues_found'?'failed':'completed',completed:status==='issues_found'?0:1,total:1,detail:status==='issues_found'?'发现完整性问题；查看仓库报告':'已收到原生 S7 确认结果；不代表异地备份'});
     if(request.action==='backup')setBackupConfirm(false);
     if(request.action==='restore'){setRestoreId(null);setRestoreLabel('');setRestoreConfirm(false);}
   }catch(reason){
     setError(safeSafetyError(reason).message);
-    if(track)reportTask({id:taskId,kind:request.action,title:'仓库安全 · '+actionLabels[request.action],phase:'failed',completed:0,total:1,detail:'原生结果未确认；请在本模块重新查询状态'});
+    if(track)reportTask({id:taskId,kind:request.action==='list'?'audit':request.action,title:'仓库安全 · '+actionLabels[request.action],phase:'failed',completed:0,total:1,detail:'原生结果未确认；请在本模块重新查询状态'});
   }
   finally{if(activeTask.current===taskId)activeTask.current=null;setBusy(false);}
  }
