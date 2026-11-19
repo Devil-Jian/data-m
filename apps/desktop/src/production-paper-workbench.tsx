@@ -79,7 +79,7 @@ export function ProductionPaperWorkbench({
     return ()=>{active=false;};
   },[projectId,panelId,candidateOffset,candidateSearch]);
 
-  async function mutate(request:Omit<PaperRequest,'projectId'|'requestId'>,requestId=crypto.randomUUID()){
+  async function mutate(request:Omit<PaperRequest,'projectId'|'requestId'>,requestId:string=crypto.randomUUID()){
     if(busy||!projectId)return;
     setBusy(true);setError('');setNotice('');
     try{
