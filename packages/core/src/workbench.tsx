@@ -10,6 +10,7 @@ import { demoAssetId, selectableDemoAssets } from './demo-assets';
 import { VirtualAssetList } from './virtual-asset-list';
 import {WorkbenchHeader} from './workbench-header';
 import {ResearchNavigationTree,WorkbenchStatusBar} from './workbench-navigation';
+import {WorkbenchExplorerToolbar} from './workbench-explorer-toolbar';
 import {PaperWorkspace} from './paper-workspace';
 import {InlineRename} from './inline-rename';
 import {renameValidationError} from './rename-validation';
@@ -492,35 +493,14 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
               </span>)}
             </div>
           </div>
-          <div className="dm-workspace-toolbar">
-            <div className="dm-mode-switch">
-              <UI.Button small variant={mode==='overview'?'primary':'ghost'} onClick={()=>setMode('overview')}><Grid2X2 size={15}/> 全阶段全景</UI.Button>
-              <UI.Button small variant={mode==='stage'?'primary':'ghost'} onClick={()=>setMode('stage')}><List size={15}/> 分阶段</UI.Button>
-            </div>
-            <div className="dm-toolbar-spacer"/>
-            <span className="dm-search-icon"><Search size={15}/></span><UI.Input value={search} onChange={setSearch} placeholder="搜索样本文件…" ariaLabel="搜索样本文件"/>
-            <UI.Select value={role} onChange={v=>setRole(v as 'all'|'rep'|'stats')}
-              options={[{value:'all',label:'全部样本'},{value:'rep',label:'仅代表图'},{value:'stats',label:'仅计入统计'}]}/>
-          </div>
-          {mode==='overview'?<div className="dm-filter-toolbar">
-            <span className="dm-filter-label">展示阶段</span>
-            {STAGES.map(s=><label key={s.id} className={'dm-stage-filter'+(stageFilter.includes(s.id)?' on':'')}>
-              <UI.Check checked={stageFilter.includes(s.id)} onChange={v=>setStageFilter(prev=>v?
-                Array.from(new Set([...prev,s.id])):prev.filter(x=>x!==s.id))}/>{s.label}</label>)}
-            <div className="dm-toolbar-spacer"/>
-            <div className="dm-view-switch">
-              {([['grid',LayoutGrid],['list',List],['table',Table2]] as const).map(([v,Icon])=>
-                <UI.Button key={v} small variant={view===v?'primary':'ghost'} onClick={()=>setView(v)} title={v}><Icon size={15}/></UI.Button>)}
-            </div>
-          </div>:<div className="dm-filter-toolbar">
-            {STAGES.map(s=><UI.Button key={s.id} small variant={stage===s.id?'primary':'ghost'} onClick={()=>setStage(s.id)}>
-              {s.label}</UI.Button>)}
-            <div className="dm-toolbar-spacer"/>
-            {(stage==='raw'||stage==='processed')&&<div className="dm-view-switch">
-              <UI.Button small variant={view==='grid'?'primary':'ghost'} onClick={()=>setView('grid')} title="卡片视图"><LayoutGrid size={15}/></UI.Button>
-              <UI.Button small variant={view==='list'?'primary':'ghost'} onClick={()=>setView('list')} title="虚拟文件列表"><List size={15}/></UI.Button>
-            </div>}
-          </div>}
+          <WorkbenchExplorerToolbar ui={UI} mode={mode} stage={stage}
+            stages={STAGES.map(s=>({id:s.id,label:s.label}))} stageFilter={stageFilter}
+            view={view} search={search} onMode={setMode} onStage={setStage}
+            onStageFilter={setStageFilter} onView={setView} onSearch={setSearch}
+            searchExtras={<UI.Select value={role}
+              onChange={v=>setRole(v as 'all'|'rep'|'stats')}
+              options={[{value:'all',label:'全部样本'},{value:'rep',label:'仅代表图'},
+                {value:'stats',label:'仅计入统计'}]}/>}/>
           <div className="dm-workspace-scroll dm-explorer-canvas" data-source-container-id={group.id}
             role="group" aria-label="文件资源管理器工作区" tabIndex={0}
             onFocusCapture={explorer.onFocusCapture}
