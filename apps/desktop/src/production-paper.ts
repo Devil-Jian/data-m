@@ -69,7 +69,7 @@ export function validatePaperSnapshot(input:unknown):PaperSnapshot{
   }
   return {
     papers,candidates,
-    ...(Number.isInteger(input.candidateTotalCount)&&Number(input.candidateTotalCount)>=0
+    ...(typeof input.candidateTotalCount==='number'&&Number.isSafeInteger(input.candidateTotalCount)&&input.candidateTotalCount>=0
       ?{candidateTotalCount:Number(input.candidateTotalCount)}:{}),
     ...(typeof input.candidateTruncated==='boolean'?{candidateTruncated:input.candidateTruncated}:{})
   };
