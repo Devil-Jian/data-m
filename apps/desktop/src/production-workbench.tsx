@@ -433,9 +433,9 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
               options={(snapshot?.groups??[]).map(g=>({value:g.id,label:g.name}))}/>
           </label>
           <label>目标样本（必须明确选择）
-            <UI.Select ariaLabel="复制移动目标样本" value={transferReplicateId}
-              onChange={id=>changeTransferTarget({replicateId:id})}
-              options={[{value:'',label:'请选择目标样本'},...(snapshot?.groups.find(g=>g.id===transferGroupId)?.replicates??[]).map(r=>({value:r.id,label:r.label}))]}/>
+            <UI.Select ariaLabel="复制移动目标样本" value={transferReplicateId||'__choose__'}
+              onChange={id=>changeTransferTarget({replicateId:id==='__choose__'?'':id})}
+              options={[{value:'__choose__',label:'请选择目标样本'},...(snapshot?.groups.find(g=>g.id===transferGroupId)?.replicates??[]).map(r=>({value:r.id,label:r.label}))]}/>
           </label>
         </>}
         {error&&<p role="alert">{error}</p>}
@@ -450,13 +450,13 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
     {importOpen&&assay&&<div className="dm-real-modal-backdrop dm-real-import-overlay">
       <section className="dm-real-import-modal" role="dialog" aria-modal="true" aria-label="受控安全导入">
         <div className="dm-real-import-target"><strong>选择导入目标</strong>
-          <UI.Select ariaLabel="导入数据阶段" value={stage} onChange={v=>setStage(v as ProductionStage)}
+          <UI.Select ariaLabel="导入数据阶段" value={stage} onChange={v=>{if(!importLocked)setStage(v as ProductionStage)}}
             options={PRODUCTION_STAGES.map(s=>({value:s,label:labels[s]}))}/>
           {(stage==='raw'||stage==='processed')&&<>
             <UI.Select ariaLabel="导入目标分组" value={groupId}
               onChange={id=>chooseGroup(id)} options={(snapshot?.groups??[]).map(g=>({value:g.id,label:g.name}))}/>
             <UI.Select ariaLabel="导入目标样本" value={importReplicateId}
-              onChange={setImportReplicateId} options={(group?.replicates??[]).map(rep=>({value:rep.id,label:rep.label}))}/>
+              onChange={v=>{if(!importLocked)setImportReplicateId(v)}} options={(group?.replicates??[]).map(rep=>({value:rep.id,label:rep.label}))}/>
           </>}
           <p>仅支持已解压的真实文件或文件夹；ZIP 不能直接解包。系统不会按文件名自动创建科研关联。</p>
         </div>
