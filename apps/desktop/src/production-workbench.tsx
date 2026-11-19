@@ -58,6 +58,7 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
   const [transferGroupId,setTransferGroupId]=useState('');
   const [transferReplicateId,setTransferReplicateId]=useState('');
   const requestVersion=useRef(0);
+  const activeAssayRef=useRef(assayId);activeAssayRef.current=assayId;
   const project=projects.find(p=>p.id===projectId);
   const theme=project?.themes.find(t=>t.id===themeId);
   const assay=theme?.assays.find(a=>a.id===assayId);
@@ -204,6 +205,7 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
   },[projects,projectId,themeId,assayId]);
   const refreshAssay=useCallback(async(id:string)=>{
     const next=await productionAdapter.loadAssay(id);
+    if(activeAssayRef.current!==id)return;
     setSnapshot(next);
     setGroupId(old=>next.groups.some(g=>g.id===old)?old:next.groups[0]?.id??'');
   },[]);
@@ -304,7 +306,12 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
             disabled={!projectId}>＋ 主题</UI.Button>
           <UI.Button small onClick={()=>open('project','assay','create',undefined,themeId)}
             disabled={!themeId}>＋ 实验</UI.Button>
+          {project&&<UI.Button small onClick={()=>open('project','project','rename',projectId,undefined,project.name)}>重命名项目</UI.Button>}
+          {project&&<UI.Button small variant="ghost" onClick={()=>open('project','project','delete',projectId)}>删除项目</UI.Button>}
+          {theme&&<UI.Button small onClick={()=>open('project','theme','rename',themeId,undefined,theme.name)}>重命名主题</UI.Button>}
+          {theme&&<UI.Button small variant="ghost" onClick={()=>open('project','theme','delete',themeId)}>删除主题</UI.Button>}
           {assay&&<UI.Button small onClick={()=>open('project','assay','rename',assayId,undefined,assay.name)}>重命名实验</UI.Button>}
+          {assay&&<UI.Button small variant="ghost" onClick={()=>open('project','assay','delete',assayId)}>删除实验</UI.Button>}
         </div>
         <div className="dm-sidebar-footer">◈ <span>本地 SQLite / CAS · 真实数据</span></div>
       </aside>}
@@ -329,6 +336,10 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
             <UI.Button small variant="ghost" onClick={()=>open('experiment','group','create')}>＋ 新建分组</UI.Button>
             {group&&<UI.Button small variant="ghost"
               onClick={()=>open('experiment','replicate','create',undefined,groupId)}>＋ 新建样本</UI.Button>}
+            {group&&<UI.Button small variant="ghost"
+              onClick={()=>open('experiment','group','rename',groupId,undefined,group.name)}>重命名当前分组</UI.Button>}
+            {group&&<UI.Button small variant="ghost"
+              onClick={()=>open('experiment','group','delete',groupId)}>删除当前分组</UI.Button>}
           </div>
         </div>
         <div className="dm-workspace-toolbar">
@@ -366,7 +377,13 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
               <th>生物学重复</th>{PRODUCTION_STAGES.filter(s=>stageFilter.includes(s)).map(s=>
                 <th key={s}>{labels[s]}<small>{s==='raw'||s==='processed'?'样本级':'实验级'}</small></th>)}
             </tr></thead><tbody>{rows.map(row=><tr key={row.id}>
-              <td className="dm-sample-label"><strong>{row.name}</strong></td>
+              <td className="dm-sample-label"><strong>{row.name}</strong>
+                <div className="dm-real-sample-actions">
+                  <button type="button" aria-label={`重命名样本 ${row.name}`}
+                    onClick={()=>open('experiment','replicate','rename',row.id,undefined,row.name)}>重命名</button>
+                  <button type="button" aria-label={`删除样本 ${row.name}`}
+                    onClick={()=>open('experiment','replicate','delete',row.id)}>删除</button>
+                </div></td>
               {PRODUCTION_STAGES.filter(s=>stageFilter.includes(s)).map(s=><td key={s}>
                 {s==='raw'||s==='processed'?assetCell(row[s]):
                   <div className="dm-asset-cell dm-compact">
