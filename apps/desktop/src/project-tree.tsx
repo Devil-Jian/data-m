@@ -115,6 +115,7 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
     const id=navigation.entries[index];
     if(!nodes.some(node=>node.id===id))return;
     setSelectedId(id);
+    setExperiment(null);setStatistics(null);setSafetyOpen(false);setPaperOpen(false);
     setNavigation(previous=>({...previous,index}));
   }
   useEffect(()=>{
@@ -146,11 +147,11 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
     </li>);
   }
 
-  const modulePanel:React.ReactNode=paperOpen?<PaperWorkspace onClose={()=>setPaperOpen(false)}
+  const modulePanel:React.ReactNode=paperOpen?<PaperWorkspace onClose={()=>setPaperOpen(false)} onBusyChange={setModuleBusy}
     onExportStatus={entry=>reportTask({id:'figure:'+entry.requestId,kind:'export',title:'Figure 固定版本无损导出',
       phase:entry.phase,completed:entry.completed,total:entry.total,detail:entry.detail})}/>:
-    statistics?<StatisticalAnalysisPanel key={statistics.id} assayId={statistics.id} assayName={statistics.name} onClose={()=>setStatistics(null)}/>:
-    safetyOpen?<RepositorySafetyPanel onClose={()=>setSafetyOpen(false)}/>:
+    statistics?<StatisticalAnalysisPanel key={statistics.id} assayId={statistics.id} assayName={statistics.name} onBusyChange={setModuleBusy} onClose={()=>setStatistics(null)}/>:
+    safetyOpen?<RepositorySafetyPanel onBusyChange={setModuleBusy} onClose={()=>setSafetyOpen(false)}/>:
     experiment?<ExperimentTreeManager key={experiment.id} assayId={experiment.id} assayName={experiment.name}
       onClose={()=>setExperiment(null)} onBusyChange={setModuleBusy} registerImportDrop={registerImportDrop}/>:null;
   if(modulePanel)return <div className="dm-unified-module-shell" aria-label="统一科研工作区">
@@ -159,7 +160,20 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
       <button type="button" disabled={pending||moduleBusy} onClick={()=>{setExperiment(null);setStatistics(null);setSafetyOpen(false);setPaperOpen(false);}}>项目概览</button>
       <nav aria-label="项目主题实验"><ul className="dm-project-tree">{branch(null)}</ul></nav>
     </aside>
-    <div className="dm-unified-module-content">{modulePanel}</div>
+    <div className="dm-unified-module-content">
+      <nav className="dm-unified-module-breadcrumbs" aria-label="科研位置">
+        <button type="button" aria-label="后退" disabled={pending||moduleBusy||navigation.index<=0}
+          onClick={()=>travel(-1)}>←</button>
+        <button type="button" aria-label="前进" disabled={pending||moduleBusy||navigation.index>=navigation.entries.length-1}
+          onClick={()=>travel(1)}>→</button>
+        {breadcrumbs.length?breadcrumbs.map((node,index)=><React.Fragment key={node.id}>
+          {index>0&&<span aria-hidden="true"> / </span>}
+          <button type="button" aria-current={selectedId===node.id?'page':undefined}
+            disabled={pending||moduleBusy} onClick={()=>navigate(node.id)}>{node.name}</button>
+        </React.Fragment>):<span>科研项目根目录</span>}
+      </nav>
+      {modulePanel}
+    </div>
   </div>;
 
   return <main className="dm-project-manager" aria-label="项目管理工作区" aria-busy={pending}>
