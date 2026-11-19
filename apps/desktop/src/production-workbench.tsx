@@ -73,6 +73,7 @@ export function ProductionWorkbench(){
   const setSelectedIds=explorer.setSelectedIds;
   async function mutateAsset(action:'rename'|'soft_delete',ids:string[]){
     if(busy||ids.length===0||ids.length>100||!assayId)return;
+    const scopeVersion=requestVersion.current;
     const rows=ids.map(id=>visibleFiles.find(f=>f.assetLinkId===id));
     if(rows.some(f=>!f)){setError('文件选择已过期，请刷新。');return;}
     const files=rows as AssetRow[];
@@ -87,14 +88,19 @@ export function ProductionWorkbench(){
     try{
       const links=files.map(file=>currentLinks({assayId,stage:file.stage},[file])[0]);
       await lifecycleApi(lifecycleRequest(action,links,newName));
-      await refreshAssay(assayId);
-      setSelectedIds([]);
+      if(scopeVersion===requestVersion.current){
+        await refreshAssay(assayId);
+        setSelectedIds([]);
+      }
     }catch(reason){
       setError(lifecycleError(reason).message+' 请重新加载核验状态。');
-      try{await refreshAssay(assayId);}catch{/* preserve the primary operation error */}
+      if(scopeVersion===requestVersion.current){
+        try{await refreshAssay(assayId);}catch{/* preserve the primary operation error */}
+      }
     }finally{setBusy(false);}
   }
   const selectProject=(id:string)=>{
+    if(busy)return;
     const next=projects.find(p=>p.id===id);
     const t=next?.themes[0],a=t?.assays[0];
     setProjectId(id);setThemeId(t?.id??'');setAssayId(a?.id??'');
@@ -170,11 +176,12 @@ export function ProductionWorkbench(){
     }finally{setBusy(false);}
   };
   const chooseTheme=(id:string)=>{
+    if(busy)return;
     const t=project?.themes.find(x=>x.id===id);
     setThemeId(id);setAssayId(t?.assays[0]?.id??'');setSelectedIds([]);setDetail(null);
   };
-  const chooseAssay=(id:string)=>{setAssayId(id);setSelectedIds([]);setDetail(null);};
-  const chooseGroup=(id:string)=>{setGroupId(id);setSelectedIds([]);setDetail(null);setSearch('');};
+  const chooseAssay=(id:string)=>{if(busy)return;setAssayId(id);setSelectedIds([]);setDetail(null);};
+  const chooseGroup=(id:string)=>{if(busy)return;setGroupId(id);setSelectedIds([]);setDetail(null);setSearch('');};
   const toggle=(id:string,on:boolean)=>explorer.toggle(id,on);
   const assetCell=(files:AssetRow[])=><div className="dm-real-asset-stack">
     {files.length===0?<span className="dm-muted">尚无文件</span>:files.map(f=>
