@@ -79,7 +79,7 @@ async function setup(page:import('@playwright/test').Page){
     responses.set(req.requestId,{request:req,result});audit.push(result);return result;
   };
  });
- await page.goto('/');
+ await page.goto('/?legacy=1');
  await page.getByRole('button',{name:'项目管理',exact:true}).click();
  await page.getByRole('button',{name:'实验：S6实验'}).click();
  await page.getByRole('button',{name:'分组与样本',exact:true}).click();
