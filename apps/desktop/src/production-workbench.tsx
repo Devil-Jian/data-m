@@ -16,6 +16,8 @@ import type {ProductionTransferDraft} from './production-transfer';
 import {ImportJobsPanel} from './import-jobs.tsx';
 import {ProductionPaperWorkbench} from './production-paper';
 import {RepositorySafetyPanel} from './repository-safety.tsx';
+import {ProductionAnalysisDrawer} from './production-analysis';
+import type {AnalysisEvidence} from './production-analysis';
 import {useProductionStageAssets} from './use-production-stage-assets';
 import type {ImportDropRegistrar,ImportTarget} from './import-jobs.ts';
 import './production-workbench.css';
@@ -53,6 +55,9 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
   const [detail,setDetail]=useState<AssetRow|null>(null);
   const [importOpen,setImportOpen]=useState(false);
   const [safetyOpen,setSafetyOpen]=useState(false);
+  const [analysisOpen,setAnalysisOpen]=useState(false);
+  const [analysisEvidence,setAnalysisEvidence]=useState<AnalysisEvidence|null>(null);
+  const [inclusionFilter,setInclusionFilter]=useState<'all'|'included'|'excluded'>('all');
   const [importLocked,setImportLocked]=useState(false);
   const [importReplicateId,setImportReplicateId]=useState('');
   const [transferDraft,setTransferDraft]=useState<ProductionTransferDraft|null>(null);
@@ -73,8 +78,11 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
   const importTargetLabel=`${assay?.name??''} / ${labels[stage]} / ${importReplicate?.label??'实验级'}`;
   const rows=useMemo(()=>snapshot?.rows.filter(r=>r.groupId===groupId&&
     (!search||r.name.toLowerCase().includes(search.toLowerCase())||
-     [...r.raw,...r.processed].some(f=>f.name.toLowerCase().includes(search.toLowerCase()))))??[],
-    [snapshot,groupId,search]);
+     [...r.raw,...r.processed].some(f=>f.name.toLowerCase().includes(search.toLowerCase())))&&
+    (inclusionFilter==='all'||!analysisEvidence?.frozenAt?true:
+      inclusionFilter==='included'?analysisEvidence.includedReplicateIds.includes(r.id):
+      !analysisEvidence.includedReplicateIds.includes(r.id)))??[],
+    [snapshot,groupId,search,inclusionFilter,analysisEvidence]);
   const stageView=useProductionStageAssets({
     assayId,stage,
     ...(stage==='raw'||stage==='processed'?{groupId}:{}),
@@ -213,7 +221,8 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
   },[]);
   useEffect(()=>{
     const token=++requestVersion.current;
-    setSnapshot(null);setGroupId('');setImportReplicateId('');setTransferDraft(null);setSelectedIds([]);setDetail(null);setSearch('');
+    setSnapshot(null);setGroupId('');setImportReplicateId('');setTransferDraft(null);setSelectedIds([]);
+    setAnalysisOpen(false);setAnalysisEvidence(null);setInclusionFilter('all');setDetail(null);setSearch('');
     if(!assayId)return;
     void productionAdapter.loadAssay(assayId).then(data=>{
       if(token!==requestVersion.current)return;
@@ -350,8 +359,16 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
             <UI.Button small variant={mode==='stage'?'primary':'ghost'} onClick={()=>setMode('stage')}>☷ 分阶段</UI.Button>
           </div><div className="dm-toolbar-spacer"/>
           <UI.Input value={search} onChange={setSearch} placeholder="搜索样本文件…" ariaLabel="搜索样本文件"/>
+          <UI.Button small variant="secondary" disabled={!assayId||busy} onClick={()=>setAnalysisOpen(true)}>
+            统计分析{analysisEvidence?.frozenAt?` · 已冻结 n=${analysisEvidence.includedN}`:''}
+          </UI.Button>
         </div>
         <div className="dm-filter-toolbar">
+          {mode==='overview'&&analysisEvidence?.frozenAt&&<div className="dm-real-inclusion-filter">
+            <UI.Select ariaLabel="按真实冻结分析筛选" value={inclusionFilter} onChange={v=>setInclusionFilter(v as typeof inclusionFilter)}
+              options={[{value:'all',label:'全部生物学重复'},{value:'included',label:'本分析已纳入'},
+                {value:'excluded',label:'本分析未纳入'}]}/>
+          </div>}
           {mode==='overview'?<>
             <span className="dm-filter-label">展示阶段</span>
             {PRODUCTION_STAGES.map(s=><label key={s} className={'dm-stage-filter'+(stageFilter.includes(s)?' on':'')}>
@@ -390,7 +407,10 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
                 {s==='raw'||s==='processed'?assetCell(row[s]):
                   <div className="dm-asset-cell dm-compact">
                     <strong>实验级文件 {row[s].count} 项</strong>
-                    <small>尚无可核验的本样本引用</small>
+                    {s==='statistics'&&analysisEvidence?.frozenAt?
+                      <small>{analysisEvidence.includedReplicateIds.includes(row.id)
+                        ?`冻结分析 ${analysisEvidence.analysisId}：已纳入`:'当前冻结分析未纳入本样本'}</small>:
+                      <small>尚无可核验的本样本引用</small>}
                     <button type="button" onClick={()=>{setMode('stage');setStage(s)}}>查看实验级文件</button>
                   </div>}
               </td>)}
@@ -447,6 +467,8 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
       <div className="dm-real-modal-actions"><UI.Button disabled={busy} onClick={()=>{setEditor(null);setError('')}}>取消</UI.Button>
         <UI.Button disabled={busy} variant={editor.action==='delete'?'danger':'primary'} onClick={()=>void submit()}>确认</UI.Button></div>
     </section></div>}
+    {analysisOpen&&assay&&<ProductionAnalysisDrawer assayId={assayId} assayName={assay.name}
+      onEvidence={setAnalysisEvidence} onClose={()=>setAnalysisOpen(false)}/>}
     {safetyOpen&&<div className="dm-real-modal-backdrop dm-real-safety-overlay">
       <section role="dialog" aria-modal="true" aria-label="仓库数据安全工具"
         className="dm-real-safety-modal">
