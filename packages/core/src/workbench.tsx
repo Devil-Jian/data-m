@@ -8,6 +8,7 @@ import {
 import { allPanels, findAssay, INITIAL_PROJECTS, STAGES, summary } from './data';
 import { demoAssetId, selectableDemoAssets } from './demo-assets';
 import { VirtualAssetList } from './virtual-asset-list';
+import {WorkbenchHeader} from './workbench-header';
 import {PaperWorkspace} from './paper-workspace';
 import {InlineRename} from './inline-rename';
 import {renameValidationError} from './rename-validation';
