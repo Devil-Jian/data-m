@@ -1,4 +1,4 @@
-import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import React,{useCallback,useEffect,useRef,useState} from 'react';
 import {isTauri,invoke} from '@tauri-apps/api/core';
 import {ProvenanceView} from '@data-m/core';
 import {shadcnUI as UI} from '@data-m/ui/workbench-ui';
@@ -40,7 +40,6 @@ export function ProductionPaperWorkbench({
   const paper=snapshot.papers.find(p=>p.id===paperId)??snapshot.papers[0];
   const panel=paper?.figures.flatMap(f=>f.panels).find(p=>p.id===panelId);
   const figure=paper?.figures.find(f=>f.id===exportFigureId)??paper?.figures[0];
-  const cards=useMemo(()=>paper?.figures.flatMap(f=>f.panels.map(panel=>({figure:f,panel})))??[],[paper]);
 
   const reload=useCallback(async(id:string)=>{
     const request=++serial.current;
@@ -85,14 +84,14 @@ export function ProductionPaperWorkbench({
     setPanelId(selected.id);setExportFigureId(figureId);
     setCandidateOffset(0);setCandidateSearch('');setSelectedVersions([]);
   }
-  async function previewExport(){
-    if(!paper||!figure||!isTauri())return;
+  async function previewExport(figureId:string){
+    if(!paper||!figureId||!isTauri())return;
     setExportStatus('');setExportPreview(null);
     try{
       const result=await invoke<{status:string;preview:typeof exportPreview}>('figure_export',{
-        request:{action:'preview',projectId,paperId:paper.id,figureId:figure.id}
+        request:{action:'preview',projectId,paperId:paper.id,figureId}
       });
-      if(result.status!=='preview'||!result.preview||result.preview.figureId!==figure.id)
+      if(result.status!=='preview'||!result.preview||result.preview.figureId!==figureId)
         throw Error('导出范围无法核验');
       setExportPreview(result.preview);
     }catch{setExportStatus('预览失败；未导出文件。');}
@@ -145,7 +144,7 @@ export function ProductionPaperWorkbench({
       {paper.figures.map(f=><section className="dm-paper-figure" key={f.id}>
         <header><h2>{f.label}</h2><small>{f.panels.length} 个 Panel</small>
           <UI.Button small variant="secondary" onClick={()=>begin('panel',f.id)}>＋ Panel</UI.Button>
-          <UI.Button small disabled={!isTauri()} onClick={()=>{setExportFigureId(f.id);setExportPreview(null);void previewExport()}}>预览导出</UI.Button>
+          <UI.Button small disabled={!isTauri()} onClick={()=>{setExportFigureId(f.id);setExportPreview(null);void previewExport(f.id)}}>预览导出</UI.Button>
         </header>
         <div className={view==='grid'?'dm-paper-card-grid':'dm-paper-card-list'}>
           {f.panels.map(p=><button className="dm-paper-panel-card" type="button" key={p.id}
