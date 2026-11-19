@@ -31,7 +31,7 @@ test('@S11 10024-row renderer IPC mock retains bounded pages, search and project
       async detail(assetLinkId:string){return {item:records.find(x=>x.assetLinkId===assetLinkId)};}
     };
   });
-  await page.goto('/');
+  await page.goto('/?legacy=1');
   await expect(page.getByLabel('安装及版本信息')).toContainText('未签名');
   await page.getByRole('button',{name:'项目管理',exact:true}).click();
   await page.getByRole('button',{name:'实验：S11实验'}).click();
@@ -58,7 +58,7 @@ test('@S11 10024-row renderer IPC mock retains bounded pages, search and project
 });
 
 test('@S11 nested file action right-click repeatedly opens context menu without retry',async ({page})=>{
-  await page.goto('/');
+  await page.goto('/?legacy=1');
   await page.getByRole('button',{name:'分阶段'}).click();
   await page.getByRole('button',{name:/04_Display/}).first().click();
   const file=page.locator('[data-explorer-id^="asset:display:"]').first();
