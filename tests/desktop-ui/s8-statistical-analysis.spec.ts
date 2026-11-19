@@ -48,7 +48,7 @@ async function open(page:import('@playwright/test').Page){
     };
   };
  });
- await page.goto('/');
+ await page.goto('/?legacy=1');
  await page.getByRole('button',{name:'项目管理',exact:true}).click();
  await page.getByRole('button',{name:'实验：ROS'}).click();
  await page.getByRole('button',{name:'统计分析 (S8)'}).click();

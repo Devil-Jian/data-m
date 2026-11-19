@@ -11,6 +11,7 @@ on:
       - feat/s8-statistics-sample-inclusion
       - feat/i1-s8-s9-integration
       - feat/s10-bidirectional-trace-export
+      - feat/s12r-demo-workbench-production
     paths:
       - 'apps/desktop/**'
       - 'packages/**'
@@ -81,13 +82,36 @@ jobs:
       - name: Type-check, Vite build and interaction tests
         run: |
           npm run build:desktop
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:interaction
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:assets
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:desktop
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: S12R release-only renderer must not ship Demo fixtures
+        run: node scripts/check-s12r-release-bundle.mjs
+      - name: S12R production adapter isolated scope tests
+        run: npm run test:desktop
       - name: Verify Windows source-protection fixture checker (non-GUI)
         run: ./scripts/test-p1-drop-source.ps1 -SelfTest
       - name: Install Chromium for Windows interaction tests
         run: npx playwright install chromium
+      - name: Capture immutable e7b12d Demo Workbench baseline for visual comparison
+        shell: pwsh
+        run: |
+          git fetch --no-tags --depth=1 origin e7b12d7022ed40d33bccc42f9a628b305e91ccf9
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $baseline = Join-Path $env:RUNNER_TEMP 's12r-original-ui'
+          git worktree add --detach $baseline e7b12d7022ed40d33bccc42f9a628b305e91ccf9
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Push-Location $baseline
+          try {
+            npm ci --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally { Pop-Location }
+          node scripts/capture-s12r-baseline.mjs $baseline s12r-evidence/baseline
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Windows Chromium pointer and keyboard E2E
         run: npm run test:e2e
       - name: S0 renderer consistency
@@ -114,6 +138,13 @@ jobs:
         run: npm run test:e2e:desktop -- --grep "@S10"
       - name: S11 renderer paging and nested-context-menu E2E (mock)
         run: npm run test:e2e:desktop -- --grep "@S11"
+      - name: S12R production Workbench interactions and native mocks
+        run: |
+          $tests = npx playwright test -c playwright.desktop.config.ts --list --grep "@S12R"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not ($tests -match '@S12R')) { throw 'S12R Playwright tests missing' }
+          npm run test:e2e:desktop -- --grep "@S12R"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: I1 integrated workspace UI E2E
         run: npm run test:e2e:desktop -- --grep "@I1"
       - name: S9 native SQLite paper and pinned-version regression
@@ -240,6 +271,15 @@ jobs:
           path: s11-release-artifacts/*
           if-no-files-found: error
           retention-days: 30
+      - name: Upload S12R visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s12r-visual-evidence
+          path: |
+            s12r-evidence
+            test-results
+          if-no-files-found: warn
       - name: Export dependency lock corrections on failure
         if: failure()
         working-directory: apps/desktop/src-tauri

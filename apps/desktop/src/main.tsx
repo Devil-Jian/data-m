@@ -1,21 +1,25 @@
-import React, {useCallback,useEffect,useReducer,useRef,useState} from 'react';
+import React, {useCallback,useEffect,useReducer,useRef} from 'react';
 import {createRoot} from 'react-dom/client';
-import {Workbench} from '@data-m/core';
+import {ProductionWorkbench} from './production-workbench';
+import {shadcnUI} from '@data-m/ui/workbench-ui';
 import {getCurrentWebview} from '@tauri-apps/api/webview';
 import {invoke,isTauri} from '@tauri-apps/api/core';
 import {dropReducer,formatDropSize,initialDropState} from './drop-preview';
 import type {DropPreview} from './drop-preview';
-import {shadcnUI} from '@data-m/ui/workbench-ui';
 import '@data-m/core/style.css';
 import '@data-m/ui/style.css';
 import './desktop.css';
-import {ProjectTreeManager} from './project-tree.tsx';
 import type {ImportDropHandler,ImportDropRegistrar} from './import-jobs.ts';
+
+/** Bundled release eliminates this dynamic import at build time.
+ * ?legacy=1 is deliberately unreachable outside Vite DEV.
+ */
+const LegacyDevelopmentHarness=import.meta.env.DEV
+  ?React.lazy(()=>import('./legacy-development-harness'))
+  :null;
 
 /** Native Windows drop adapter. Inspection is read-only; source paths never reach UI state. */
 function DesktopApp(){
-  const [managingProjects,setManagingProjects]=useState(false);
-  const [projectBusy,setProjectBusy]=useState(false);
   const [drop,dispatch]=useReducer(dropReducer,initialDropState);
   const dismissButtonRef=useRef<HTMLButtonElement>(null);
   const importDropRef=useRef<ImportDropHandler|null>(null);
@@ -97,14 +101,12 @@ function DesktopApp(){
   const dismiss=()=>dispatch({type:'dismiss'});
   const summary=drop.kind==='ready'?drop.preview:null;
   return <div className="dm-desktop-shell">
-    <nav className="dm-desktop-modebar" aria-label="工作区模式">
-      <shadcnUI.Button disabled={projectBusy} variant={managingProjects?'primary':'secondary'} small onClick={()=>setManagingProjects(true)}>项目管理</shadcnUI.Button>
-      <shadcnUI.Button disabled={projectBusy} variant={managingProjects?'secondary':'primary'} small onClick={()=>setManagingProjects(false)}>演示工作区</shadcnUI.Button>
-      <span>{managingProjects?'Project / Theme / Assay':'演示数据与文件交互，不代表真实入库'}</span>
-      <small className="dm-release-candidate" aria-label="安装及版本信息">0.1.0 S11 测试构建 · 未签名 · 支持仓库 Schema v1–v3 · 非正式 v1.0</small>
-    </nav>
     <div className="dm-desktop-content">
-      {managingProjects?<ProjectTreeManager onBusyChange={setProjectBusy} registerImportDrop={registerImportDrop}/>:<Workbench ui={shadcnUI} variant="shadcn"/>}
+      {LegacyDevelopmentHarness && new URLSearchParams(window.location.search).get('legacy')==='1'
+        ?<React.Suspense fallback={<div role="status">加载开发测试工作区…</div>}>
+          <LegacyDevelopmentHarness registerImportDrop={registerImportDrop}/>
+        </React.Suspense>
+        :<ProductionWorkbench registerImportDrop={registerImportDrop} ui={shadcnUI}/>}
     </div>
     {drop.kind!=='idle'&&<section
       className={'dm-native-drop '+(drop.kind==='over'?'is-over':'')}
@@ -129,8 +131,7 @@ function DesktopApp(){
           </li>)}
         </ul>
         {summary.entries.length>16&&<p>预览仅展示前 16 项，其余 {summary.entries.length-16} 项已完成初步检查。</p>}
-        <p className="dm-drop-warning">仅只读检查文件元数据。尚未导入、复制或修改任何文件。
-          真正导入需要 P2 安全存储服务，当前不可用。</p>
+        <p className="dm-drop-warning">当前仅进行只读文件元数据检查，尚未提交导入任务。请在已验证的目标范围中使用受控导入流程。</p>
       </>}
     </section>}
   </div>;

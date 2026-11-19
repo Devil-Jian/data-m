@@ -38,7 +38,7 @@ test('@S10 formal Paper Panel provenance and exact-version reverse navigation (r
    transformCallback:()=>1,metadata:{currentWindow:{label:'main'}}
   };
  });
- await page.goto('/');
+ await page.goto('/?legacy=1');
  await page.getByRole('button',{name:'论文管理'}).click();
  await page.getByRole('button',{name:/A · 1 份/}).click();
  await expect(page.getByRole('region',{name:'S10 版本溯源'})).toHaveCount(1);
@@ -93,7 +93,7 @@ test('@S10 formal asset detail reverse reference is project scoped (renderer IPC
    },transformCallback:()=>1,metadata:{currentWindow:{label:'main'}}
   };
  });
- await page.goto('/');
+ await page.goto('/?legacy=1');
  await page.getByRole('button',{name:'项目管理',exact:true}).click();
  await page.getByRole('button',{name:'实验：实验'}).click();
  await page.getByRole('button',{name:'分组与样本',exact:true}).click();

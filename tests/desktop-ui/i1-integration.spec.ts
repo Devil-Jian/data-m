@@ -18,7 +18,7 @@ test('@I1 formal project workspace opens S8 and S9 without using demo data',asyn
    },transformCallback:()=>1,metadata:{currentWindow:{label:'main'}}
   };
  });
- await page.goto('/');
+ await page.goto('/?legacy=1');
  await page.getByRole('button',{name:'项目管理',exact:true}).click();
  await page.getByRole('button',{name:'实验：ROS'}).click();
  await page.getByRole('button',{name:'统计分析 (S8)'}).click();
@@ -69,7 +69,7 @@ test('@I1 project switch discards stale delayed Paper responses (explicit IPC mo
      },transformCallback:()=>1,metadata:{currentWindow:{label:'main'}}
    };
  });
- await page.goto('/');
+ await page.goto('/?legacy=1');
  await page.getByRole('button',{name:'项目管理',exact:true}).click();
  await page.getByRole('button',{name:'论文管理 (S9)'}).click();
  await page.getByLabel('选择真实科研项目').selectOption('project-b');
