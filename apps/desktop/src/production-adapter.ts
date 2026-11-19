@@ -100,6 +100,14 @@ export function createProductionAdapter(deps:{
       const tree=await deps.experiments({action:'list',assayId});
       const stages=await Promise.all(PRODUCTION_STAGES.map(stage=>listStage(assayId,stage)));
       const [raw,processed,statistics,display]=stages;
+      // A stale or foreign replicate link must not silently disappear from the matrix.
+      // Reject inconsistent native data instead of claiming the assay is complete.
+      const validReplicates=new Map(tree.groups.flatMap(group=>
+        group.replicates.map(rep=>[rep.id,group.id] as const)));
+      for(const file of [...raw.items,...processed.items]){
+        if(!file.replicateId||validReplicates.get(file.replicateId)!==file.groupId)
+          throw new Error('Asset replicate scope mismatch');
+      }
       // Note: never reassign assay-level files to each biological replicate.
       const rows=tree.groups.flatMap(group=>group.replicates.map(rep=>({
         id:rep.id,name:rep.label,groupId:group.id,

@@ -59,3 +59,23 @@ describe('S12R production adapter',()=>{
     expect((await adapter.loadAssay('assay-a')).incomplete).toBe(true);
   });
 });
+
+
+describe('S12R replicate scope safety',()=>{
+  it.each([
+    ['missing replicate',null,'group-a'],
+    ['foreign replicate','rep-other','group-a'],
+    ['wrong group','rep1','group-other']
+  ])('rejects %s instead of silently hiding a raw asset',async(_label,replicateId,groupId)=>{
+    const unsafe={...asset('raw1','raw','rep1'),replicateId,groupId};
+    const adapter=createProductionAdapter({
+      projects:vi.fn(async()=>({nodes:[]})),
+      experiments:vi.fn(async()=>({assayId:'assay-a',replicateCount:1,stages:[],
+        groups:[{id:'group-a',name:'Control',replicates:[{id:'rep1',label:'R1'}]}]})),
+      assets:{list:vi.fn(async({stage})=>({
+        items:stage==='raw'?[unsafe]:[],total:stage==='raw'?1:0,nextCursor:null
+      })),detail:vi.fn()}
+    });
+    await expect(adapter.loadAssay('assay-a')).rejects.toThrow('Asset replicate scope mismatch');
+  });
+});
