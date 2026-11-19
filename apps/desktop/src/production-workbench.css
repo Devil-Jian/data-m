@@ -49,3 +49,12 @@
 .dm-real-panel-no-preview{display:flex;min-width:102px;min-height:85px;justify-content:center;align-items:center;flex-direction:column;gap:4px;background:#eaf2f8;border:1px dashed #c2d3e2;border-radius:5px;color:#69839c;font-size:11px}
 .dm-real-panel-no-preview span{font-size:20px}
 .dm-real-panel-no-preview small{font-size:10px}
+
+.dm-real-sample-list{display:flex;flex-direction:column;gap:10px;padding:12px}
+.dm-real-sample-list-card{padding:12px}
+.dm-real-sample-list-card h3{font-size:13px;margin:0 0 8px}
+.dm-real-sample-list-stages{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px}
+.dm-real-sample-list-stages section{display:flex;flex-direction:column;gap:5px;min-width:0;padding:9px;background:#f9fbfd;border:1px solid #dbe5ee;border-radius:7px}
+.dm-real-sample-list-stages section>strong{font-size:12px;color:#466785}
+.dm-real-sample-list-stages section>small{font-size:11px;color:#6b7b8f}
+@media(max-width:1050px){.dm-real-sample-list-stages{grid-template-columns:repeat(2,minmax(160px,1fr))}}
