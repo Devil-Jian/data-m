@@ -7,6 +7,7 @@ import {RepositorySafetyPanel} from './repository-safety.tsx';
 import {StatisticalAnalysisPanel} from './statistical-analysis.tsx';
 import type {ImportDropRegistrar} from './import-jobs.ts';
 import {PaperWorkspace} from '@data-m/core';
+import {reportTask} from './task-tray.tsx';
 import './project-tree.css';
 
 const {Button,Input,Badge}=shadcnUI;
@@ -145,7 +146,9 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
     </li>);
   }
 
-  const modulePanel:React.ReactNode=paperOpen?<PaperWorkspace onClose={()=>setPaperOpen(false)}/>:
+  const modulePanel:React.ReactNode=paperOpen?<PaperWorkspace onClose={()=>setPaperOpen(false)}
+    onExportStatus={entry=>reportTask({id:'figure:'+entry.requestId,kind:'export',title:'Figure 固定版本无损导出',
+      phase:entry.phase,completed:entry.completed,total:entry.total,detail:entry.detail})}/>:
     statistics?<StatisticalAnalysisPanel key={statistics.id} assayId={statistics.id} assayName={statistics.name} onClose={()=>setStatistics(null)}/>:
     safetyOpen?<RepositorySafetyPanel onClose={()=>setSafetyOpen(false)}/>:
     experiment?<ExperimentTreeManager key={experiment.id} assayId={experiment.id} assayName={experiment.name}
