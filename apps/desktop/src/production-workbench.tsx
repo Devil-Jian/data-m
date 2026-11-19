@@ -1,6 +1,7 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {shadcnUI as UI} from '@data-m/ui/workbench-ui';
 import {VirtualAssetList,virtualAssetRects,WorkbenchHeader,ResearchNavigationTree,WorkbenchStatusBar,WorkbenchExplorerToolbar} from '@data-m/core';
+import type {UIKit} from '@data-m/core';
 import {projectTreeApi,safeProjectTreeError} from './project-tree';
 import type {ProjectTreeKind,ProjectTreeRequest} from './project-tree';
 import {experimentApi,safeExperimentError} from './experiment-tree';
@@ -38,7 +39,7 @@ type Editor=ProjectEditor|ExperimentEditor;
 type View='grid'|'list'|'table';
 
 /** A production entry point. No demo fixtures or simulated previews are imported. */
-export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:ImportDropRegistrar}){
+export function ProductionWorkbench({registerImportDrop,ui:UI=shadcnUI}:{registerImportDrop?:ImportDropRegistrar;ui?:UIKit}){
   const [projects,setProjects]=useState<ProductionProject[]>([]);
   const [projectId,setProjectId]=useState('');
   const [themeId,setThemeId]=useState('');
