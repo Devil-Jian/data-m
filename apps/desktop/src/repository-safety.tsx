@@ -13,7 +13,7 @@ const phases:Record<string,string>={
 export function RepositorySafetyPanel({onClose,onBusyChange,api=safetyApi,listenProgress=safetyListen}:
  {onClose:()=>void;onBusyChange?:(busy:boolean)=>void;api?:SafetyApi;listenProgress?:ProgressListen}){
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
- const activeTask=useRef<string|null>(null);
+ const activeTask=useRef<string|null>(null),activeKind=useRef<'backup'|'restore'|'audit'|'verify'>('audit');
  useEffect(()=>{onBusyChange?.(busy);return ()=>onBusyChange?.(false);},[busy,onBusyChange]);
  const [snapshots,setSnapshots]=useState<SnapshotSummary[]>([]);
  const [report,setReport]=useState<SafetyReport|null>(null),[progress,setProgress]=useState<SafetyProgress|null>(null);
@@ -26,7 +26,7 @@ export function RepositorySafetyPanel({onClose,onBusyChange,api=safetyApi,listen
     if(!alive)return;
     setProgress(data);
     if(activeTask.current&&data.total>0&&data.completed<=data.total){
-      reportTask({id:activeTask.current,kind:'backup',title:'仓库安全 · '+(phases[data.phase]??'检查进度'),phase:'running',completed:data.completed,total:data.total,detail:'来自 S7 原生进度事件；未完成核验前不代表成功'});
+      reportTask({id:activeTask.current,kind:activeKind.current,title:'仓库安全 · '+(phases[data.phase]??'检查进度'),phase:'running',completed:data.completed,total:data.total,detail:'来自 S7 原生进度事件；未完成核验前不代表成功'});
     }
   }).then(unlisten=>{
     if(!alive)unlisten();else stop=unlisten;
@@ -46,6 +46,7 @@ export function RepositorySafetyPanel({onClose,onBusyChange,api=safetyApi,listen
   const taskId='safety:'+request.action;
   if(track){
     activeTask.current=taskId;
+    activeKind.current=request.action==='list'?'audit':request.action;
     reportTask({id:taskId,kind:request.action==='list'?'audit':request.action,title:'仓库安全 · '+actionLabels[request.action],phase:'running',completed:0,total:0,detail:'正在等待真实 S7 IPC 结果'});
   }
   try{
