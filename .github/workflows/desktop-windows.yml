@@ -82,9 +82,13 @@ jobs:
       - name: Type-check, Vite build and interaction tests
         run: |
           npm run build:desktop
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:interaction
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:assets
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:desktop
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: S12R release-only renderer must not ship Demo fixtures
         run: node scripts/check-s12r-release-bundle.mjs
       - name: S12R production adapter isolated scope tests
