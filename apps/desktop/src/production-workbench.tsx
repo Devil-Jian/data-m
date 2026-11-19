@@ -15,6 +15,7 @@ import {captureProductionTransfer,validatedProductionTarget,commitProductionTran
 import type {ProductionTransferDraft} from './production-transfer';
 import {ImportJobsPanel} from './import-jobs.tsx';
 import {ProductionPaperWorkbench} from './production-paper';
+import {useProductionStageAssets} from './use-production-stage-assets';
 import type {ImportDropRegistrar,ImportTarget} from './import-jobs.ts';
 import './production-workbench.css';
 
@@ -71,19 +72,25 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
     (!search||r.name.toLowerCase().includes(search.toLowerCase())||
      [...r.raw,...r.processed].some(f=>f.name.toLowerCase().includes(search.toLowerCase()))))??[],
     [snapshot,groupId,search]);
+  const stageView=useProductionStageAssets({
+    assayId,stage,
+    ...(stage==='raw'||stage==='processed'?{groupId}:{}),
+    search
+  },module==='experiment'&&mode==='stage');
   const assets=useMemo(()=>{
     if(!snapshot)return [];
+    if(mode==='stage')return stageView.items;
     const source=stage==='raw'||stage==='processed'
       ?rows.flatMap(row=>row[stage]):snapshot.assayFiles[stage];
     return source.filter(f=>!search||f.name.toLowerCase().includes(search.toLowerCase()));
-  },[snapshot,stage,rows,search]);
+  },[snapshot,mode,stage,rows,search,stageView.items]);
   const virtualAssets=useMemo(()=>assets.map(file=>({id:file.assetLinkId,filename:file.name,stage:file.stage,version:file.versionNumber,sha256:file.sha256})),[assets]);
   const visibleFiles=useMemo(()=>mode==='stage'?assets:rows.flatMap(r=>[...r.raw,...r.processed]),
     [mode,assets,rows]);
   const visibleIds=useMemo(()=>visibleFiles.map(f=>f.assetLinkId),[visibleFiles]);
   const explorer=useExplorerInteraction({
     visibleIds,enabled:module==='experiment'&&!editor&&!detail&&!busy&&!transferDraft,
-    getVirtualItems:()=>virtualAssetRects(virtualAssets,100_000),
+    getVirtualItems:(host)=>virtualAssetRects(virtualAssets,host.clientWidth),
     onDrop:({itemIds,targetId,operation})=>beginTransfer(operation,itemIds,targetId),
     onCopy:ids=>beginTransfer('copy',ids),
     onCut:ids=>beginTransfer('move',ids),
@@ -128,12 +135,13 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
       await commitProductionTransfer(transferDraft,target);
       if(token===requestVersion.current){
         await refreshAssay(assayId);
+        stageView.refresh();
         setSelectedIds([]);setTransferDraft(null);
       }
     }catch(reason){
       setError(safeTransferError(reason).message+'；请检查最新资产状态后再重试。');
       if(token===requestVersion.current){
-        try{await refreshAssay(assayId)}catch{/* retain actionable transfer error */}
+        try{await refreshAssay(assayId);stageView.refresh()}catch{/* retain actionable transfer error */}
       }
     }finally{setBusy(false);}
   }
@@ -161,7 +169,7 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
     }catch(reason){
       setError(lifecycleError(reason).message+' 请重新加载核验状态。');
       if(scopeVersion===requestVersion.current){
-        try{await refreshAssay(assayId);}catch{/* preserve the primary operation error */}
+        try{await refreshAssay(assayId);stageView.refresh();}catch{/* preserve the primary operation error */}
       }
     }finally{setBusy(false);}
   }
@@ -247,7 +255,7 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
         };
         setEditor({...editor,request});
         await experimentApi(request);
-        await refreshAssay(assayId);
+        await refreshAssay(assayId);stageView.refresh();
       }
       setEditor(null);
     }catch(reason){
@@ -371,7 +379,7 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
             {!rows.length&&<div className="dm-empty">当前分组暂无样本或没有匹配结果</div>}
           </>:<>
             <p className="dm-real-scope">{stage==='raw'||stage==='processed'?'当前分组内的样本级文件':'当前实验全部分组共享的实验级文件（不代表样本已经关联）'}</p>
-            {view==='list'?<VirtualAssetList assets={virtualAssets} selected={explorer.selectedSet}
+            {(view==='list'||assets.length>250)?<VirtualAssetList assets={virtualAssets} selected={explorer.selectedSet}
               focusedId={explorer.focusedId} onToggle={toggle}
               renderName={item=>item.filename}
               renderSubtitle={item=>`v${item.version} · SHA-256 ${item.sha256.slice(0,12)}… · 真实文件关联`}
@@ -384,7 +392,13 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
                 <small>v{file.versionNumber} · {file.sizeBytes} bytes · SHA-256 {file.sha256.slice(0,12)}…</small>
               </div>)}
             </div>}
-            {!assets.length&&<div className="dm-empty">当前阶段暂无文件</div>}
+            <div className="dm-real-page-footer" role="status">
+              已读取 {stageView.items.length} / {stageView.total} 个符合条件的真实文件
+              {stageView.loading?' · 正在读取下一页…':''}
+              {stageView.hasMore&&<UI.Button small disabled={stageView.loading} onClick={stageView.loadMore}>加载后续 100 个文件</UI.Button>}
+              {stageView.error&&<p role="alert">{stageView.error}</p>}
+            </div>
+            {!stageView.loading&&!assets.length&&<div className="dm-empty">当前阶段暂无文件</div>}
           </>}
           {explorer.contextMenu&&<div className="dm-explorer-context-menu" data-explorer-context-menu role="menu"
             style={{position:"fixed",left:Math.min(explorer.contextMenu.x,window.innerWidth-230),top:Math.min(explorer.contextMenu.y,window.innerHeight-270)}}>
@@ -455,7 +469,7 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
         </div>
         <ImportJobsPanel assayId={assayId} target={importTarget} targetLabel={importTargetLabel}
           onLockChange={setImportLocked} registerImportDrop={registerImportDrop}
-          onClose={()=>{setImportOpen(false);void refreshAssay(assayId).catch(()=>setError('导入后重新读取资产失败，请手动检查'));}}/>
+          onClose={()=>{setImportOpen(false);stageView.refresh();void refreshAssay(assayId).catch(()=>setError('导入后重新读取资产失败，请手动检查'));}}/>
       </section>
     </div>}
     {detail&&<aside className="dm-real-detail" role="dialog" aria-label="真实文件详情">
