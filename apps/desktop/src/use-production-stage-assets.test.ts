@@ -1,6 +1,6 @@
 import {describe,expect,it,vi} from 'vitest';
 import {fetchProductionStagePage} from './use-production-stage-assets';
-import type {AssetApi,AssetRow} from './asset-browser';
+import type {AssetApi,AssetRow,AssetQuery} from './asset-browser';
 
 function raw(n:number):AssetRow{return {
   assetId:'asset-'+n,assetLinkId:'link-'+n,assetVersionId:'version-'+n,versionNumber:1,
@@ -10,7 +10,7 @@ function raw(n:number):AssetRow{return {
 const scope={assayId:'assay-1',stage:'raw' as const,groupId:'group-1'};
 describe('S12R live S4 cursor paging',()=>{
   it('continues past the former 1000-item snapshot limit',async()=>{
-    const api:AssetApi={list:vi.fn(async req=>{
+    const api:AssetApi={list:vi.fn(async (req:AssetQuery)=>{
       const off=Number(req.cursor??'0'),total=1024;
       return {items:Array.from({length:Math.min(100,total-off)},(_,i)=>raw(off+i)),
         total,nextCursor:off+100<total?String(off+100):null};
