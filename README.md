@@ -68,6 +68,8 @@ cargo check --locked
 
 浏览器端 Playwright 的显式 Mock 只验证 UI 交互，不证明 Windows 原生 WebView2、CAS/SQLite 持久化或真实 GUI 性能。10k 资产测试必须分别报告真实后端查询与真实 Windows GUI 测量。
 
+[统一工作区操作手册](docs/S12_USER_WORKFLOW.md) 包含实验四阶段、真实文件选择/快捷键、导入、回收、任务状态和 Figure 无损导出流程。
+
 详细的 [UI 迁移设计](docs/S12_UI_ARCHITECTURE.md)、[实施记录](docs/S12_MIGRATION_EXECUTION_REPORT.md) 和 [验收矩阵](docs/S12_MACHINE_ACCEPTANCE_MATRIX.md) 记录 S12 的实现范围与待办。源安全约束：数据原始字节不可变，资产复制/移动不生成 Replicate，Panel 固定版本不能由显示文件名替代，恢复必须写入全新隔离目录而非覆盖运行仓库。
 
 无需也不得自行合并 `main`、将人工验收标为通过或发布官方 v1.0。
