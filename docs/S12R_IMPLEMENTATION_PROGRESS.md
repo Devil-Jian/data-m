@@ -54,3 +54,7 @@ TASK_ID：`S12R-DEMO-WORKBENCH-PRODUCTION`
 Windows 11 EXE 启动、真实数据和 10,024 文件 GUI 浏览性能、键盘/鼠标拖动、S3 源文件保护、S7 快照/隔离恢复、S8 冻结、S9 Figure/Panel 固定关联、S10 Manifest 物理校验、视觉 7 项对照。任何未通过项必须如实记录。
 
 重要约束：不修改 SQLite Schema v3；不物理改写 CAS；不以模拟统计/荧光缩略图充当真实科研值；不自主合并 main；不把未执行的人工验收标记通过。
+
+## 最终集成送检
+
+功能代码已集中提交，当前进入最终同 SHA Windows/UI CI 门禁。只有 Actions 全部成功且 Windows NSIS、portable EXE、release Manifest 与独立 SHA-256 校验产物来自同一提交时才标记 `machine_passed`。测试中仍不允许把浏览器 Mock 等同 Windows 11 原生 GUI 人工验收。
