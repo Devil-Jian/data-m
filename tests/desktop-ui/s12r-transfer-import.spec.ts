@@ -41,14 +41,15 @@ test('@S12R real transfer requires explicit sample before copy commit',async({pa
   await expect(page.getByRole('heading',{name:'ROS'})).toBeVisible();
   await page.getByRole('button',{name:/分阶段/}).click();
   await expect(page.getByText('R1_raw.tif')).toBeVisible();
-  await page.getByRole('checkbox',{name:'',exact:true}).last().check();
+  await page.getByRole('checkbox',{name:'选择'}).check();
   await page.getByRole('button',{name:'复制',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'真实文件复制移动确认'});
   await expect(dialog).toBeVisible();
   const confirm=dialog.getByRole('button',{name:'确认复制'});
   await expect(confirm).toBeDisabled();
   expect(await page.evaluate(()=>(window as any).__S12R_TRANSFER_REQUESTS__.length)).toBe(0);
-  await dialog.getByRole('combobox',{name:'复制移动目标样本'}).selectOption('rep-1');
+  await dialog.getByRole('combobox',{name:'复制移动目标样本'}).click();
+  await page.getByRole('option',{name:'R1'}).click();
   await expect(confirm).toBeEnabled();
   await confirm.click();
   await expect(dialog).toHaveCount(0);
@@ -89,5 +90,5 @@ test('@S12R import panel exposes real S3 target without creating ZIP illusion',a
   await expect(dialog).toContainText('ZIP 不能直接解包');
   await expect(dialog).toContainText('当前目标：');
   await expect(dialog).toContainText('R1');
-  await expect(dialog.getByRole('region',{name:'安全导入任务'})).toHaveCount(0);
+  await expect(dialog.getByRole('region',{name:'安全导入任务'})).toBeVisible();
 });
