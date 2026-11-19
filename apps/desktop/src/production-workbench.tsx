@@ -9,6 +9,9 @@ import type {ProductionAssaySnapshot,ProductionProject,ProductionStage} from './
 import type {AssetRow} from './asset-browser';
 import {useExplorerInteraction} from '@data-m/interaction';
 import {lifecycleApi,lifecycleError,lifecycleRequest,currentLinks} from './asset-lifecycle';
+import {safeTransferError,TransferError} from './asset-transfer';
+import {captureProductionTransfer,validatedProductionTarget,commitProductionTransfer} from './production-transfer';
+import type {ProductionTransferDraft} from './production-transfer';
 import {ImportJobsPanel} from './import-jobs.tsx';
 import type {ImportDropRegistrar,ImportTarget} from './import-jobs.ts';
 import './production-workbench.css';
@@ -47,6 +50,10 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
   const [importOpen,setImportOpen]=useState(false);
   const [importLocked,setImportLocked]=useState(false);
   const [importReplicateId,setImportReplicateId]=useState('');
+  const [transferDraft,setTransferDraft]=useState<ProductionTransferDraft|null>(null);
+  const [transferStage,setTransferStage]=useState<ProductionStage>('raw');
+  const [transferGroupId,setTransferGroupId]=useState('');
+  const [transferReplicateId,setTransferReplicateId]=useState('');
   const requestVersion=useRef(0);
   const project=projects.find(p=>p.id===projectId);
   const theme=project?.themes.find(t=>t.id===themeId);
@@ -72,16 +79,60 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
     [mode,assets,rows]);
   const visibleIds=useMemo(()=>visibleFiles.map(f=>f.assetLinkId),[visibleFiles]);
   const explorer=useExplorerInteraction({
-    visibleIds,enabled:module==='experiment'&&!editor&&!detail&&!busy,
-    onDrop:()=>setError('请先明确目标阶段与样本；当前不执行未经确认的拖放操作。'),
-    onCopy:()=>setError('资产已加入工作区交互剪贴板；跨作用域复制需选择并确认目标。'),
-    onCut:()=>setError('已选择移动意图，源文件尚未发生变化。'),
-    onPaste:()=>setError('请先明确有效目标样本/实验级阶段；尚未提交复制或移动。'),
+    visibleIds,enabled:module==='experiment'&&!editor&&!detail&&!busy&&!transferDraft,
+    onDrop:({itemIds,targetId,operation})=>beginTransfer(operation,itemIds,targetId),
+    onCopy:ids=>beginTransfer('copy',ids),
+    onCut:ids=>beginTransfer('move',ids),
+    onPaste:(ids,operation)=>beginTransfer(operation,ids),
     onDelete:ids=>{void mutateAsset('soft_delete',ids);},
     onRename:id=>{void mutateAsset('rename',[id]);}
   });
   const selectedIds=explorer.selectedIds;
   const setSelectedIds=explorer.setSelectedIds;
+  function beginTransfer(action:'copy'|'move',ids:string[],targetGroup?:string|null){
+    if(busy||importLocked||!snapshot)return;
+    try{
+      const draft=captureProductionTransfer(assayId,visibleFiles,ids,action);
+      setTransferDraft(draft);
+      setTransferStage(mode==='stage'?stage:draft.items[0].stage);
+      setTransferGroupId(targetGroup&&snapshot.groups.some(g=>g.id===targetGroup)?targetGroup:groupId);
+      // The target Replicate must be chosen explicitly. A group is not a sample.
+      setTransferReplicateId('');
+      setError('');
+    }catch(reason){setError(safeTransferError(reason).message);}
+  }
+  function changeTransferTarget(next:Partial<{stage:ProductionStage;groupId:string;replicateId:string}>){
+    if(next.stage!==undefined)setTransferStage(next.stage);
+    if(next.groupId!==undefined)setTransferGroupId(next.groupId);
+    if(next.replicateId!==undefined)setTransferReplicateId(next.replicateId);
+    setTransferDraft(old=>old?{...old,requestId:crypto.randomUUID()}:null);
+    setError('');
+  }
+  async function submitTransfer(){
+    if(!transferDraft||busy||!snapshot)return;
+    const token=requestVersion.current;
+    try{
+      if(transferDraft.assayId!==assayId)throw new TransferError('STALE_SELECTION');
+      if(transferStage==='raw'||transferStage==='processed'){
+        const targetGroup=snapshot.groups.find(g=>g.id===transferGroupId);
+        if(!targetGroup?.replicates.some(r=>r.id===transferReplicateId))
+          throw new TransferError('INVALID_TARGET');
+      }
+      const target=validatedProductionTarget(
+        assayId,transferStage,transferGroupId,transferReplicateId);
+      setBusy(true);setError('');
+      await commitProductionTransfer(transferDraft,target);
+      if(token===requestVersion.current){
+        await refreshAssay(assayId);
+        setSelectedIds([]);setTransferDraft(null);
+      }
+    }catch(reason){
+      setError(safeTransferError(reason).message+'；请检查最新资产状态后再重试。');
+      if(token===requestVersion.current){
+        try{await refreshAssay(assayId)}catch{/* retain actionable transfer error */}
+      }
+    }finally{setBusy(false);}
+  }
   async function mutateAsset(action:'rename'|'soft_delete',ids:string[]){
     if(busy||ids.length===0||ids.length>100||!assayId)return;
     const scopeVersion=requestVersion.current;
@@ -111,7 +162,7 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
     }finally{setBusy(false);}
   }
   const selectProject=(id:string)=>{
-    if(busy||importLocked)return;
+    if(busy||importLocked||transferDraft)return;
     const next=projects.find(p=>p.id===id);
     const t=next?.themes[0],a=t?.assays[0];
     setProjectId(id);setThemeId(t?.id??'');setAssayId(a?.id??'');
@@ -146,7 +197,7 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
   },[]);
   useEffect(()=>{
     const token=++requestVersion.current;
-    setSnapshot(null);setGroupId('');setImportReplicateId('');setSelectedIds([]);setDetail(null);setSearch('');
+    setSnapshot(null);setGroupId('');setImportReplicateId('');setTransferDraft(null);setSelectedIds([]);setDetail(null);setSearch('');
     if(!assayId)return;
     void productionAdapter.loadAssay(assayId).then(data=>{
       if(token!==requestVersion.current)return;
@@ -200,12 +251,12 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
     }finally{setBusy(false);}
   };
   const chooseTheme=(id:string)=>{
-    if(busy||importLocked)return;
+    if(busy||importLocked||transferDraft)return;
     const t=project?.themes.find(x=>x.id===id);
     setThemeId(id);setAssayId(t?.assays[0]?.id??'');setSelectedIds([]);setDetail(null);
   };
-  const chooseAssay=(id:string)=>{if(busy||importLocked)return;setAssayId(id);setSelectedIds([]);setDetail(null);};
-  const chooseGroup=(id:string)=>{if(busy||importLocked)return;setGroupId(id);setSelectedIds([]);setDetail(null);setSearch('');};
+  const chooseAssay=(id:string)=>{if(busy||importLocked||transferDraft)return;setAssayId(id);setSelectedIds([]);setDetail(null);};
+  const chooseGroup=(id:string)=>{if(busy||importLocked||transferDraft)return;setGroupId(id);setSelectedIds([]);setDetail(null);setSearch('');};
   const toggle=(id:string,on:boolean)=>explorer.toggle(id,on);
   useEffect(()=>{
     if(!group)return;
@@ -303,7 +354,8 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
             <p>{group?.name??'选择分组'} · {rows.length} 个样本 · {snapshot?.groups.length??0} 个实验分组</p>
           </div><div className="dm-selection-actions">
             <UI.Badge tone="neutral">已选 {selectedIds.length} 个真实文件</UI.Badge>
-            <UI.Button small variant="ghost" disabled title="复制移动安全确认接入中">复制/移动</UI.Button>
+            <UI.Button small variant="ghost" disabled={!selectedIds.length||busy} onClick={()=>beginTransfer('copy',selectedIds)}>复制</UI.Button>
+            <UI.Button small variant="ghost" disabled={!selectedIds.length||busy} onClick={()=>beginTransfer('move',selectedIds)}>移动</UI.Button>
           </div></div>
           {!snapshot?<div className="dm-empty">正在读取真实文件…</div>:mode==='overview'?<>
             <div className="dm-matrix-scroll"><table className="dm-matrix"><thead><tr>
@@ -358,6 +410,36 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
       <div className="dm-real-modal-actions"><UI.Button disabled={busy} onClick={()=>{setEditor(null);setError('')}}>取消</UI.Button>
         <UI.Button disabled={busy} variant={editor.action==='delete'?'danger':'primary'} onClick={()=>void submit()}>确认</UI.Button></div>
     </section></div>}
+    {transferDraft&&<div className="dm-real-modal-backdrop">
+      <section role="dialog" aria-modal="true" aria-label="真实文件复制移动确认" className="dm-real-modal dm-real-transfer-modal">
+        <h2>{transferDraft.action==='copy'?'复制':'移动'} {transferDraft.items.length} 条资产关联</h2>
+        <p>保留真实 AssetVersionId；不会新增生物学重复，也不会修改原始 CAS 文件。</p>
+        <label>目标阶段
+          <UI.Select ariaLabel="复制移动目标阶段" value={transferStage}
+            onChange={v=>changeTransferTarget({stage:v as ProductionStage,replicateId:''})}
+            options={PRODUCTION_STAGES.map(id=>({value:id,label:labels[id]}))}/>
+        </label>
+        {(transferStage==='raw'||transferStage==='processed')&&<>
+          <label>目标分组
+            <UI.Select ariaLabel="复制移动目标分组" value={transferGroupId}
+              onChange={id=>changeTransferTarget({groupId:id,replicateId:''})}
+              options={(snapshot?.groups??[]).map(g=>({value:g.id,label:g.name}))}/>
+          </label>
+          <label>目标样本（必须明确选择）
+            <UI.Select ariaLabel="复制移动目标样本" value={transferReplicateId}
+              onChange={id=>changeTransferTarget({replicateId:id})}
+              options={[{value:'',label:'请选择目标样本'},...(snapshot?.groups.find(g=>g.id===transferGroupId)?.replicates??[]).map(r=>({value:r.id,label:r.label}))]}/>
+          </label>
+        </>}
+        {error&&<p role="alert">{error}</p>}
+        <div className="dm-real-modal-actions">
+          <UI.Button disabled={busy} onClick={()=>{setTransferDraft(null);setError('')}}>取消</UI.Button>
+          <UI.Button variant="primary" disabled={busy||
+            ((transferStage==='raw'||transferStage==='processed')&&!transferReplicateId)}
+            onClick={()=>void submitTransfer()}>确认{transferDraft.action==='copy'?'复制':'移动'}</UI.Button>
+        </div>
+      </section>
+    </div>}
     {importOpen&&assay&&<div className="dm-real-modal-backdrop dm-real-import-overlay">
       <section className="dm-real-import-modal" role="dialog" aria-modal="true" aria-label="受控安全导入">
         <div className="dm-real-import-target"><strong>选择导入目标</strong>
