@@ -8,6 +8,7 @@ import '@data-m/core/style.css';
 import '@data-m/ui/style.css';
 import './desktop.css';
 import {ProjectTreeManager} from './project-tree.tsx';
+import {TaskTray} from './task-tray.tsx';
 import type {ImportDropHandler,ImportDropRegistrar} from './import-jobs.ts';
 
 /** Native Windows drop adapter. Inspection is read-only; source paths never reach UI state. */
@@ -103,6 +104,7 @@ function DesktopApp(){
     <div className="dm-desktop-content">
       <ProjectTreeManager onBusyChange={setProjectBusy} registerImportDrop={registerImportDrop}/>
     </div>
+    <TaskTray/>
     {drop.kind!=='idle'&&<section
       className={'dm-native-drop '+(drop.kind==='over'?'is-over':'')}
       role={drop.kind==='ready'?'dialog':'status'}
