@@ -417,7 +417,29 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
             <UI.Button small variant="ghost" disabled={!selectedIds.length||busy} onClick={()=>beginTransfer('move',selectedIds)}>移动</UI.Button>
           </div></div>
           {!snapshot?<div className="dm-empty">正在读取真实文件…</div>:mode==='overview'?<>
-            <div className="dm-matrix-scroll"><table className="dm-matrix"><thead><tr>
+            {view==='list'?<div className="dm-real-sample-list">
+              {rows.map(row=><article className="dm-content-card dm-real-sample-list-card" key={row.id}>
+                <h3>{row.name}</h3>
+                <div className="dm-real-sample-actions">
+                  <button type="button" onClick={()=>open('experiment','replicate','rename',row.id,undefined,row.name)}>重命名样本</button>
+                  <button type="button" onClick={()=>open('experiment','replicate','delete',row.id)}>删除样本</button>
+                </div>
+                <div className="dm-real-sample-list-stages">
+                  {PRODUCTION_STAGES.filter(stageId=>stageFilter.includes(stageId)).map(stageId=>
+                    <section key={stageId}>
+                      <strong>{labels[stageId]}</strong>
+                      {stageId==='raw'||stageId==='processed'?assetCell(row[stageId]):<>
+                        <small>真实实验级文件 {row[stageId].count} 项</small>
+                        <small>{stageId==='statistics'&&analysisEvidence?.frozenAt?
+                          (analysisEvidence.includedReplicateIds.includes(row.id)?'本冻结分析已纳入':'本冻结分析未纳入'):
+                          stageId==='display'&&displayEvidence.has(row.id)?
+                            displayEvidence.get(row.id)!.join('、'):'本样本暂无固定引用证据'}</small>
+                      </>}
+                    </section>)}
+                </div>
+              </article>)}
+            </div>:<div className={view==='grid'?'dm-matrix-scroll':'dm-table-outer'}>
+              <table className={view==='grid'?'dm-matrix':'dm-data-table'}><thead><tr>
               <th>生物学重复</th>{PRODUCTION_STAGES.filter(s=>stageFilter.includes(s)).map(s=>
                 <th key={s}>{labels[s]}<small>{s==='raw'||s==='processed'?'样本级':'实验级'}</small></th>)}
             </tr></thead><tbody>{rows.map(row=><tr key={row.id}>
@@ -441,7 +463,7 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
                     <button type="button" onClick={()=>{setMode('stage');setStage(s)}}>查看实验级文件</button>
                   </div>}
               </td>)}
-            </tr>)}</tbody></table></div>
+            </tr>)}</tbody></table></div>}
             {!rows.length&&<div className="dm-empty">当前分组暂无样本或没有匹配结果</div>}
           </>:<>
             <p className="dm-real-scope">{stage==='raw'||stage==='processed'?'当前分组内的样本级文件':'当前实验全部分组共享的实验级文件（不代表样本已经关联）'}</p>
