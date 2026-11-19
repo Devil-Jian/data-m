@@ -14,7 +14,7 @@ if(!process.argv[2]||!process.argv[3])throw Error('Pass immutable baseline check
 await mkdir(target,{recursive:true});
 const port=5183;
 const child=spawn(process.platform==='win32'?'npm.cmd':'npm',
-  ['run','dev:shadcn','--','--host','127.0.0.1','--port',String(port)],{
+  ['run','dev','-w','@data-m/demo-shadcn','--','--host','127.0.0.1','--port',String(port)],{
   cwd:baseline,shell:process.platform==='win32',stdio:'ignore'
 });
 let browser;
