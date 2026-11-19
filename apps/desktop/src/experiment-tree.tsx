@@ -63,11 +63,18 @@ export function ExperimentTreeManager({assayId,assayName,api=experimentApi,onClo
   },[assayId,stageId,stage?.scope,selectedReplicate?.id,targetAvailable,onTargetChange]);
 
   function allowAssetDrop(event:React.DragEvent<HTMLElement>){
-    if(hasAssetDrag()){event.preventDefault();event.dataTransfer.dropEffect=event.ctrlKey?'copy':event.shiftKey?'move':'none';}
+    if(hasAssetDrag()){event.preventDefault();event.dataTransfer.dropEffect=navigationLocked?'none':event.ctrlKey&&!event.shiftKey?'copy':event.shiftKey&&!event.ctrlKey?'move':'none';}
   }
   async function acceptAssetDrop(event:React.DragEvent<HTMLElement>,dropStage:ExperimentStageId,groupId?:string,replicateId?:string){
     if(!hasAssetDrag())return;
     event.preventDefault();event.stopPropagation();
+    if(navigationLocked){setTransferNotice('当前正在保存、导入或取消任务；禁止切换文件目标。');return;}
+    if((dropStage==='raw'||dropStage==='processed')&&(!groupId||!replicateId)){
+      setTransferNotice('Raw / Processed 需要明确选中目标分组和样本；未执行写入。');return;
+    }
+    if((dropStage==='statistics'||dropStage==='display')&&(groupId||replicateId)){
+      setTransferNotice('Statistics / Display 只能使用实验级目标；未执行写入。');return;
+    }
     const target:AssetScope={assayId,stage:dropStage,groupId:groupId??null,replicateId:replicateId??null};
     try{
       const result=await dropAssets(event,target,transferApi);
@@ -122,7 +129,13 @@ export function ExperimentTreeManager({assayId,assayName,api=experimentApi,onClo
           <ul>{group.replicates.map(replicate=><li key={replicate.id}><button type="button" disabled={navigationLocked} aria-label={`样本：${replicate.label}`}
             aria-current={selection?.kind==='replicate'&&selection.id===replicate.id?'true':undefined}
             onDragOver={allowAssetDrop}
-            onDrop={event=>{void acceptAssetDrop(event,stageId==='raw'||stageId==='processed'?stageId:'raw',group.id,replicate.id);}}
+            onDrop={event=>{
+              if(stageId!=='raw'&&stageId!=='processed'){
+                if(hasAssetDrag()){event.preventDefault();event.stopPropagation();setTransferNotice('当前为实验级阶段，请直接拖到 Statistics / Display 阶段，不会自动改写为 Raw。');}
+                return;
+              }
+              void acceptAssetDrop(event,stageId,group.id,replicate.id);
+            }}
             onClick={()=>setSelection({kind:'replicate',id:replicate.id})}><span aria-hidden="true">○</span> {replicate.label}</button></li>)}</ul>
         </li>)}</ul>
         <p className="dm-experiment-count-note">n 仅统计生物学重复；文件数量和文件关联不计入 n。</p>
