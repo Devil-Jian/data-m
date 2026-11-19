@@ -11,7 +11,7 @@ import { VirtualAssetList } from './virtual-asset-list';
 import {WorkbenchHeader} from './workbench-header';
 import {ResearchNavigationTree,WorkbenchStatusBar} from './workbench-navigation';
 import {WorkbenchExplorerToolbar} from './workbench-explorer-toolbar';
-import {PaperWorkspace} from './paper-workspace';
+import {WorkbenchFigureList} from './workbench-figure-list';
 import {InlineRename} from './inline-rename';
 import {renameValidationError} from './rename-validation';
 import {makeVirtualStressAssets,virtualAssetRects} from './virtual-layout';
@@ -481,7 +481,7 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
         themes={project.themes} themeId={theme.id} assayId={assay.id}
         onTheme={chooseTheme} onAssay={chooseAssay} footerText="本地单机 · 演示数据"/>}
       <main className="dm-workspace">
-        {module==='paper'?<PaperWorkspace/>:module==='experiment'?<>
+        {module==='experiment'?<>
           <div className="dm-workspace-head">
             <div className="dm-crumb">{project.code}<ChevronRight size={13}/>{theme.name}<ChevronRight size={13}/>{assay.name}</div>
             <h1>{assay.name}</h1><p>{assay.code} · {assay.modality} · {assay.metricName}（{assay.metricUnit}）</p>
@@ -554,15 +554,16 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
             <UI.Button small variant="secondary" onClick={()=>notify('演示模式：投稿打包功能需要后端提供文件 ZIP')}><Download size={14}/> 投稿材料</UI.Button>
           </div>
           <div className="dm-workspace-scroll">
-            {paper.figures.map(fig=><section className="dm-figure-section" key={fig.id}>
-              <div className="dm-figure-title"><strong>{fig.figNum}</strong><span>{fig.caption}</span></div>
-              <div className={paperView==='grid'?'dm-panel-grid':'dm-panel-list'}>{fig.panels.map(p=>
-                <button key={p.id} className="dm-paper-panel" onClick={()=>setActivePanelId(p.id)}>
-                  <Preview type={p.visual} large={paperView==='grid'}/>
-                  <div className="dm-paper-panel-text"><span>{p.label}</span><strong>{p.title}</strong>
-                    <small>{p.statIds.length} 份统计依据 · {p.highlightRepIds.length} 个代表性来源</small></div>
-                  <ChevronRight size={16}/></button>)}</div>
-            </section>)}
+            <WorkbenchFigureList view={paperView}
+              figures={paper.figures.map(fig=>({
+                id:fig.id,label:fig.figNum,caption:fig.caption,
+                panels:fig.panels.map(p=>({
+                  id:p.id,label:p.label,title:p.title,
+                  subtitle:`${p.statIds.length} 份统计依据 · ${p.highlightRepIds.length} 个代表性来源`,
+                  preview:<Preview type={p.visual} large={paperView==='grid'}/>
+                }))
+              }))}
+              onPanelSelect={setActivePanelId}/>
             <section className="dm-content-card dm-paper-stats"><h3><FileSpreadsheet size={16}/> 论文关联统计数据</h3>
               {statsForPaper.map(f=><div className="dm-file-line" key={f.id}><FileSpreadsheet size={18}/>
                 <div><strong>{f.name}</strong><small>{f.note}</small></div><UI.Badge tone="green">已关联</UI.Badge></div>)}
