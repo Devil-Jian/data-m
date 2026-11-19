@@ -80,7 +80,11 @@ test('@S12R import panel exposes real S3 target without creating ZIP illusion',a
       ]
     });
     (window as any).__S4_ASSETS_MOCK__={list:async()=>({items:[],total:0,nextCursor:null}),detail:async()=>null};
-    (window as any).__S3_IMPORTS_MOCK__=async()=>({jobs:[]});
+    (window as any).__S12R_IMPORT_REQUESTS__=[];
+    (window as any).__S3_IMPORTS_MOCK__=async(request:any)=>{
+      (window as any).__S12R_IMPORT_REQUESTS__.push(request);
+      return {jobs:[]};
+    };
   });
   await page.goto('/');
   await expect(page.getByRole('heading',{name:'ROS'})).toBeVisible();
@@ -94,4 +98,10 @@ test('@S12R import panel exposes real S3 target without creating ZIP illusion',a
   await page.getByRole('option',{name:'R1'}).click();
   await expect(dialog).toContainText('R1');
   await expect(dialog.getByRole('region',{name:'安全导入任务'})).toBeVisible();
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('data-m-test-import-drop',{
+    detail:{paths:['C:\\test\\test-paper.zip']}
+  })));
+  await expect(dialog).toContainText('ZIP 文件不支持直接解包');
+  const submitted=await page.evaluate(()=>(window as any).__S12R_IMPORT_REQUESTS__);
+  expect(submitted.some((request:any)=>request.action==='prepare')).toBe(false);
 });
