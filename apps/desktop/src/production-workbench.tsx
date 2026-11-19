@@ -296,7 +296,7 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
   const assetCell=(files:AssetRow[])=><div className="dm-real-asset-stack">
     {files.length===0?<span className="dm-muted">尚无文件</span>:files.map(f=>
       <button key={f.assetLinkId} type="button" data-explorer-id={f.assetLinkId} className={"dm-real-asset dm-selectable-asset"+(explorer.selectedSet.has(f.assetLinkId)?" selected":"") }
-        onClick={()=>setDetail(f)} title={f.sha256}>
+        onDoubleClick={()=>setDetail(f)} title={f.sha256+'（双击查看详情）'}>
         <span>▣</span> <strong>{f.name}</strong><small>v{f.versionNumber}</small>
       </button>)}
   </div>;
@@ -350,10 +350,14 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
           <div className="dm-crumb">{project.name} › {theme?.name} › {assay.name}</div>
           <h1>{assay.name}</h1><p>真实实验 · {snapshot?.replicateCount??'…'} 个生物学重复</p>
           <div className="dm-group-tabs" role="group" aria-label="实验分组">
-            {snapshot?.groups.map(g=><UI.Button key={g.id} small
-              variant={groupId===g.id?'primary':'secondary'} onClick={()=>chooseGroup(g.id)}>
-              {g.name} <span className="dm-group-count">{g.replicates.length}</span>
-            </UI.Button>)}
+            {snapshot?.groups.map(g=><span key={g.id} data-drop-container-id={g.id}
+              className={'dm-drop-target'+(explorer.gesture.kind==='drag'&&
+                explorer.gesture.targetId===g.id&&explorer.gesture.allowed?' dm-drop-allowed':'')}>
+              <UI.Button small variant={groupId===g.id?'primary':'secondary'}
+                onClick={()=>chooseGroup(g.id)}>
+                {g.name} <span className="dm-group-count">{g.replicates.length}</span>
+              </UI.Button>
+            </span>)}
             <UI.Button small variant="ghost" onClick={()=>open('experiment','group','create')}>＋ 新建分组</UI.Button>
             {group&&<UI.Button small variant="ghost"
               onClick={()=>open('experiment','replicate','create',undefined,groupId)}>＋ 新建样本</UI.Button>}
@@ -382,7 +386,7 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
               options={[{value:'all',label:'全部生物学重复'},
                 {value:'included',label:'本分析已纳入'},
                 {value:'excluded',label:'本分析未纳入'}]}/>:null}/>
-        <div className="dm-workspace-scroll dm-explorer-canvas" role="group" aria-label="文件资源管理器工作区" tabIndex={0}
+        <div className="dm-workspace-scroll dm-explorer-canvas" data-source-container-id={groupId} role="group" aria-label="文件资源管理器工作区" tabIndex={0}
           onFocusCapture={explorer.onFocusCapture} onPointerDown={explorer.onPointerDown}
           onContextMenu={explorer.onContextMenu} onDragStart={e=>e.preventDefault()}>
           <div className="dm-section-heading"><div><h2>{mode==='overview'?'全阶段归档总览':labels[stage]}
@@ -456,6 +460,16 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
       </>}
       </main>
     </div>
+    {module==='experiment'&&explorer.gesture.kind==='marquee'&&<div className="dm-marquee" aria-hidden
+      style={{left:explorer.gesture.rect.left,top:explorer.gesture.rect.top,
+        width:explorer.gesture.rect.right-explorer.gesture.rect.left,
+        height:explorer.gesture.rect.bottom-explorer.gesture.rect.top}}/>}
+    {module==='experiment'&&explorer.gesture.kind==='drag'&&<div
+      className={'dm-drag-preview'+(explorer.gesture.allowed?' is-valid':' is-invalid')}
+      aria-hidden style={{left:explorer.gesture.x+14,top:explorer.gesture.y+14}}>
+      {explorer.gesture.operation==='copy'?'＋ 复制':'↗ 移动'} {explorer.gesture.count} 项 ·
+      {explorer.gesture.allowed?'松开后选择目标样本并确认':'目标不可放置'}
+    </div>}
     <div className="dm-real-tool-launcher" role="group" aria-label="仓库工具">
       <UI.Button small variant="ghost" onClick={()=>setSafetyOpen(true)} disabled={busy||importLocked}>完整性 · 备份 · 隔离恢复</UI.Button>
       <span>本机快照不等于异地备份；操作仅限可丢弃测试库。</span>
