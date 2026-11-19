@@ -1,20 +1,24 @@
 import React, {useEffect,useRef} from 'react';
 import {useVirtualizer} from '@tanstack/react-virtual';
-import type {DemoAsset} from './demo-assets';
 
 /**
  * Fixed-height rows keep geometry identical between TanStack's rendered slice
  * and the Explorer marquee adapter's unmounted row hit testing.
  */
 import {VIRTUAL_ASSET_ROW_HEIGHT} from './virtual-layout';
-export interface VirtualAssetListProps{
-  assets:readonly DemoAsset[];
+export interface VirtualListAsset {id:string;filename:string;stage:string}
+export interface VirtualAssetListProps<T extends VirtualListAsset>{
+  assets:readonly T[];
   selected:ReadonlySet<string>;
   focusedId:string|null;
   onToggle:(id:string,checked:boolean)=>void;
-  renderName:(asset:DemoAsset)=>React.ReactNode;
+  renderName:(asset:T)=>React.ReactNode;
+  renderSubtitle?:(asset:T)=>React.ReactNode;
+  renderType?:(asset:T)=>React.ReactNode;
 }
-export function VirtualAssetList({assets,selected,focusedId,onToggle,renderName}:VirtualAssetListProps){
+export function VirtualAssetList<T extends VirtualListAsset>({
+  assets,selected,focusedId,onToggle,renderName,renderSubtitle,renderType
+}:VirtualAssetListProps<T>){
   const scrollRef=useRef<HTMLDivElement>(null);
   const virtualizer=useVirtualizer({
     count:assets.length,
@@ -46,9 +50,9 @@ export function VirtualAssetList({assets,selected,focusedId,onToggle,renderName}
           </label>
           <div className="dm-virtual-name">
             <strong>{renderName(asset)}</strong>
-            <small>{asset.id} · {asset.stage.toUpperCase()} · 演示资产</small>
+            <small>{renderSubtitle?renderSubtitle(asset):asset.id+' · '+asset.stage.toUpperCase()+' · 演示资产'}</small>
           </div>
-          <span className="dm-virtual-type">{asset.stage==='raw'?'原始文件':'处理文件'}</span>
+          <span className="dm-virtual-type">{renderType?renderType(asset):asset.stage==='raw'?'原始文件':'处理文件'}</span>
         </div>;
       })}
     </div>
