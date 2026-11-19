@@ -58,3 +58,8 @@ Windows 11 EXE 启动、真实数据和 10,024 文件 GUI 浏览性能、键盘/
 ## 最终集成送检
 
 功能代码已集中提交，当前进入最终同 SHA Windows/UI CI 门禁。只有 Actions 全部成功且 Windows NSIS、portable EXE、release Manifest 与独立 SHA-256 校验产物来自同一提交时才标记 `machine_passed`。测试中仍不允许把浏览器 Mock 等同 Windows 11 原生 GUI 人工验收。
+
+## 最终机器验收尝试记录
+
+- 第一次统一 CI `42472f0c0ceeeb732dcdc5f2eb2626e58a7e0d2c`：三套 Demo 构建成功，但 Windows S0 源码契约检查失败（正式桌面入口移除了对 canonical UI 的直接引用）。
+- 已通过桌面入口显式传递 `UIKit`（`55c98e43154421ea3a687f5f5081e73e8bcfe2fc`）修复，旧 Demo 数据仍受 DEV 动态模块隔离。后续同 SHA CI 仍需重新执行，不宣称机器验收通过。
