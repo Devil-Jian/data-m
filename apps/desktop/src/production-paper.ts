@@ -84,3 +84,25 @@ export const productionPaperApi:PaperApi=async request=>{
     throw Error('真实论文查询或操作未得到可核验的响应；请检查本地仓库后重试。');
   }
 };
+
+/** Verified Panel-to-replicate evidence. A matching filename alone is never used. */
+export function displayEvidenceFromPapers(
+  papers:readonly NativePaper[],assayId:string
+):Map<string,string[]>{
+  const byReplicate=new Map<string,Set<string>>();
+  for(const paper of papers)for(const figure of paper.figures)for(const panel of figure.panels){
+    const pinned=panel.assets.filter(a=>a.assayId===assayId && a.usage==='display');
+    const supported=new Set<string>();
+    for(const a of pinned)if(a.replicateId)supported.add(a.replicateId);
+    for(const representative of panel.representatives){
+      if(representative.assetVersionId &&
+        pinned.some(a=>a.assetVersionId===representative.assetVersionId))
+        supported.add(representative.replicateId);
+    }
+    for(const id of supported){
+      const labels=byReplicate.get(id)??new Set<string>();
+      labels.add(figure.label+' / '+panel.label);byReplicate.set(id,labels);
+    }
+  }
+  return new Map(Array.from(byReplicate,([id,names])=>[id,[...names]]));
+}
