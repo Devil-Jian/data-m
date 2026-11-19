@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 
-test('@S4 real-context asset browsing pagination search and selection (explicit mock)',async ({page})=>{
+test('@S4 @S12 real-context asset browsing pagination search and selection (explicit mock)',async ({page})=>{
   await page.addInitScript(()=>{
     (window as any).__S1_PROJECT_TREE_MOCK__=async()=>({nodes:[
       {id:'p',kind:'project',parentId:null,name:'S4测试项目'},
@@ -27,7 +27,6 @@ test('@S4 real-context asset browsing pagination search and selection (explicit 
     };
   });
   await page.goto('/');
-  await page.getByRole('button',{name:'项目管理',exact:true}).click();
   await page.getByRole('button',{name:'实验：S4测试实验'}).click();
   await page.getByRole('button',{name:'分组与样本',exact:true}).click();
   await page.getByRole('button',{name:'样本：R1'}).click();
@@ -35,6 +34,30 @@ test('@S4 real-context asset browsing pagination search and selection (explicit 
   const list=browser.getByRole('listbox',{name:'资产文件列表'});
   await expect(browser.getByRole('status')).toContainText('匹配 100 条');
   await expect(list.getByRole('option')).toHaveCount(50);
+  for(const [label,mode] of [['网格','grid'],['表格','table'],['列表','list']] as const){
+    await browser.getByRole('button',{name:label,exact:true}).click();
+    await expect(list).toHaveAttribute('data-view',mode);
+    await expect(list.getByRole('option')).toHaveCount(50);
+  }
+  const first=browser.getByRole('button',{name:'选择 sample000.png'});
+  await first.focus();
+  await first.press('Shift+F10');
+  const menu=page.getByRole('menu',{name:'资产右键菜单'});
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole('menuitem',{name:'复制',exact:true})).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(menu.getByRole('menuitem',{name:'剪切'})).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+  await expect(first).toBeFocused();
+  await first.press('F2');
+  await expect(page.getByRole('dialog',{name:'文件操作确认'})).toBeVisible();
+  await expect(page.getByRole('textbox',{name:'新的文件名称'})).toHaveValue('sample000.png');
+  await page.getByRole('button',{name:'取消',exact:true}).click();
+  await first.focus();
+  await first.press('Delete');
+  await expect(page.getByRole('dialog',{name:'文件操作确认'})).toContainText('不会删除任何磁盘文件');
+  await page.getByRole('button',{name:'取消',exact:true}).click();
   await browser.getByRole('button',{name:'下一页'}).click();
   await expect(list.getByRole('option')).toHaveCount(50);
   await expect(browser.getByRole('button',{name:'选择 sample050.png'})).toBeVisible();

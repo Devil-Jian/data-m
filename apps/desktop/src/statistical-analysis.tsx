@@ -3,8 +3,8 @@ import {analysisApi,analysisError} from './statistical-analysis.ts';
 import type {AnalysisApi,AnalysisResponse,AnalysisRequest} from './statistical-analysis.ts';
 import './statistical-analysis.css';
 
-export function StatisticalAnalysisPanel({assayId,assayName,onClose,api=analysisApi}:{
- assayId:string;assayName:string;onClose:()=>void;api?:AnalysisApi
+export function StatisticalAnalysisPanel({assayId,assayName,onClose,onBusyChange,api=analysisApi}:{
+ assayId:string;assayName:string;onClose:()=>void;onBusyChange?:(busy:boolean)=>void;api?:AnalysisApi
 }){
  const [state,setState]=useState<AnalysisResponse|null>(null);
  const [chosen,setChosen]=useState<string|null>(null);
@@ -13,6 +13,7 @@ export function StatisticalAnalysisPanel({assayId,assayName,onClose,api=analysis
  const [inputs,setInputs]=useState<string[]>([]),[results,setResults]=useState<string[]>([]);
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
  const [dirty,setDirty]=useState(false);
+ useEffect(()=>{onBusyChange?.(busy);return ()=>onBusyChange?.(false);},[busy,onBusyChange]);
  function apply(data:AnalysisResponse,id:string|null){
   setState(data);setChosen(id);
   const current=data.analyses.find(a=>a.id===id);

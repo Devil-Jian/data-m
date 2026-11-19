@@ -1,16 +1,20 @@
-import React,{useEffect,useState} from 'react';
+import React,{useEffect,useRef,useState} from 'react';
+import {reportTask} from './task-tray.tsx';
 import {safeLabel,safetyApi,safetyListen,safeSafetyError} from './repository-safety.ts';
 import type {SafetyApi,SafetyProgress,SafetyReport,SnapshotSummary,ProgressListen,SafetyRequest} from './repository-safety.ts';
 import './repository-safety.css';
 
+const actionLabels:Record<string,string>={audit:'只读完整性检查',backup:'创建并验证快照',restore:'隔离恢复',verify:'验证备份哈希'};
 const phases:Record<string,string>={
  sqlite_snapshot:'SQLite WAL 一致性快照',copy_blobs:'复制并核验 CAS 原始字节',
  verify_blobs:'检查快照哈希及版本',published:'封存备份',
  restore_sqlite:'复制隔离恢复数据库',restore_blobs:'恢复并核验 CAS',restore_published:'隔离恢复已完成'
 };
-export function RepositorySafetyPanel({onClose,api=safetyApi,listenProgress=safetyListen}:
- {onClose:()=>void;api?:SafetyApi;listenProgress?:ProgressListen}){
+export function RepositorySafetyPanel({onClose,onBusyChange,api=safetyApi,listenProgress=safetyListen}:
+ {onClose:()=>void;onBusyChange?:(busy:boolean)=>void;api?:SafetyApi;listenProgress?:ProgressListen}){
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
+ const activeTask=useRef<string|null>(null),activeKind=useRef<'backup'|'restore'|'audit'|'verify'>('audit');
+ useEffect(()=>{onBusyChange?.(busy);return ()=>onBusyChange?.(false);},[busy,onBusyChange]);
  const [snapshots,setSnapshots]=useState<SnapshotSummary[]>([]);
  const [report,setReport]=useState<SafetyReport|null>(null),[progress,setProgress]=useState<SafetyProgress|null>(null);
  const [backupConfirm,setBackupConfirm]=useState(false);
@@ -18,7 +22,13 @@ export function RepositorySafetyPanel({onClose,api=safetyApi,listenProgress=safe
  const [restoreConfirm,setRestoreConfirm]=useState(false);
  useEffect(()=>{
   let alive=true,stop:(()=>void)|undefined;
-  void listenProgress(data=>{if(alive)setProgress(data);}).then(unlisten=>{
+  void listenProgress(data=>{
+    if(!alive)return;
+    setProgress(data);
+    if(activeTask.current&&data.total>0&&data.completed<=data.total){
+      reportTask({id:activeTask.current,kind:activeKind.current,title:'仓库安全 · '+(phases[data.phase]??'检查进度'),phase:'running',completed:data.completed,total:data.total,detail:'来自 S7 原生进度事件；未完成核验前不代表成功'});
+    }
+  }).then(unlisten=>{
     if(!alive)unlisten();else stop=unlisten;
   }).catch(()=>{});
   return ()=>{alive=false;stop?.();};
@@ -32,6 +42,13 @@ export function RepositorySafetyPanel({onClose,api=safetyApi,listenProgress=safe
  async function run(request:SafetyRequest){
   if(busy)return;
   setBusy(true);setError('');setMessage('');setProgress(null);
+  const track=request.action!=='list';
+  const taskId='safety:'+request.action;
+  if(track){
+    activeTask.current=taskId;
+    activeKind.current=request.action==='list'?'audit':request.action;
+    reportTask({id:taskId,kind:request.action==='list'?'audit':request.action,title:'仓库安全 · '+actionLabels[request.action],phase:'running',completed:0,total:0,detail:'正在等待真实 S7 IPC 结果'});
+  }
   try{
     const result=await api(request);
     if(result.report)setReport(result.report);
@@ -44,10 +61,14 @@ export function RepositorySafetyPanel({onClose,api=safetyApi,listenProgress=safe
     if(request.action==='backup'||request.action==='restore'||request.action==='list'){
       const latest=await api({action:'list'});setSnapshots(latest.snapshots);
     }
+    if(track)reportTask({id:taskId,kind:request.action==='list'?'audit':request.action,title:'仓库安全 · '+actionLabels[request.action],phase:status==='issues_found'?'failed':'completed',completed:status==='issues_found'?0:1,total:1,detail:status==='issues_found'?'发现完整性问题；查看仓库报告':'已收到原生 S7 确认结果；不代表异地备份'});
     if(request.action==='backup')setBackupConfirm(false);
     if(request.action==='restore'){setRestoreId(null);setRestoreLabel('');setRestoreConfirm(false);}
-  }catch(reason){setError(safeSafetyError(reason).message);}
-  finally{setBusy(false);}
+  }catch(reason){
+    setError(safeSafetyError(reason).message);
+    if(track)reportTask({id:taskId,kind:request.action==='list'?'audit':request.action,title:'仓库安全 · '+actionLabels[request.action],phase:'failed',completed:0,total:1,detail:'原生结果未确认；请在本模块重新查询状态'});
+  }
+  finally{if(activeTask.current===taskId)activeTask.current=null;setBusy(false);}
  }
  return <main className="dm-safety" aria-label="S7 完整性与备份恢复工作台" aria-busy={busy}>
   <header className="dm-safety-header">

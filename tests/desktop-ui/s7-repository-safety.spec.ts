@@ -45,7 +45,6 @@ async function setup(page:import('@playwright/test').Page) {
   };
  });
  await page.goto('/');
- await page.getByRole('button',{name:'项目管理',exact:true}).click();
  await page.getByRole('button',{name:'数据完整性与备份恢复 (S7)'}).click();
  const root=page.getByRole('main',{name:'S7 完整性与备份恢复工作台'});
  await expect(root).toBeVisible();
@@ -68,6 +67,10 @@ test('@S7 backup requires consent, exposes sealed manifest and verify (explicit 
  await root.getByRole('checkbox',{name:/设备内快照并非异地备份/}).check();
  await backup.click();
  await expect(root).toContainText('已封存快照');
+ await page.getByRole('button',{name:/任务状态/}).click();
+ await expect(page.getByRole('region',{name:'任务进度明细'})).toContainText('创建并验证快照');
+ await expect(page.getByRole('region',{name:'任务进度明细'})).toContainText('已收到原生 S7 确认结果');
+
  const list=root.locator('.dm-safety-snapshots');
  await expect(list.getByRole('listitem')).toHaveCount(1);
  await list.getByRole('button',{name:'验证哈希'}).click();

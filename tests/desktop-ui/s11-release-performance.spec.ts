@@ -1,6 +1,6 @@
 import {expect,test} from '@playwright/test';
 
-test('@S11 10024-row renderer IPC mock retains bounded pages, search and project switching',async ({page})=>{
+test('@S11 @S12 10024-row renderer IPC mock retains bounded pages, search and real project navigation',async ({page})=>{
   await page.addInitScript(()=>{
     (window as any).__S1_PROJECT_TREE_MOCK__=async()=>({nodes:[
       {id:'p',kind:'project',parentId:null,name:'S11临时项目'},
@@ -33,7 +33,6 @@ test('@S11 10024-row renderer IPC mock retains bounded pages, search and project
   });
   await page.goto('/');
   await expect(page.getByLabel('安装及版本信息')).toContainText('未签名');
-  await page.getByRole('button',{name:'项目管理',exact:true}).click();
   await page.getByRole('button',{name:'实验：S11实验'}).click();
   await page.getByRole('button',{name:'分组与样本',exact:true}).click();
   await page.getByRole('button',{name:'样本：R1'}).click();
@@ -48,28 +47,12 @@ test('@S11 10024-row renderer IPC mock retains bounded pages, search and project
   await browser.getByRole('textbox',{name:'搜索已入库文件'}).fill('10023');
   await expect(browser.getByRole('status')).toContainText('匹配 1 条');
   await expect(list.getByRole('option')).toHaveCount(1);
-  await page.getByRole('button',{name:'演示工作区',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'ROS 活性氧荧光染色'})).toBeVisible();
-  await page.getByRole('button',{name:'项目管理',exact:true}).click();
+  await expect(page.getByRole('button',{name:'演示工作区',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'返回项目管理',exact:true}).click();
+  await expect(page.getByRole('main',{name:'项目管理工作区'})).toBeVisible();
   await expect(page.getByLabel('安装及版本信息')).toContainText('Schema v1–v3');
   const requests=await page.evaluate(()=>(window as any).__S11_MOCK__.requests);
   expect(requests.length).toBeGreaterThan(2);
   expect(requests.every((request:any)=>request.limit===50)).toBeTruthy();
 });
 
-test('@S11 nested file action right-click repeatedly opens context menu without retry',async ({page})=>{
-  await page.goto('/');
-  await page.getByRole('button',{name:'分阶段'}).click();
-  await page.getByRole('button',{name:/04_Display/}).first().click();
-  const file=page.locator('[data-explorer-id^="asset:display:"]').first();
-  await expect(file).toBeVisible();
-  for(let attempt=0;attempt<5;attempt++){
-    const nested=file.locator('button').first();
-    if(await nested.count())await nested.click({button:'right'});
-    else await file.click({button:'right'});
-    await expect(page.getByRole('menu',{name:'文件操作菜单'})).toBeVisible();
-    await expect(page.getByRole('menuitem',{name:/重命名/})).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(page.getByRole('menu',{name:'文件操作菜单'})).toHaveCount(0);
-  }
-});

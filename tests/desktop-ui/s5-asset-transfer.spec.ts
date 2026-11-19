@@ -87,7 +87,6 @@ async function setup(page:Page){
     };
   });
   await page.goto('/');
-  await page.getByRole('button',{name:'项目管理',exact:true}).click();
   await page.getByRole('button',{name:'实验：S5实验'}).click();
   await page.getByRole('button',{name:'分组与样本',exact:true}).click();
 }
@@ -154,4 +153,22 @@ test('@S5 HTML5 DataTransfer Ctrl/Shift drag wiring (mock backend; WebView2 poin
   await expect(page.getByRole('button',{name:'样本：R2'})).toHaveAttribute('aria-current','true');
   const result=await page.evaluate(()=>(window as any).__S5_TEST__);
   expect(result.audit.map((x:any)=>x.action)).toEqual(['copy','move']);
+});
+
+test('@S12 assay-level asset drag onto a replicate never silently falls back to Raw (explicit mock)',async({page})=>{
+  await setup(page);
+  await page.getByRole('button',{name:'样本：R1'}).click();
+  const browser=page.getByRole('region',{name:'真实资产浏览器'});
+  const nav=page.getByRole('navigation',{name:'数据阶段'});
+  await expect(browser.getByRole('status')).toContainText('匹配 10 条');
+  await domDrag(page,browser.getByRole('button',{name:'选择 raw00.png'}),
+    nav.getByRole('button',{name:/Statistics/}),'Control');
+  await expect(nav.getByRole('button',{name:/Statistics/})).toHaveAttribute('aria-current','page');
+  await expect(browser.getByRole('status')).toContainText('匹配 1 条');
+  const before=await page.evaluate(()=>(window as any).__S5_TEST__.requests.length);
+  await domDrag(page,browser.getByRole('button',{name:'选择 raw00.png'}),
+    page.getByRole('button',{name:'样本：R2'}),'Shift');
+  await expect(page.getByText('当前为实验级阶段，请直接拖到 Statistics / Display 阶段，不会自动改写为 Raw。')).toBeVisible();
+  expect(await page.evaluate(()=>(window as any).__S5_TEST__.requests.length)).toBe(before);
+  await expect(nav.getByRole('button',{name:/Statistics/})).toHaveAttribute('aria-current','page');
 });

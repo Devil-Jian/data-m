@@ -65,7 +65,6 @@ async function openExperiment(page:Page,{initialFailure=false,missingBackend=fal
     };
   },{initialFailure,missingBackend});
   await page.goto('/');
-  await page.getByRole('button',{name:'项目管理',exact:true}).click();
   await page.getByRole('button',{name:'实验：S2测试实验',exact:true}).click();
   await page.getByRole('button',{name:'分组与样本',exact:true}).click();
   await expect(page.getByRole('heading',{name:'分组与样本',exact:true})).toBeVisible();
@@ -200,7 +199,8 @@ test('@S2 mutation failure preserves sample labels and count; pending disables n
   await page.getByRole('button',{name:'保存',exact:true}).click();
   await expect(page.getByRole('button',{name:'保存',exact:true})).toBeDisabled();
   await expect(page.getByRole('button',{name:'返回项目管理',exact:true})).toBeDisabled();
-  await expect(page.getByRole('button',{name:'演示工作区',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'项目概览',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'演示工作区',exact:true})).toHaveCount(0);
   await expect(page.getByRole('textbox',{name:'名称',exact:true})).toBeDisabled();
   await expect(page.getByRole('alert')).toContainText('暂时无法');
   await expect(page.getByRole('button',{name:'样本：保留样本',exact:true})).toBeVisible();

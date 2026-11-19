@@ -40,7 +40,6 @@ async function mockServer(page:Page,initialFailure=false){
     };
   },{initialFailure});
   await page.goto('/');
-  await page.getByRole('button',{name:'项目管理',exact:true}).click();
   await expect(page.getByText('浏览器 Mock（不写入原生数据库）',{exact:true})).toBeVisible();
 }
 async function create(page:Page,kind:'项目'|'主题'|'实验',name:string){
@@ -51,7 +50,7 @@ async function create(page:Page,kind:'项目'|'主题'|'实验',name:string){
   await expect(page.getByRole('button',{name:`${kind}：${name}`,exact:true})).toBeVisible();
 }
 
-test('@S1 creates two projects, multiple themes and assays and re-queries on reopen',async ({page})=>{
+test('@S1 creates two projects, multiple themes and assays and re-queries on explicit refresh',async ({page})=>{
   await mockServer(page);
   await expect(page.getByText('暂无项目。新建项目以开始。')).toBeVisible();
   for(const project of ['项目甲','项目乙']){
@@ -66,8 +65,7 @@ test('@S1 creates two projects, multiple themes and assays and re-queries on reo
     }
   }
   const before=await page.evaluate(()=>(window as any).__S1_TEST__.requests.length);
-  await page.getByRole('button',{name:'演示工作区',exact:true}).click();
-  await page.getByRole('button',{name:'项目管理',exact:true}).click();
+  await page.getByRole('button',{name:'重新加载',exact:true}).click();
   await expect(page.getByRole('button',{name:'实验：项目乙主题二实验',exact:true})).toBeVisible();
   const requests=await page.evaluate(()=>(window as any).__S1_TEST__.requests);
   expect(requests.length).toBeGreaterThan(before);
@@ -168,7 +166,7 @@ test('@S1 pending mutation disables all editing controls',async ({page})=>{
 
 test('@S1 browser without injected backend clearly reports unavailable',async ({page})=>{
   await page.goto('/');
-  await page.getByRole('button',{name:'项目管理',exact:true}).click();
+
   await expect(page.getByRole('alert')).toContainText('浏览器未连接原生项目存储');
   await expect(page.getByRole('button',{name:'新建项目',exact:true})).toBeDisabled();
   await expect(page.getByText('暂无项目。新建项目以开始。')).toBeHidden();

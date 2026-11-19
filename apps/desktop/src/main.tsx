@@ -1,20 +1,18 @@
 import React, {useCallback,useEffect,useReducer,useRef,useState} from 'react';
 import {createRoot} from 'react-dom/client';
-import {Workbench} from '@data-m/core';
 import {getCurrentWebview} from '@tauri-apps/api/webview';
 import {invoke,isTauri} from '@tauri-apps/api/core';
 import {dropReducer,formatDropSize,initialDropState} from './drop-preview';
 import type {DropPreview} from './drop-preview';
-import {shadcnUI} from '@data-m/ui/workbench-ui';
 import '@data-m/core/style.css';
 import '@data-m/ui/style.css';
 import './desktop.css';
 import {ProjectTreeManager} from './project-tree.tsx';
+import {TaskTray} from './task-tray.tsx';
 import type {ImportDropHandler,ImportDropRegistrar} from './import-jobs.ts';
 
 /** Native Windows drop adapter. Inspection is read-only; source paths never reach UI state. */
 function DesktopApp(){
-  const [managingProjects,setManagingProjects]=useState(false);
   const [projectBusy,setProjectBusy]=useState(false);
   const [drop,dispatch]=useReducer(dropReducer,initialDropState);
   const dismissButtonRef=useRef<HTMLButtonElement>(null);
@@ -97,15 +95,16 @@ function DesktopApp(){
   const dismiss=()=>dispatch({type:'dismiss'});
   const summary=drop.kind==='ready'?drop.preview:null;
   return <div className="dm-desktop-shell">
-    <nav className="dm-desktop-modebar" aria-label="工作区模式">
-      <shadcnUI.Button disabled={projectBusy} variant={managingProjects?'primary':'secondary'} small onClick={()=>setManagingProjects(true)}>项目管理</shadcnUI.Button>
-      <shadcnUI.Button disabled={projectBusy} variant={managingProjects?'secondary':'primary'} small onClick={()=>setManagingProjects(false)}>演示工作区</shadcnUI.Button>
-      <span>{managingProjects?'Project / Theme / Assay':'演示数据与文件交互，不代表真实入库'}</span>
-      <small className="dm-release-candidate" aria-label="安装及版本信息">0.1.0 S11 测试构建 · 未签名 · 支持仓库 Schema v1–v3 · 非正式 v1.0</small>
+    <nav className="dm-desktop-modebar" aria-label="正式科研工作区">
+      <strong>Data-M · 科研数据工作区</strong>
+      <span>项目 → 主题 → 实验 → 分组 → 样本</span>
+      <span role="status">{projectBusy?"正在处理项目操作…":"真实项目与资产数据"}</span>
+      <small className="dm-release-candidate" aria-label="安装及版本信息">0.1.0 S12 开发候选 · 未签名 · 仓库 Schema v1–v3 · 未完成人工验收</small>
     </nav>
     <div className="dm-desktop-content">
-      {managingProjects?<ProjectTreeManager onBusyChange={setProjectBusy} registerImportDrop={registerImportDrop}/>:<Workbench ui={shadcnUI} variant="shadcn"/>}
+      <ProjectTreeManager onBusyChange={setProjectBusy} registerImportDrop={registerImportDrop}/>
     </div>
+    <TaskTray/>
     {drop.kind!=='idle'&&<section
       className={'dm-native-drop '+(drop.kind==='over'?'is-over':'')}
       role={drop.kind==='ready'?'dialog':'status'}
@@ -130,7 +129,7 @@ function DesktopApp(){
         </ul>
         {summary.entries.length>16&&<p>预览仅展示前 16 项，其余 {summary.entries.length-16} 项已完成初步检查。</p>}
         <p className="dm-drop-warning">仅只读检查文件元数据。尚未导入、复制或修改任何文件。
-          真正导入需要 P2 安全存储服务，当前不可用。</p>
+          如需正式导入，请在项目中选择合法的实验、样本与阶段，使用安全导入流程并确认。</p>
       </>}
     </section>}
   </div>;

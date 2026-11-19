@@ -12,14 +12,16 @@ test('@I1 formal project workspace opens S8 and S9 without using demo data',asyn
   });
   (window as any).__TAURI_INTERNALS__={
    invoke:async(command:string)=>{
-    if(command==='project_tree')return {nodes:[{id:'p',kind:'project',parentId:null,name:'I1 Project'}]};
+    if(command==='project_tree')return {nodes:[
+      {id:'p',kind:'project',parentId:null,name:'I1 Project'},
+      {id:'t',kind:'theme',parentId:'p',name:'Theme'},
+      {id:'a',kind:'assay',parentId:'t',name:'ROS'}]};
     if(command==='paper_workspace')return {papers:[{id:'paper',title:'I1 persisted paper',status:'draft',notes:'',figures:[]}],candidates:[]};
     throw Error('Unexpected IPC '+command);
    },transformCallback:()=>1,metadata:{currentWindow:{label:'main'}}
   };
  });
  await page.goto('/');
- await page.getByRole('button',{name:'项目管理',exact:true}).click();
  await page.getByRole('button',{name:'实验：ROS'}).click();
  await page.getByRole('button',{name:'统计分析 (S8)'}).click();
  await expect(page.getByRole('main',{name:'S8 统计分析工作台'})).toBeVisible();
@@ -32,7 +34,6 @@ test('@I1 formal project workspace opens S8 and S9 without using demo data',asyn
  // G0-07: refreshed application still enters both official workspaces from
  // the same real Project entry, rather than relying on a demo-only route.
  await page.reload();
- await page.getByRole('button',{name:'项目管理',exact:true}).click();
  await page.getByRole('button',{name:'实验：ROS'}).click();
  await page.getByRole('button',{name:'统计分析 (S8)'}).click();
  await expect(page.getByRole('main',{name:'S8 统计分析工作台'})).toBeVisible();
@@ -70,7 +71,6 @@ test('@I1 project switch discards stale delayed Paper responses (explicit IPC mo
    };
  });
  await page.goto('/');
- await page.getByRole('button',{name:'项目管理',exact:true}).click();
  await page.getByRole('button',{name:'论文管理 (S9)'}).click();
  await page.getByLabel('选择真实科研项目').selectOption('project-b');
  await expect(page.getByText('Paper B only')).toBeVisible();

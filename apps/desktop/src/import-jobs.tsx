@@ -1,6 +1,7 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {shadcnUI} from '@data-m/ui/workbench-ui';
 import {formatDropSize} from './drop-preview';
+import {reportTask} from './task-tray.tsx';
 import {importApi,importMode,importErrorMessage,safeImportError,validateImportResponse} from './import-jobs.ts';
 import type {ImportApi,ImportDropRegistrar,ImportJob,ImportRequest,ImportTarget} from './import-jobs.ts';
 import './import-jobs.css';
@@ -22,6 +23,25 @@ export function ImportJobsPanel({assayId,target,targetLabel,onClose,onLockChange
   const alive=useRef(true),jobsRef=useRef(jobs),epoch=useRef(0);
   const actions=useRef(new Set<string>()),polling=useRef(false);
   jobsRef.current=jobs;
+  // Publish only validated S3 job state; this is a view-only notification.
+  // The S3 SQLite list/get IPC remains the authority after re-opening.
+  useEffect(()=>{
+    for(const job of jobs){
+      reportTask({
+        id:'import:'+job.id,kind:'import',
+        title:'安全导入 · '+(stages[job.target.stage]??job.target.stage),
+        phase:job.status==='prepared'?'prepared':job.status==='running'?'running':
+          job.status==='completed'?'completed':job.status==='cancelled'?'cancelled':'failed',
+        completed:job.completedCount,total:job.files.length,
+        detail:job.status==='completed'?'已完成文件登记':job.status==='failed'||job.status==='integrity_failed'?
+          '任务失败或完整性异常，请在导入页面检查逐项错误':job.status==='prepared'?
+          '等待人工确认；尚未复制文件':job.status==='running'?
+          '正在使用 S3 原生任务查询进度':job.status==='interrupted'?
+          '导入曾中断，可在任务页面重试未完成文件':'任务已取消；已登记文件保留'
+      });
+    }
+  },[jobs]);
+
   const locked=requestCount>0||jobs.some(active);
   const fixedJob=jobs.find(active);
   const describe=(value:ImportTarget)=>describeTarget?.(value)??`${stages[value.stage]} · ${value.replicateId?`样本 ${value.replicateId}`:`实验 ${value.assayId}`}`;

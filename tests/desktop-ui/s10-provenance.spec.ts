@@ -53,6 +53,11 @@ test('@S10 formal Paper Panel provenance and exact-version reverse navigation (r
  await page.getByRole('button',{name:'选择目录并无损导出'}).click();
  await expect(page.getByRole('alert').filter({hasText:'Source hash mismatch'})).toBeVisible();
  await expect(page.getByText('无损导出完成')).toHaveCount(0);
+ // S12 shared task status must not turn an unverified S10 export into success.
+ await page.getByRole('button',{name:/任务状态/}).click();
+ await expect(page.getByRole('region',{name:'任务进度明细'})).toContainText('导出尚未确认成功');
+ await expect(page.getByRole('region',{name:'任务进度明细'})).toContainText('失败或需要检查');
+
 });
 
 test('@S10 formal asset detail reverse reference is project scoped (renderer IPC mock)',async({page})=>{
@@ -94,7 +99,6 @@ test('@S10 formal asset detail reverse reference is project scoped (renderer IPC
   };
  });
  await page.goto('/');
- await page.getByRole('button',{name:'项目管理',exact:true}).click();
  await page.getByRole('button',{name:'实验：实验'}).click();
  await page.getByRole('button',{name:'分组与样本',exact:true}).click();
  await page.getByRole('button',{name:'样本：R1'}).click();
