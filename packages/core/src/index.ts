@@ -11,3 +11,4 @@ export {WorkbenchHeader} from './workbench-header';
 
 export {ResearchNavigationTree,WorkbenchStatusBar} from './workbench-navigation';
 export {WorkbenchExplorerToolbar} from './workbench-explorer-toolbar';
+export {WorkbenchFigureList} from './workbench-figure-list';
