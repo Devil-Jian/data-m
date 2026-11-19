@@ -63,3 +63,5 @@ Windows 11 EXE 启动、真实数据和 10,024 文件 GUI 浏览性能、键盘/
 
 - 第一次统一 CI `42472f0c0ceeeb732dcdc5f2eb2626e58a7e0d2c`：三套 Demo 构建成功，但 Windows S0 源码契约检查失败（正式桌面入口移除了对 canonical UI 的直接引用）。
 - 已通过桌面入口显式传递 `UIKit`（`55c98e43154421ea3a687f5f5081e73e8bcfe2fc`）修复，旧 Demo 数据仍受 DEV 动态模块隔离。后续同 SHA CI 仍需重新执行，不宣称机器验收通过。
+
+- 第二次 CI `210b54ca2e9ae6e1b478c81191c430e9b9811615`：S0 和早期原生 S10 通过；正式桌面编译发现 `production-paper.ts` 与 `production-paper.tsx` 同名导致解析到数据 API 而非 React 组件，及默认 UIKit 名称引用错误。已将 React 组件迁为 `production-paper-workbench.tsx`、明确导入并修复 UIKit 默认值。发布隔离检查因上游编译中断而没有可检查的 dist；待下一轮完整 CI 验证。
