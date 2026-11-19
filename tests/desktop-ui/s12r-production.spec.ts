@@ -42,9 +42,9 @@ test('@S12R production Workbench shows only native-mock data with scoped matrix'
   await page.getByRole('button',{name:'03_Statistics'}).click();
   await expect(page.getByText('real-stat.tif')).toBeVisible();
   await expect(page.getByText('real-display.tif')).toHaveCount(0);
-  await page.getByRole('button',{name:'real-stat.tif'}).click();
+  await page.getByRole('button',{name:/real-stat.tif/}).click();
   await expect(page.getByRole('dialog',{name:'真实文件详情'})).toContainText('version-real-stat');
-  await expect(page.getByRole('dialog',{name:'真实文件详情'})).toContainText(hash);
+  await expect(page.getByRole('dialog',{name:'真实文件详情'})).toContainText('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
 });
 test('@S12R browser without an explicit native mock never loads demo projects',async({page})=>{
   await page.goto('/');
