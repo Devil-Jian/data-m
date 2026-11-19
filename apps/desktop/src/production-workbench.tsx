@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {shadcnUI as UI} from '@data-m/ui/workbench-ui';
+import {shadcnUI} from '@data-m/ui/workbench-ui';
 import {VirtualAssetList,virtualAssetRects,WorkbenchHeader,ResearchNavigationTree,WorkbenchStatusBar,WorkbenchExplorerToolbar} from '@data-m/core';
 import type {UIKit} from '@data-m/core';
 import {projectTreeApi,safeProjectTreeError} from './project-tree';
@@ -15,8 +15,8 @@ import {safeTransferError,TransferError} from './asset-transfer';
 import {captureProductionTransfer,validatedProductionTarget,commitProductionTransfer} from './production-transfer';
 import type {ProductionTransferDraft} from './production-transfer';
 import {ImportJobsPanel} from './import-jobs.tsx';
-import {ProductionPaperWorkbench} from './production-paper';
-import type {PaperPosition} from './production-paper';
+import {ProductionPaperWorkbench} from './production-paper-workbench';
+import type {PaperPosition} from './production-paper-workbench';
 import {displayEvidenceFromPapers,productionPaperApi} from './production-paper';
 import {RepositorySafetyPanel} from './repository-safety.tsx';
 import {ProductionAnalysisDrawer} from './production-analysis';
