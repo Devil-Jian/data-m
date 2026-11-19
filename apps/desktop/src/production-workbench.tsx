@@ -16,6 +16,7 @@ import type {ProductionTransferDraft} from './production-transfer';
 import {ImportJobsPanel} from './import-jobs.tsx';
 import {ProductionPaperWorkbench} from './production-paper';
 import type {PaperPosition} from './production-paper';
+import {displayEvidenceFromPapers,productionPaperApi} from './production-paper';
 import {RepositorySafetyPanel} from './repository-safety.tsx';
 import {ProductionAnalysisDrawer} from './production-analysis';
 import {ProductionRecycleDrawer} from './production-recycle';
@@ -63,6 +64,8 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
   const [analysisOpen,setAnalysisOpen]=useState(false);
   const [analysisEvidence,setAnalysisEvidence]=useState<AnalysisEvidence|null>(null);
   const [inclusionFilter,setInclusionFilter]=useState<'all'|'included'|'excluded'>('all');
+  const [displayEvidence,setDisplayEvidence]=useState<Map<string,string[]>>(new Map());
+  const [representativeFilter,setRepresentativeFilter]=useState<'all'|'representative'>('all');
   const [importLocked,setImportLocked]=useState(false);
   const [importReplicateId,setImportReplicateId]=useState('');
   const [transferDraft,setTransferDraft]=useState<ProductionTransferDraft|null>(null);
@@ -86,8 +89,9 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
      [...r.raw,...r.processed].some(f=>f.name.toLowerCase().includes(search.toLowerCase())))&&
     (inclusionFilter==='all'||!analysisEvidence?.frozenAt?true:
       inclusionFilter==='included'?analysisEvidence.includedReplicateIds.includes(r.id):
-      !analysisEvidence.includedReplicateIds.includes(r.id)))??[],
-    [snapshot,groupId,search,inclusionFilter,analysisEvidence]);
+      !analysisEvidence.includedReplicateIds.includes(r.id))&&
+    (representativeFilter==='all'||displayEvidence.has(r.id)))??[],
+    [snapshot,groupId,search,inclusionFilter,analysisEvidence,representativeFilter,displayEvidence]);
   const stageView=useProductionStageAssets({
     assayId,stage,
     ...(stage==='raw'||stage==='processed'?{groupId}:{}),
@@ -219,6 +223,15 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
     const a=t?.assays.find(a=>a.id===assayId)??t?.assays[0];
     if(a?.id!==assayId)setAssayId(a?.id??'');
   },[projects,projectId,themeId,assayId]);
+  useEffect(()=>{
+    let active=true;
+    setDisplayEvidence(new Map());setRepresentativeFilter('all');
+    if(!projectId||!assayId||module!=='experiment')return;
+    void productionPaperApi({action:'list',projectId}).then(data=>{
+      if(active)setDisplayEvidence(displayEvidenceFromPapers(data.papers,assayId));
+    }).catch(()=>{/* No Panel evidence is never permission to infer a link. */});
+    return ()=>{active=false};
+  },[projectId,assayId,module]);
   const refreshAssay=useCallback(async(id:string)=>{
     const next=await productionAdapter.loadAssay(id);
     if(activeAssayRef.current!==id)return;
@@ -228,7 +241,8 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
   useEffect(()=>{
     const token=++requestVersion.current;
     setSnapshot(null);setGroupId('');setImportReplicateId('');setTransferDraft(null);setSelectedIds([]);
-    setAnalysisOpen(false);setAnalysisEvidence(null);setInclusionFilter('all');setDetail(null);setSearch('');
+    setAnalysisOpen(false);setAnalysisEvidence(null);setInclusionFilter('all');
+    setDisplayEvidence(new Map());setRepresentativeFilter('all');setDetail(null);setSearch('');
     if(!assayId)return;
     void productionAdapter.loadAssay(assayId).then(data=>{
       if(token!==requestVersion.current)return;
@@ -380,12 +394,17 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
             <UI.Button small variant="ghost" disabled={!assayId||busy}
               onClick={()=>setRecycleOpen(true)}>回收区</UI.Button>
           </>}
-          filterExtras={mode==='overview'&&analysisEvidence?.frozenAt?
-            <UI.Select ariaLabel="按真实冻结分析筛选" value={inclusionFilter}
-              onChange={v=>setInclusionFilter(v as typeof inclusionFilter)}
+          filterExtras={mode==='overview'?<>
+            {analysisEvidence?.frozenAt&&<UI.Select ariaLabel="按真实冻结分析筛选"
+              value={inclusionFilter} onChange={v=>setInclusionFilter(v as typeof inclusionFilter)}
               options={[{value:'all',label:'全部生物学重复'},
                 {value:'included',label:'本分析已纳入'},
-                {value:'excluded',label:'本分析未纳入'}]}/>:null}/>
+                {value:'excluded',label:'本分析未纳入'}]}/>}
+            <UI.Select ariaLabel="按固定版本代表来源筛选" value={representativeFilter}
+              onChange={v=>setRepresentativeFilter(v as typeof representativeFilter)}
+              options={[{value:'all',label:'全部样本'},
+                {value:'representative',label:'仅有 Panel 固定来源'}]}/>
+          </>:null}/>
         <div className="dm-workspace-scroll dm-explorer-canvas" data-source-container-id={groupId} role="group" aria-label="文件资源管理器工作区" tabIndex={0}
           onFocusCapture={explorer.onFocusCapture} onPointerDown={explorer.onPointerDown}
           onContextMenu={explorer.onContextMenu} onDragStart={e=>e.preventDefault()}>
@@ -416,6 +435,8 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
                     {s==='statistics'&&analysisEvidence?.frozenAt?
                       <small>{analysisEvidence.includedReplicateIds.includes(row.id)
                         ?`冻结分析 ${analysisEvidence.analysisId}：已纳入`:'当前冻结分析未纳入本样本'}</small>:
+                    s==='display'&&displayEvidence.has(row.id)?
+                      <small>固定版本 Panel 来源：{displayEvidence.get(row.id)!.join('、')}</small>:
                       <small>尚无可核验的本样本引用</small>}
                     <button type="button" onClick={()=>{setMode('stage');setStage(s)}}>查看实验级文件</button>
                   </div>}
