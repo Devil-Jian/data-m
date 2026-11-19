@@ -4,21 +4,21 @@ Status recorded from actual implementation/evidence, not planned tests. `rendere
 
 | ID | State | Evidence / outstanding |
 | --- | --- | --- |
-| S12-UI-01 | renderer_test_added | Production root no longer mounts Demo; @S12 smoke added; no successful S12 Windows gate yet |
-| S12-UI-02 | implemented_unverified | Project breadcrumb, Alt-arrow history, stale-ID filtering, last-valid-ID reload and explicit @S12 E2E; CI confirmation pending |
-| S12-UI-03 | pending | Group/Replicate n and copy invariants in unified workflow |
-| S12-UI-04 | partial_unverified | Existing distinct sample/Assay scope preserved; browser key now isolates query lifecycle on context change |
-| S12-UI-05 | implemented_unverified | Grid/list/table selector added on existing real `list_assets` paging; no CI pass evidence |
-| S12-UI-06 | partial_unverified | Existing real lifecycle/clipboard tests retained; demo-only right-click/F2 tests preserved in isolated `tests/e2e`; complete real Explorer parity pending |
-| S12-UI-07 | pending | Native file drag vs AssetLink drag safety |
-| S12-UI-08 | partial_unverified | Existing S3 import logic retained; S12 sidebar navigation now blocked during import lock; end-to-end real repository verification pending |
-| S12-UI-09 | pending | Lifecycle conflict and reference protection |
-| S12-UI-10 | pending | Independent inclusion n; freeze/revise |
-| S12-UI-11 | partial_unverified | Existing real Paper/Provenance APIs retained and shared project sidebar added; end-to-end pinned-reference regression pending |
-| S12-UI-12 | pending | Figure SHA manifest/confirm/cancel |
-| S12-UI-13 | pending | Read-only audit, snapshot, isolated restore |
-| S12-UI-14 | pending | GUI at 10,024 real assets; SQLite-only S11 benchmark not GUI evidence |
-| S12-UI-15 | pending | Persistent state after Windows EXE restart |
-| S12-UI-16 | blocked | Windows 44308671524 failed old S0 source contract; 44311352353 passed source test but failed old S0 Demo-first renderer expectation; those tests migrated. Latest 44313726030 had 47 passed, 1 stale S1 test now fixed; no passing latest SHA or NSIS/portable evidence yet |
+| S12-UI-01 | baseline_machine_passed / follow_on_pending | Sole real desktop entry tested on Windows #44315421546; newer Explorer/task head requires final rerun |
+| S12-UI-02 | baseline_machine_passed / follow_on_pending | Real-ID trail/history/reload passed prior CI; new cross-module breadcrumbs and Paper ID sync under new E2E |
+| S12-UI-03 | prior_tests_passed | S2/S5 real contract regressions passed prior Windows run; genuine Windows user-path testing pending |
+| S12-UI-04 | prior_tests_passed | S3/S4/S5 scoped mock + native Rust prior run; cross-module full loop pending manual |
+| S12-UI-05 | prior_tests_passed / new_tests_pending | 50-row bounded three-mode browser passed prior Windows run; new marquee + keyboard menu pending new-head CI |
+| S12-UI-06 | implementation_new_tests_pending | Current-page marquee, Ctrl/Shift, F2/Delete real confirmation, context keyboard/escape, clipboard/drag; real-action E2E added, Windows GUI manual pending |
+| S12-UI-07 | prior_tests_passed / manual_pending | Existing native S3/S5 source/target protection regressions; true Windows native drag gesture still manual |
+| S12-UI-08 | prior_tests_passed / follow_on_pending | S3 prepare/start/cancel/retry prior green; new view-only real task tray and navigation lock tests pending latest CI |
+| S12-UI-09 | prior_tests_passed | Existing native S6 lifecycle/ref protection regressions passed on baseline; latest head rerun and manual UI pending |
+| S12-UI-10 | prior_tests_passed | Native S8 freeze/revise and renderer prior CI; new analysis busy-route guard under latest CI |
+| S12-UI-11 | prior_tests_passed / follow_on_pending | Native S9/S10 precise version tests passed prior CI; Paper real-project synchronization E2E added |
+| S12-UI-12 | prior_tests_passed / follow_on_pending | Native S10 export/manifest prior regression; new task tray callback only confirms complete after native verified manifest |
+| S12-UI-13 | prior_tests_passed / follow_on_pending | Native S7 isolation prior regression; new shared task summary and navigation lock checks under latest CI |
+| S12-UI-14 | backend_machine_passed / gui_manual_pending | True SQLite/CAS 10,024 assets benchmark passed CI #44315421546; real Windows GUI performance still unmeasured |
+| S12-UI-15 | renderer_passed / gui_manual_pending | Real-ID preference reload tested in browser; true EXE restart with SQLite/Analysis/Panel pending Windows user |
+| S12-UI-16 | baseline_machine_passed / latest_head_pending | Windows #44315421546 and UI #44315421442 completed success at f72e67... incl verified NSIS/portable; added interaction head must repeat same-SHA Windows/UI |
 
-No native Windows 11 manual tests have been executed as part of S12. Current status: `in_progress / manual_pending`.
+No native Windows 11 manual tests have been executed as part of S12. Baseline (f72e67...) machine-passed; follow-on implementation head is `in_progress / manual_pending` until exact-SHA CI.
