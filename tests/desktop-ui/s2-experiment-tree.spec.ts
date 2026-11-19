@@ -64,7 +64,7 @@ async function openExperiment(page:Page,{initialFailure=false,missingBackend=fal
       return reply(request.assayId);
     };
   },{initialFailure,missingBackend});
-  await page.goto('/');
+  await page.goto('/?legacy=1');
   await page.getByRole('button',{name:'项目管理',exact:true}).click();
   await page.getByRole('button',{name:'实验：S2测试实验',exact:true}).click();
   await page.getByRole('button',{name:'分组与样本',exact:true}).click();
