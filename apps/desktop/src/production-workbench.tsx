@@ -15,6 +15,7 @@ import {captureProductionTransfer,validatedProductionTarget,commitProductionTran
 import type {ProductionTransferDraft} from './production-transfer';
 import {ImportJobsPanel} from './import-jobs.tsx';
 import {ProductionPaperWorkbench} from './production-paper';
+import {RepositorySafetyPanel} from './repository-safety.tsx';
 import {useProductionStageAssets} from './use-production-stage-assets';
 import type {ImportDropRegistrar,ImportTarget} from './import-jobs.ts';
 import './production-workbench.css';
@@ -51,6 +52,7 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
   const [error,setError]=useState('');
   const [detail,setDetail]=useState<AssetRow|null>(null);
   const [importOpen,setImportOpen]=useState(false);
+  const [safetyOpen,setSafetyOpen]=useState(false);
   const [importLocked,setImportLocked]=useState(false);
   const [importReplicateId,setImportReplicateId]=useState('');
   const [transferDraft,setTransferDraft]=useState<ProductionTransferDraft|null>(null);
@@ -432,6 +434,10 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
       </>}
       </main>
     </div>
+    <div className="dm-real-tool-launcher" role="group" aria-label="仓库工具">
+      <UI.Button small variant="ghost" onClick={()=>setSafetyOpen(true)} disabled={busy||importLocked}>完整性 · 备份 · 隔离恢复</UI.Button>
+      <span>本机快照不等于异地备份；操作仅限可丢弃测试库。</span>
+    </div>
     <footer className="dm-real-status" role="status">{busy?'正在提交并重新读取…':error||'正式工作区 · 真实存储'} · S12R 测试版本</footer>
     {editor&&<div className="dm-real-modal-backdrop"><section role="dialog" aria-modal="true" aria-label="编辑科研目录" className="dm-real-modal">
       <h2>{editor.action==='create'?'新建':editor.action==='rename'?'重命名':'删除'} {editor.kind}</h2>
@@ -441,6 +447,12 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
       <div className="dm-real-modal-actions"><UI.Button disabled={busy} onClick={()=>{setEditor(null);setError('')}}>取消</UI.Button>
         <UI.Button disabled={busy} variant={editor.action==='delete'?'danger':'primary'} onClick={()=>void submit()}>确认</UI.Button></div>
     </section></div>}
+    {safetyOpen&&<div className="dm-real-modal-backdrop dm-real-safety-overlay">
+      <section role="dialog" aria-modal="true" aria-label="仓库数据安全工具"
+        className="dm-real-safety-modal">
+        <RepositorySafetyPanel onClose={()=>setSafetyOpen(false)}/>
+      </section>
+    </div>}
     {transferDraft&&<div className="dm-real-modal-backdrop">
       <section role="dialog" aria-modal="true" aria-label="真实文件复制移动确认" className="dm-real-modal dm-real-transfer-modal">
         <h2>{transferDraft.action==='copy'?'复制':'移动'} {transferDraft.items.length} 条资产关联</h2>
