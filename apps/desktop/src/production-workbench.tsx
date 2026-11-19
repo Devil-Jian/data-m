@@ -9,6 +9,8 @@ import type {ProductionAssaySnapshot,ProductionProject,ProductionStage} from './
 import type {AssetRow} from './asset-browser';
 import {useExplorerInteraction} from '@data-m/interaction';
 import {lifecycleApi,lifecycleError,lifecycleRequest,currentLinks} from './asset-lifecycle';
+import {ImportJobsPanel} from './import-jobs.tsx';
+import type {ImportDropRegistrar,ImportTarget} from './import-jobs.ts';
 import './production-workbench.css';
 
 const labels:Record<ProductionStage,string>={
@@ -24,7 +26,7 @@ type Editor=ProjectEditor|ExperimentEditor;
 type View='grid'|'list'|'table';
 
 /** A production entry point. No demo fixtures or simulated previews are imported. */
-export function ProductionWorkbench(){
+export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:ImportDropRegistrar}){
   const [projects,setProjects]=useState<ProductionProject[]>([]);
   const [projectId,setProjectId]=useState('');
   const [themeId,setThemeId]=useState('');
@@ -42,11 +44,20 @@ export function ProductionWorkbench(){
   const [loaded,setLoaded]=useState(false);
   const [error,setError]=useState('');
   const [detail,setDetail]=useState<AssetRow|null>(null);
+  const [importOpen,setImportOpen]=useState(false);
+  const [importLocked,setImportLocked]=useState(false);
+  const [importReplicateId,setImportReplicateId]=useState('');
   const requestVersion=useRef(0);
   const project=projects.find(p=>p.id===projectId);
   const theme=project?.themes.find(t=>t.id===themeId);
   const assay=theme?.assays.find(a=>a.id===assayId);
   const group=snapshot?.groups.find(g=>g.id===groupId);
+  const importReplicate=group?.replicates.find(r=>r.id===importReplicateId);
+  const importTarget:ImportTarget|null=!assayId?null:
+    stage==='raw'||stage==='processed'
+      ?importReplicate?{assayId,stage,groupId,replicateId:importReplicate.id}:null
+      :{assayId,stage};
+  const importTargetLabel=`${assay?.name??''} / ${labels[stage]} / ${importReplicate?.label??'实验级'}`;
   const rows=useMemo(()=>snapshot?.rows.filter(r=>r.groupId===groupId&&
     (!search||r.name.toLowerCase().includes(search.toLowerCase())||
      [...r.raw,...r.processed].some(f=>f.name.toLowerCase().includes(search.toLowerCase()))))??[],
@@ -100,7 +111,7 @@ export function ProductionWorkbench(){
     }finally{setBusy(false);}
   }
   const selectProject=(id:string)=>{
-    if(busy)return;
+    if(busy||importLocked)return;
     const next=projects.find(p=>p.id===id);
     const t=next?.themes[0],a=t?.assays[0];
     setProjectId(id);setThemeId(t?.id??'');setAssayId(a?.id??'');
@@ -135,7 +146,7 @@ export function ProductionWorkbench(){
   },[]);
   useEffect(()=>{
     const token=++requestVersion.current;
-    setSnapshot(null);setGroupId('');setSelectedIds([]);setDetail(null);setSearch('');
+    setSnapshot(null);setGroupId('');setImportReplicateId('');setSelectedIds([]);setDetail(null);setSearch('');
     if(!assayId)return;
     void productionAdapter.loadAssay(assayId).then(data=>{
       if(token!==requestVersion.current)return;
@@ -189,13 +200,17 @@ export function ProductionWorkbench(){
     }finally{setBusy(false);}
   };
   const chooseTheme=(id:string)=>{
-    if(busy)return;
+    if(busy||importLocked)return;
     const t=project?.themes.find(x=>x.id===id);
     setThemeId(id);setAssayId(t?.assays[0]?.id??'');setSelectedIds([]);setDetail(null);
   };
-  const chooseAssay=(id:string)=>{if(busy)return;setAssayId(id);setSelectedIds([]);setDetail(null);};
-  const chooseGroup=(id:string)=>{if(busy)return;setGroupId(id);setSelectedIds([]);setDetail(null);setSearch('');};
+  const chooseAssay=(id:string)=>{if(busy||importLocked)return;setAssayId(id);setSelectedIds([]);setDetail(null);};
+  const chooseGroup=(id:string)=>{if(busy||importLocked)return;setGroupId(id);setSelectedIds([]);setDetail(null);setSearch('');};
   const toggle=(id:string,on:boolean)=>explorer.toggle(id,on);
+  useEffect(()=>{
+    if(!group)return;
+    setImportReplicateId(old=>group.replicates.some(r=>r.id===old)?old:group.replicates[0]?.id??'');
+  },[groupId,snapshot]);
   const assetCell=(files:AssetRow[])=><div className="dm-real-asset-stack">
     {files.length===0?<span className="dm-muted">尚无文件</span>:files.map(f=>
       <button key={f.assetLinkId} type="button" data-explorer-id={f.assetLinkId} className={"dm-real-asset dm-selectable-asset"+(explorer.selectedSet.has(f.assetLinkId)?" selected":"") }
@@ -217,7 +232,9 @@ export function ProductionWorkbench(){
         <UI.Button variant={module==='paper'?'primary':'ghost'} onClick={()=>setModule('paper')}>论文管理</UI.Button>
       </nav><div className="dm-header-spacer"/>
       <UI.Button variant="secondary" onClick={()=>open('project','project','create')}>＋ 新建项目</UI.Button>
-      <UI.Button disabled title="真实导入向导接入中">导入实验归档包</UI.Button>
+      <UI.Button disabled={!assay||importLocked} onClick={()=>{setMode('stage');setImportOpen(true)}}>
+        导入文件 / 实验归档
+      </UI.Button>
     </header>
     <div className="dm-body">
       {module==='experiment'&&<aside className="dm-sidebar">
@@ -286,7 +303,7 @@ export function ProductionWorkbench(){
             <p>{group?.name??'选择分组'} · {rows.length} 个样本 · {snapshot?.groups.length??0} 个实验分组</p>
           </div><div className="dm-selection-actions">
             <UI.Badge tone="neutral">已选 {selectedIds.length} 个真实文件</UI.Badge>
-            <UI.Button small variant="ghost" disabled title="复制移动交互将在后续阶段接入">复制/移动</UI.Button>
+            <UI.Button small variant="ghost" disabled title="复制移动安全确认接入中">复制/移动</UI.Button>
           </div></div>
           {!snapshot?<div className="dm-empty">正在读取真实文件…</div>:mode==='overview'?<>
             <div className="dm-matrix-scroll"><table className="dm-matrix"><thead><tr>
@@ -341,6 +358,24 @@ export function ProductionWorkbench(){
       <div className="dm-real-modal-actions"><UI.Button disabled={busy} onClick={()=>{setEditor(null);setError('')}}>取消</UI.Button>
         <UI.Button disabled={busy} variant={editor.action==='delete'?'danger':'primary'} onClick={()=>void submit()}>确认</UI.Button></div>
     </section></div>}
+    {importOpen&&assay&&<div className="dm-real-modal-backdrop dm-real-import-overlay">
+      <section className="dm-real-import-modal" role="dialog" aria-modal="true" aria-label="受控安全导入">
+        <div className="dm-real-import-target"><strong>选择导入目标</strong>
+          <UI.Select ariaLabel="导入数据阶段" value={stage} onChange={v=>setStage(v as ProductionStage)}
+            options={PRODUCTION_STAGES.map(s=>({value:s,label:labels[s]}))}/>
+          {(stage==='raw'||stage==='processed')&&<>
+            <UI.Select ariaLabel="导入目标分组" value={groupId}
+              onChange={id=>chooseGroup(id)} options={(snapshot?.groups??[]).map(g=>({value:g.id,label:g.name}))}/>
+            <UI.Select ariaLabel="导入目标样本" value={importReplicateId}
+              onChange={setImportReplicateId} options={(group?.replicates??[]).map(rep=>({value:rep.id,label:rep.label}))}/>
+          </>}
+          <p>仅支持已解压的真实文件或文件夹；ZIP 不能直接解包。系统不会按文件名自动创建科研关联。</p>
+        </div>
+        <ImportJobsPanel assayId={assayId} target={importTarget} targetLabel={importTargetLabel}
+          onLockChange={setImportLocked} registerImportDrop={registerImportDrop}
+          onClose={()=>{setImportOpen(false);void refreshAssay(assayId).catch(()=>setError('导入后重新读取资产失败，请手动检查'));}}/>
+      </section>
+    </div>}
     {detail&&<aside className="dm-real-detail" role="dialog" aria-label="真实文件详情">
       <button type="button" onClick={()=>setDetail(null)}>关闭 ×</button>
       <h2>{detail.name}</h2><p>阶段：{labels[detail.stage]}</p><p>关联 ID：{detail.assetLinkId}</p>
