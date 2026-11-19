@@ -117,7 +117,7 @@ function DesktopApp(){
     <div className="dm-desktop-content">
       {import.meta.env.DEV && new URLSearchParams(window.location.search).get('legacy')==='1'
         ?<LegacyDevelopmentHarness registerImportDrop={registerImportDrop}/>
-        :<ProductionWorkbench/>}
+        :<ProductionWorkbench registerImportDrop={registerImportDrop}/>}
     </div>
     {drop.kind!=='idle'&&<section
       className={'dm-native-drop '+(drop.kind==='over'?'is-over':'')}
