@@ -26,7 +26,7 @@ test('@S4 real-context asset browsing pagination search and selection (explicit 
       async detail(assetLinkId:string){return {item:records.find(x=>x.assetLinkId===assetLinkId)};}
     };
   });
-  await page.goto('/');
+  await page.goto('/?legacy=1');
   await page.getByRole('button',{name:'项目管理',exact:true}).click();
   await page.getByRole('button',{name:'实验：S4测试实验'}).click();
   await page.getByRole('button',{name:'分组与样本',exact:true}).click();
