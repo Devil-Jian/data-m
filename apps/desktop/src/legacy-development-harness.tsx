@@ -16,7 +16,7 @@ export default function LegacyDevelopmentHarness({registerImportDrop}:{registerI
       <small className="dm-release-candidate" aria-label="安装及版本信息">0.1.0 S11 测试构建 · 未签名 · 支持仓库 Schema v1–v3 · 非正式 v1.0</small>
     </nav>
     <div className="dm-desktop-content">
-      {managingProjects?<ProjectTreeManager onBusyChange={setProjectBusy} registerImportDrop={registerImportDrop}/>:<Workbench ui={shadcnUI} variant="shadcn"/>}
+      {managingProjects?<ProjectTreeManager onBusyChange={setProjectBusy} registerImportDrop={registerImportDrop}/>:<Workbench ui={shadcnUI} variant="shadcn" legacyNativePaper/>}
     </div>
   </>;
 }
