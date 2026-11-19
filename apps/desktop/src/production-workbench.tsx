@@ -1,6 +1,6 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {shadcnUI as UI} from '@data-m/ui/workbench-ui';
-import {VirtualAssetList,virtualAssetRects,WorkbenchHeader} from '@data-m/core';
+import {VirtualAssetList,virtualAssetRects,WorkbenchHeader,ResearchNavigationTree,WorkbenchStatusBar} from '@data-m/core';
 import {projectTreeApi,safeProjectTreeError} from './project-tree';
 import type {ProjectTreeKind,ProjectTreeRequest} from './project-tree';
 import {experimentApi,safeExperimentError} from './experiment-tree';
@@ -305,15 +305,11 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
       onImport={()=>{setMode('stage');setImportOpen(true)}}
       importDisabled={!assay||importLocked||module==='paper'}/>
     <div className="dm-body">
-      {module==='experiment'&&<aside className="dm-sidebar">
-        <div className="dm-sidebar-title"><span>研究项目 / 实验导航</span>▣</div>
-        <div className="dm-nav-tree">{project?.themes.map(t=><div key={t.id}>
-          <button className={'dm-theme-row'+(themeId===t.id?' active':'')} onClick={()=>chooseTheme(t.id)}>
-            <span>▣</span><span>{t.name}</span><span>⌄</span></button>
-          {themeId===t.id&&t.assays.map(a=><button key={a.id}
-            className={'dm-assay-row'+(assayId===a.id?' active':'')}
-            onClick={()=>chooseAssay(a.id)}><span>♧</span><span>{a.name}</span></button>)}
-        </div>)}</div>
+      {module==='experiment'&&<ResearchNavigationTree
+        themes={project?.themes??[]} themeId={themeId} assayId={assayId}
+        onTheme={chooseTheme} onAssay={chooseAssay}
+        footerText="本地 SQLite / CAS · 真实数据"
+        actions={<>
         <div className="dm-real-sidebar-actions">
           <UI.Button small onClick={()=>open('project','theme','create',undefined,projectId)}
             disabled={!projectId}>＋ 主题</UI.Button>
@@ -326,8 +322,8 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
           {assay&&<UI.Button small onClick={()=>open('project','assay','rename',assayId,undefined,assay.name)}>重命名实验</UI.Button>}
           {assay&&<UI.Button small variant="ghost" onClick={()=>open('project','assay','delete',assayId)}>删除实验</UI.Button>}
         </div>
-        <div className="dm-sidebar-footer">◈ <span>本地 SQLite / CAS · 真实数据</span></div>
-      </aside>}
+
+        </>}/>}
       <main className="dm-workspace">
       {module==='paper'?<ProductionPaperWorkbench projectId={projectId} onJumpToAssay={id=>{
         const owner=project?.themes.find(t=>t.assays.some(a=>a.id===id));
@@ -461,7 +457,10 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
       <UI.Button small variant="ghost" onClick={()=>setSafetyOpen(true)} disabled={busy||importLocked}>完整性 · 备份 · 隔离恢复</UI.Button>
       <span>本机快照不等于异地备份；操作仅限可丢弃测试库。</span>
     </div>
-    <footer className="dm-real-status" role="status">{busy?'正在提交并重新读取…':error||'正式工作区 · 真实存储'} · S12R 测试版本</footer>
+    <WorkbenchStatusBar
+      status="Data-M · 本地真实科研数据 · S12R 未签收测试版"
+      summary={module==='experiment'?`${snapshot?.replicateCount??0} 个生物学重复 · 当前已选 ${selectedIds.length} 个文件`:'论文数据来自 SQLite · 固定版本引用'}
+      hint={busy?'正在提交后端并重新查询…':error||'Ctrl/Shift 多选 · 右键 · F2 · Delete · 拖放确认'}/>
     {editor&&<div className="dm-real-modal-backdrop"><section role="dialog" aria-modal="true" aria-label="编辑科研目录" className="dm-real-modal">
       <h2>{editor.action==='create'?'新建':editor.action==='rename'?'重命名':'删除'} {editor.kind}</h2>
       {editor.action==='delete'?<p>删除将由原生后端检查子节点与文件关联，不能撤销。</p>:
