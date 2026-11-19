@@ -49,7 +49,7 @@ export function ProductionWorkbench(){
   const group=snapshot?.groups.find(g=>g.id===groupId);
   const rows=useMemo(()=>snapshot?.rows.filter(r=>r.groupId===groupId&&
     (!search||r.name.toLowerCase().includes(search.toLowerCase())||
-     [...r.raw,...r.processed].some(f=>f.name.toLowerCase().includes(search.toLowerCase())))??[],
+     [...r.raw,...r.processed].some(f=>f.name.toLowerCase().includes(search.toLowerCase()))))??[],
     [snapshot,groupId,search]);
   const assets=useMemo(()=>{
     if(!snapshot)return [];
