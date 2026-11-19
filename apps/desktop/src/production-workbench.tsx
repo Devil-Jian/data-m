@@ -14,6 +14,7 @@ import {safeTransferError,TransferError} from './asset-transfer';
 import {captureProductionTransfer,validatedProductionTarget,commitProductionTransfer} from './production-transfer';
 import type {ProductionTransferDraft} from './production-transfer';
 import {ImportJobsPanel} from './import-jobs.tsx';
+import {ProductionPaperWorkbench} from './production-paper';
 import type {ImportDropRegistrar,ImportTarget} from './import-jobs.ts';
 import './production-workbench.css';
 
@@ -300,9 +301,11 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
         <div className="dm-sidebar-footer">◈ <span>本地 SQLite / CAS · 真实数据</span></div>
       </aside>}
       <main className="dm-workspace">
-      {module==='paper'?<div className="dm-empty">
-        <h2>论文管理</h2><p>真实 Figure/Panel 卡片及固定版本溯源尚未完成接入；不会显示模拟论文。</p>
-      </div>:!loaded?<div className="dm-empty">正在读取真实项目…</div>:!project?<div className="dm-empty">
+      {module==='paper'?<ProductionPaperWorkbench projectId={projectId} onJumpToAssay={id=>{
+        const owner=project?.themes.find(t=>t.assays.some(a=>a.id===id));
+        if(!owner){setError('目标实验不在当前科研项目中，已阻止跨项目跳转。');return;}
+        setThemeId(owner.id);setAssayId(id);setModule('experiment');
+      }}/>:!loaded?<div className="dm-empty">正在读取真实项目…</div>:!project?<div className="dm-empty">
         <h2>暂无科研项目</h2><p>使用顶部“新建项目”建立真实科研项目。</p>
       </div>:!assay?<div className="dm-empty">
         <h2>暂无实验</h2><p>从左侧新增主题和实验开始。</p>
