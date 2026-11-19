@@ -1,0 +1,24 @@
+.dm-production .dm-real-sidebar-actions{display:flex;flex-wrap:wrap;gap:5px;padding:10px;border-top:1px solid #dbe2ec}
+.dm-production .dm-real-asset-stack{display:flex;flex-direction:column;gap:5px;min-width:175px}
+.dm-production .dm-real-asset{display:flex;align-items:center;gap:8px;width:100%;padding:6px 8px;border:1px solid #dbe4ef;border-radius:6px;background:#f8fbff;text-align:left;color:#23415f;cursor:pointer}
+.dm-production .dm-real-asset strong{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.dm-production .dm-real-asset small{flex:none;color:#60758d}
+.dm-production .dm-real-asset:hover{border-color:#769bc6}
+.dm-production .dm-real-file-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;padding:12px}
+.dm-production .dm-real-file-list{display:flex;flex-direction:column;gap:6px;padding:10px}
+.dm-production .dm-real-file-card{display:flex;flex-direction:column;gap:9px;min-width:0}
+.dm-production .dm-real-file-card label{font-size:12px}
+.dm-production .dm-real-file-card small{word-break:break-all;color:#617388;font-size:11px}
+.dm-production .dm-real-file-open{display:flex;gap:8px;align-items:center;border:none;background:transparent;color:#25466a;text-align:left;cursor:pointer;word-break:break-word}
+.dm-production .dm-real-scope{padding:10px 16px;margin:0;font-size:12px;color:#516b84}
+.dm-production .dm-real-warning{margin:12px;padding:10px;background:#fff5e6;color:#80530c}
+.dm-production .dm-real-status{padding:5px 14px;background:#edf3fa;color:#586f85;font-size:11px;border-top:1px solid #d1dce8}
+.dm-real-modal-backdrop{position:fixed;inset:0;z-index:300;display:flex;justify-content:center;align-items:center;background:#142f47a3}
+.dm-real-modal{width:min(430px,calc(100vw - 30px));background:white;padding:24px;border-radius:12px;box-shadow:0 12px 40px #0005}
+.dm-real-modal h2{margin:0 0 15px;font-size:18px}
+.dm-real-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.dm-real-detail{position:fixed;z-index:250;right:0;top:0;bottom:0;width:min(430px,100vw);padding:24px;background:#fff;overflow:auto;box-shadow:-10px 0 32px #173a5640}
+.dm-real-detail>button{float:right}
+.dm-real-detail h2{word-break:break-word;margin-top:38px}
+.dm-real-detail p{font-size:13px;line-height:1.6;word-break:break-word}
+.dm-real-hash{overflow-wrap:anywhere}
