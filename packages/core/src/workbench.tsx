@@ -462,27 +462,13 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
     project.themes.flatMap(t=>t.assays).flatMap(a=>a.statFiles).find(s=>s.id===id)).filter((x):x is DataFile=>Boolean(x));
 
   return <div className={'dm-app dm-'+variant}>
-    <header className="dm-header">
-      <div className="dm-logo"><span>BM</span><strong>科研实验与论文管理系统</strong></div>
-      <div className="dm-history-controls" role="group" aria-label="目录导航历史">
-        <button type="button" aria-label="后退到上一目录" title="后退 (Alt+←)"
-          disabled={!canBack} onClick={()=>navigateHistory(-1)}><ArrowLeft size={16}/></button>
-        <button type="button" aria-label="前进到下一目录" title="前进 (Alt+→)"
-          disabled={!canForward} onClick={()=>navigateHistory(1)}><ArrowRight size={16}/></button>
-      </div>
-      <div className="dm-project-picker"><small>课题/论文项目</small><UI.Select value={project.id}
-        onChange={chooseProject} options={projects.map(p=>({value:p.id,label:p.name}))} ariaLabel="选择科研项目"/></div>
-      <nav className="dm-primary-nav" aria-label="核心模块">
-        <UI.Button variant={module==='experiment'?'primary':'ghost'} onClick={()=>setModule('experiment')}><FlaskConical size={15}/> 实验整理</UI.Button>
-        <UI.Button variant={module==='paper'?'primary':'ghost'} onClick={()=>setModule('paper')}><BookOpen size={15}/> 论文管理</UI.Button>
-      </nav>
-      <div className="dm-header-spacer"/>
-      <UI.Button variant="secondary" onClick={()=>setNewProjectOpen(true)}><Plus size={15}/> 新建项目</UI.Button>
-      <UI.Button variant="primary" onClick={()=>notify(module==='experiment'?'演示模式：真实 ZIP 导入待后端接入':'演示模式：真实投稿材料打包待后端接入')}>
-        {module==='experiment'?<Upload size={15}/>:<Download size={15}/>}
-        {module==='experiment'?'导入实验归档包':'导出投稿材料包'}
-      </UI.Button>
-    </header>
+    <WorkbenchHeader ui={UI} projectId={project.id}
+      projectOptions={projects.map(p=>({value:p.id,label:p.name}))}
+      module={module} onModuleChange={setModule} onProjectChange={chooseProject}
+      canBack={canBack} canForward={canForward} onBack={()=>navigateHistory(-1)}
+      onForward={()=>navigateHistory(1)} onNewProject={()=>setNewProjectOpen(true)}
+      onImport={()=>notify(module==='experiment'
+        ?'演示模式：真实 ZIP 导入待后端接入':'演示模式：真实投稿材料打包待后端接入')}/>
     {trace&&<div className="dm-trace-banner"><ShieldCheck size={16}/><strong>溯源模式</strong>
       <span>正在查看 {trace.label} 关联的实验数据与全部生物学重复</span>
       <UI.Button small variant="secondary" onClick={()=>{setProjectId(trace.projectId);setActivePaperId(trace.paperId);
