@@ -1,12 +1,14 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {shadcnUI as UI} from '@data-m/ui/workbench-ui';
 import {projectTreeApi,safeProjectTreeError} from './project-tree';
-import type {ProjectTreeKind,ProjectTreeNode,ProjectTreeRequest} from './project-tree';
+import type {ProjectTreeKind,ProjectTreeRequest} from './project-tree';
 import {experimentApi,safeExperimentError} from './experiment-tree';
 import type {ExperimentKind,ExperimentRequest} from './experiment-tree';
 import {productionAdapter,PRODUCTION_STAGES} from './production-adapter';
 import type {ProductionAssaySnapshot,ProductionProject,ProductionStage} from './production-adapter';
 import type {AssetRow} from './asset-browser';
+import {useExplorerInteraction} from '@data-m/interaction';
+import {lifecycleApi,lifecycleError,lifecycleRequest,currentLinks} from './asset-lifecycle';
 import './production-workbench.css';
 
 const labels:Record<ProductionStage,string>={
@@ -34,7 +36,6 @@ export function ProductionWorkbench(){
   const [stageFilter,setStageFilter]=useState<ProductionStage[]>([...PRODUCTION_STAGES]);
   const [view,setView]=useState<View>('grid');
   const [search,setSearch]=useState('');
-  const [selectedIds,setSelectedIds]=useState<string[]>([]);
   const [module,setModule]=useState<'experiment'|'paper'>('experiment');
   const [editor,setEditor]=useState<Editor|null>(null);
   const [busy,setBusy]=useState(false);
@@ -56,6 +57,43 @@ export function ProductionWorkbench(){
       ?rows.flatMap(row=>row[stage]):snapshot.assayFiles[stage];
     return source.filter(f=>!search||f.name.toLowerCase().includes(search.toLowerCase()));
   },[snapshot,stage,rows,search]);
+  const visibleFiles=useMemo(()=>mode==='stage'?assets:rows.flatMap(r=>[...r.raw,...r.processed]),
+    [mode,assets,rows]);
+  const visibleIds=useMemo(()=>visibleFiles.map(f=>f.assetLinkId),[visibleFiles]);
+  const explorer=useExplorerInteraction({
+    visibleIds,enabled:module==='experiment'&&!editor&&!detail&&!busy,
+    onDrop:()=>setError('请先明确目标阶段与样本；当前不执行未经确认的拖放操作。'),
+    onCopy:()=>setError('资产已加入工作区交互剪贴板；跨作用域复制需选择并确认目标。'),
+    onCut:()=>setError('已选择移动意图，源文件尚未发生变化。'),
+    onPaste:()=>setError('请先明确有效目标样本/实验级阶段；尚未提交复制或移动。'),
+    onDelete:ids=>{void mutateAsset('soft_delete',ids);},
+    onRename:id=>{void mutateAsset('rename',[id]);}
+  });
+  const selectedIds=explorer.selectedIds;
+  const setSelectedIds=explorer.setSelectedIds;
+  async function mutateAsset(action:'rename'|'soft_delete',ids:string[]){
+    if(busy||ids.length===0||ids.length>100||!assayId)return;
+    const rows=ids.map(id=>visibleFiles.find(f=>f.assetLinkId===id));
+    if(rows.some(f=>!f)){setError('文件选择已过期，请刷新。');return;}
+    const files=rows as AssetRow[];
+    let newName:string|undefined;
+    if(action==='rename'){
+      if(files.length!==1)return;
+      const input=window.prompt('新文件名（仅修改逻辑关联名称）',files[0].name);
+      if(input===null||input===files[0].name)return;
+      newName=input;
+    }else if(!window.confirm('确认将选中的 '+files.length+' 个文件关联移入回收区？'))return;
+    setBusy(true);setError('');
+    try{
+      const links=files.map(file=>currentLinks({assayId,stage:file.stage},[file])[0]);
+      await lifecycleApi(lifecycleRequest(action,links,newName));
+      await refreshAssay(assayId);
+      setSelectedIds([]);
+    }catch(reason){
+      setError(lifecycleError(reason).message+' 请重新加载核验状态。');
+      try{await refreshAssay(assayId);}catch{/* preserve the primary operation error */}
+    }finally{setBusy(false);}
+  }
   const selectProject=(id:string)=>{
     const next=projects.find(p=>p.id===id);
     const t=next?.themes[0],a=t?.assays[0];
@@ -137,10 +175,10 @@ export function ProductionWorkbench(){
   };
   const chooseAssay=(id:string)=>{setAssayId(id);setSelectedIds([]);setDetail(null);};
   const chooseGroup=(id:string)=>{setGroupId(id);setSelectedIds([]);setDetail(null);setSearch('');};
-  const toggle=(id:string,on:boolean)=>setSelectedIds(old=>on?[...new Set([...old,id])]:old.filter(x=>x!==id));
+  const toggle=(id:string,on:boolean)=>explorer.toggle(id,on);
   const assetCell=(files:AssetRow[])=><div className="dm-real-asset-stack">
     {files.length===0?<span className="dm-muted">尚无文件</span>:files.map(f=>
-      <button key={f.assetLinkId} type="button" className="dm-real-asset"
+      <button key={f.assetLinkId} type="button" data-explorer-id={f.assetLinkId} className={"dm-real-asset dm-selectable-asset"+(explorer.selectedSet.has(f.assetLinkId)?" selected":"") }
         onClick={()=>setDetail(f)} title={f.sha256}>
         <span>▣</span> <strong>{f.name}</strong><small>v{f.versionNumber}</small>
       </button>)}
@@ -220,7 +258,9 @@ export function ProductionWorkbench(){
           <div className="dm-view-switch">{(['grid','list','table'] as const).map(v=>
             <UI.Button key={v} small variant={view===v?'primary':'ghost'} onClick={()=>setView(v)}>{v==='grid'?'▦':v==='list'?'☷':'▤'}</UI.Button>)}</div>
         </div>
-        <div className="dm-workspace-scroll dm-explorer-canvas" role="group" aria-label="文件资源管理器工作区" tabIndex={0}>
+        <div className="dm-workspace-scroll dm-explorer-canvas" role="group" aria-label="文件资源管理器工作区" tabIndex={0}
+          onFocusCapture={explorer.onFocusCapture} onPointerDown={explorer.onPointerDown}
+          onContextMenu={explorer.onContextMenu} onDragStart={e=>e.preventDefault()}>
           <div className="dm-section-heading"><div><h2>{mode==='overview'?'全阶段归档总览':labels[stage]}
             <small>{mode==='overview'?'样本 × 数据阶段':'单阶段详细浏览'}</small></h2>
             <p>{group?.name??'选择分组'} · {rows.length} 个样本 · {snapshot?.groups.length??0} 个实验分组</p>
@@ -247,16 +287,25 @@ export function ProductionWorkbench(){
           </>:<>
             <p className="dm-real-scope">{stage==='raw'||stage==='processed'?'当前分组内的样本级文件':'当前实验全部分组共享的实验级文件（不代表样本已经关联）'}</p>
             <div className={view==='grid'?'dm-real-file-grid':'dm-real-file-list'}>
-              {assets.map(file=><div className="dm-content-card dm-real-file-card" key={file.assetLinkId}>
+              {assets.map(file=><div data-explorer-id={file.assetLinkId} className={"dm-content-card dm-real-file-card dm-selectable-asset"+(explorer.selectedSet.has(file.assetLinkId)?" selected":"")} key={file.assetLinkId}>
                 <label><input type="checkbox" checked={selectedIds.includes(file.assetLinkId)}
                   onChange={e=>toggle(file.assetLinkId,e.target.checked)}/> 选择</label>
-                <button className="dm-real-file-open" onClick={()=>setDetail(file)} type="button">
+                <button data-explorer-no-gesture className="dm-real-file-open" onClick={()=>setDetail(file)} type="button">
                   <span>▣</span><strong>{file.name}</strong></button>
                 <small>v{file.versionNumber} · {file.sizeBytes} bytes · SHA-256 {file.sha256.slice(0,12)}…</small>
               </div>)}
             </div>
             {!assets.length&&<div className="dm-empty">当前阶段暂无文件</div>}
           </>}
+          {explorer.contextMenu&&<div className="dm-explorer-context-menu" data-explorer-context-menu role="menu"
+            style={{position:"fixed",left:Math.min(explorer.contextMenu.x,window.innerWidth-230),top:Math.min(explorer.contextMenu.y,window.innerHeight-270)}}>
+            <div className="dm-context-caption">已选择 {explorer.contextMenu.ids.length} 个文件关联</div>
+            <button type="button" role="menuitem" onClick={()=>explorer.contextAction("copy")}>复制 Ctrl+C</button>
+            <button type="button" role="menuitem" onClick={()=>explorer.contextAction("cut")}>剪切 Ctrl+X</button>
+            <button type="button" role="menuitem" disabled={explorer.contextMenu.ids.length!==1} onClick={()=>explorer.contextAction("rename")}>重命名 F2</button>
+            <button type="button" role="menuitem" onClick={()=>explorer.contextAction("delete")}>移入回收区 Delete</button>
+            <button type="button" role="menuitem" disabled={!explorer.hasClipboard} onClick={()=>explorer.contextAction("paste")}>粘贴 Ctrl+V</button>
+          </div>}
           {snapshot?.incomplete&&<p role="alert" className="dm-real-warning">文件查询达到分页上限，当前矩阵并非全部资产；请勿将计数视为完整结果。</p>}
           <div className="dm-experiment-footnote">文件与数量来自真实后端。Statistics / Display 不自动推断样本级关联。</div>
         </div>
