@@ -15,11 +15,11 @@ Status: **in_progress**. Base: S11 `e7b12d7022ed40d33bccc42f9a628b305e91ccf9`. N
 | Area | Old source | Current S12 action | Follow-up |
 | --- | --- | --- | --- |
 | Main entry | Dual `Workbench` / `ProjectTreeManager` mode bar | Real manager alone, no demo toggle | Shared shell and deep links |
-| External Windows drop | `inspect_drop_paths` preview | Removed obsolete “P2 unavailable” copy | Explicit safe import target UX |
+| External Windows drop | `inspect_drop_paths` preview | Read-only preview, explicit S3 `prepare → start` with legal target; task tray receives verified status | Real Windows drop manual sign-off |
 | Project/Theme/Assay | `ProjectTreeManager` | Reuse existing real IPC | Shared breadcrumb + back/forward |
-| Group/Replicate | `ExperimentTreeManager` | Retain existing real IPC | Unified sidebar |
-| Files | `AssetBrowser` | Added grid/list/table presentation over existing bounded real `AssetRow` page | Further keyboard parity and view-mode E2E |
-| Statistics/Paper/Safety | Existing panels | Retain real APIs | Common navigation/side panel |
+| Group/Replicate | `ExperimentTreeManager` | Retain existing real IPC; lock during import; show sample stage scope | Actual GUI drag/target integration acceptance |
+| Files | `AssetBrowser` | 50-row SQLite page, grid/list/table, bounded marquee, real-ID multi-select, keyboard context, F2/Delete, app clipboard | Native GUI gestures and real-data manual sign-off |
+| Statistics/Paper/Safety | Existing panels | Retain real APIs; live project sidebar + trail; shared busy guard; Paper project ID sync | End-to-end native GUI loop |
 | Demo test fixtures | `packages/core` | No longer rendered at production root | Isolated test/demo entry |
 
 ## Safety and testing
@@ -34,13 +34,18 @@ Status: **in_progress**. Base: S11 `e7b12d7022ed40d33bccc42f9a628b305e91ccf9`. N
 - S12 requires nonzero `@S12` E2E and full legacy suites before `machine_passed`.
 - Windows 11 native DPI/drag-drop/GUI performance remains `manual_pending` until user acceptance.
 
+## Shared task status
+
+The desktop root mounts a compact read-only `TaskTray`. S3 validated `ImportJob`, S7 validated safety progress/response and S10 `figure_export` completion are its only state sources. It does not issue writes, synthesize progress, persist an independent task database, or turn cancel requests into final cancellations. On restart the user returns to the real native module for authoritative status.
+
 ## Status
 
 S12-00 audit and baseline contract: **partial**; formal screenshot and complete module contract matrix outstanding.
 S12-01 **partial**: real-ID project breadcrumbs/history added, deleted node guarded; persistence and integrated deep links pending.
-S12-02 **partial**: bounded real-asset grid/list/table and remount on scope change.
-S12-04 **partial**: project tree remains visible during Experiment/Statistics/Paper/Safety panels.
-S12-05 **partial**: README rewritten; demo remains isolated.
-S12-06 **in progress**: legacy S0/S1/S2/S3 entry assertions migrated; recent failed Windows CI is documented. Other S12-03/06 P0 gates not completed.
+S12-02 **implemented / latest-head CI pending**: bounded real-asset grid/list/table and remount on scope change; marquee, context-menu keyboard/F2/Delete and transfer locks.
+S12-03 **implemented / latest-head CI pending**: shared real-status task tray plus import, safety, Figure export adapters and cross-module write locks.
+S12-04 **implemented / latest-head CI pending**: project tree + real breadcrumb remain visible during Experiment/Statistics/Paper/Safety panels, Paper project selector sync.
+S12-05 **implemented / screenshots pending**: README/user handbook rewritten; demo remains isolated.
+S12-06 **new-head CI pending**: prior S12 baseline SHA f72e67... passed entire Windows/UI build and artifact uploads. Follow-on interaction commits require a new full same-SHA run; manual Windows 11 GUI remains pending.
 
 This is not a claim of full S12 acceptance.
