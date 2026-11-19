@@ -74,3 +74,32 @@ test('@S12 saved project route restores only after backend confirms the real ID 
   await expect(page.getByRole('button',{name:'项目：持久导航项目'})).not.toHaveAttribute('aria-current','true');
   await expect(page.getByRole('button',{name:'项目：deleted-node'})).toHaveCount(0);
 });
+
+test('@S12 Paper project selector follows real project IDs without unmounting Paper (explicit IPC mock)',async ({page})=>{
+  await page.addInitScript(()=>{
+    const nodes=[
+      {id:'p-one',kind:'project',parentId:null,name:'第一项目'},
+      {id:'p-two',kind:'project',parentId:null,name:'第二项目'}
+    ];
+    (window as any).__TAURI_INTERNALS__={
+      invoke:async(command:string,args:any)=>{
+        if(command==='project_tree')return {nodes};
+        if(command==='paper_workspace')return {papers:[],candidates:[],candidateTotalCount:0,candidateTruncated:false};
+        throw Error('Unexpected mock IPC: '+command);
+      },
+      transformCallback:()=>1,metadata:{currentWindow:{label:'main'}}
+    };
+  });
+  await page.goto('/');
+  await page.getByRole('button',{name:'项目：第二项目'}).click();
+  await page.getByRole('button',{name:'论文管理 (S9)'}).click();
+  const paper=page.getByLabel('S9 真实论文管理工作区');
+  await expect(paper).toBeVisible();
+  await expect(paper.getByRole('combobox',{name:'选择真实科研项目'})).toHaveValue('p-two');
+  const location=page.getByRole('navigation',{name:'科研位置'});
+  await expect(location.getByRole('button',{name:'第二项目'})).toHaveAttribute('aria-current','page');
+  await paper.getByRole('combobox',{name:'选择真实科研项目'}).selectOption('p-one');
+  await expect(page.getByRole('button',{name:'项目：第一项目'})).toHaveAttribute('aria-current','true');
+  await expect(paper).toBeVisible();
+  await expect(location.getByRole('button',{name:'第一项目'})).toHaveAttribute('aria-current','page');
+});
