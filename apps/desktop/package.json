@@ -7,7 +7,7 @@
     "dev": "vite --port 5176 --strictPort",
     "build": "tsc --noEmit && vite build",
     "tauri": "tauri",
-    "test": "vitest run src/drop-preview.test.ts src/production-adapter.test.ts"
+    "test": "vitest run src/drop-preview.test.ts src/production-adapter.test.ts src/production-transfer.test.ts"
   },
   "dependencies": {
     "@data-m/core": "*",
