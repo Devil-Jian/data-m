@@ -9,6 +9,7 @@ import { allPanels, findAssay, INITIAL_PROJECTS, STAGES, summary } from './data'
 import { demoAssetId, selectableDemoAssets } from './demo-assets';
 import { VirtualAssetList } from './virtual-asset-list';
 import {WorkbenchHeader} from './workbench-header';
+import {ResearchNavigationTree,WorkbenchStatusBar} from './workbench-navigation';
 import {PaperWorkspace} from './paper-workspace';
 import {InlineRename} from './inline-rename';
 import {renameValidationError} from './rename-validation';
@@ -475,26 +476,9 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
       <UI.Button small variant="secondary" onClick={()=>{setProjectId(trace.projectId);setActivePaperId(trace.paperId);
         setModule('paper');setActivePanelId(trace.panelId);setTrace(null)}}><ArrowLeft size={14}/> 返回论文</UI.Button></div>}
     <div className="dm-body">
-      {module==='experiment'&&<aside className="dm-sidebar">
-        <div className="dm-sidebar-title"><span>{module==='experiment'?'研究项目 / 实验导航':'论文导航'}</span><Folder size={15}/></div>
-        {module==='experiment'?<div className="dm-nav-tree">
-          {project.themes.map(t=><div key={t.id}>
-            <button className={'dm-theme-row'+(theme.id===t.id?' active':'')} onClick={()=>chooseTheme(t.id)}>
-              {theme.id===t.id?<FolderOpen size={16}/>:<Folder size={16}/>}<span>{t.name}</span>
-              {theme.id===t.id?<ChevronDown size={14}/>:<ChevronRight size={14}/>}
-            </button>
-            {theme.id===t.id&&t.assays.map(a=><button key={a.id} className={'dm-assay-row'+(assay.id===a.id?' active':'')}
-              onClick={()=>chooseAssay(a.id)}><FlaskConical size={14}/><span>{a.name}</span></button>)}
-          </div>)}
-        </div>:<div className="dm-nav-tree">
-          {project.papers.map(p=><button key={p.id} className={'dm-theme-row'+(paper?.id===p.id?' active':'')}
-            onClick={()=>{setActivePaperId(p.id);setActivePanelId(null)}}>
-            <BookOpen size={16}/><span>{p.code}</span><ChevronRight size={14}/>
-          </button>)}
-          {!project.papers.length&&<div className="dm-sidebar-empty">暂无论文条目</div>}
-        </div>}
-        <div className="dm-sidebar-footer"><ShieldCheck size={15}/><span>本地单机 · 演示数据</span></div>
-      </aside>}
+      {module==='experiment'&&<ResearchNavigationTree
+        themes={project.themes} themeId={theme.id} assayId={assay.id}
+        onTheme={chooseTheme} onAssay={chooseAssay} footerText="本地单机 · 演示数据"/>}
       <main className="dm-workspace">
         {module==='paper'?<PaperWorkspace/>:module==='experiment'?<>
           <div className="dm-workspace-head">
@@ -616,9 +600,13 @@ export function Workbench({ui: UI,variant}: WorkbenchProps) {
       {explorer.gesture.operation==='copy'?'＋ 复制':'↗ 移动'} {explorer.gesture.count} 项
       {explorer.gesture.targetId?(explorer.gesture.allowed?' · 松开以提交':' · 不可放置'):' · 拖至上方分组'}
     </div>}
-    <footer className="dm-statusbar"><span><span className="dm-online-dot"/> UI Comparison · {variant}</span>
-      <span>{module==='experiment'?(assay.groups.reduce((n,g)=>n+g.replicates.length,0)+' 个实验样本'):(paperPanels.length+' 个论文子图')}</span>
-      <span>{module==='experiment'?'左键框选 · Ctrl 多选 · Shift 连选 · Ctrl 拖拽复制':'演示模式 · 无后端连接'}</span></footer>
+    <WorkbenchStatusBar status={`UI Comparison · ${variant}`}
+      summary={module==='experiment'
+        ?assay.groups.reduce((n,g)=>n+g.replicates.length,0)+' 个实验样本'
+        :paperPanels.length+' 个论文子图'}
+      hint={module==='experiment'
+        ?'左键框选 · Ctrl 多选 · Shift 连选 · Ctrl 拖拽复制'
+        :'演示模式 · 无后端连接'}/>
     {panel&&panelAssay&&<div className="dm-drawer-backdrop" onMouseDown={()=>setActivePanelId(null)}>
       <aside className="dm-drawer" onMouseDown={e=>e.stopPropagation()} role="dialog" aria-modal="true" aria-label="论文子图详情">
         <div className="dm-drawer-top"><div><UI.Badge tone="blue">{paper.code} · {panel.label}</UI.Badge><h2>{panel.title}</h2></div>
