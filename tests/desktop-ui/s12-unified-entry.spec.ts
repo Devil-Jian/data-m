@@ -81,8 +81,17 @@ test('@S12 Paper project selector follows real project IDs without unmounting Pa
       {id:'p-one',kind:'project',parentId:null,name:'第一项目'},
       {id:'p-two',kind:'project',parentId:null,name:'第二项目'}
     ];
+    (window as any).__S12_PAPER_NODES__=nodes;
+    // Let the real desktop entry initialize through its explicit S1 browser
+    // contract before injecting the S9-only IPC mock into this page.
+    (window as any).__S1_PROJECT_TREE_MOCK__=async ()=>({nodes});
+  });
+  await page.goto('/');
+  await page.getByRole('button',{name:'项目：第二项目'}).click();
+  await page.evaluate(()=>{
+    const nodes=(window as any).__S12_PAPER_NODES__;
     (window as any).__TAURI_INTERNALS__={
-      invoke:async(command:string,args:any)=>{
+      invoke:async(command:string)=>{
         if(command==='project_tree')return {nodes};
         if(command==='paper_workspace')return {papers:[],candidates:[],candidateTotalCount:0,candidateTruncated:false};
         throw Error('Unexpected mock IPC: '+command);
@@ -90,8 +99,6 @@ test('@S12 Paper project selector follows real project IDs without unmounting Pa
       transformCallback:()=>1,metadata:{currentWindow:{label:'main'}}
     };
   });
-  await page.goto('/');
-  await page.getByRole('button',{name:'项目：第二项目'}).click();
   await page.getByRole('button',{name:'论文管理 (S9)'}).click();
   const paper=page.getByLabel('S9 真实论文管理工作区');
   await expect(paper).toBeVisible();
