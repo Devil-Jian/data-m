@@ -41,7 +41,7 @@ export function ProductionAnalysisDrawer({assayId,assayName,onClose,onEvidence}:
     onEvidence(null);
     void analysisApi({action:'list',assayId}).then(data=>{if(active)apply(data,null)})
       .catch(e=>{if(active)setError(analysisError(e))});
-    return ()=>{active=false;onEvidence(null)};
+    return ()=>{active=false};
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[assayId]);
   async function run(req:AnalysisRequest,preferred:string|null=chosen){
