@@ -14,13 +14,13 @@ import './production-workbench.css';
 const labels:Record<ProductionStage,string>={
   raw:'01_Raw',processed:'02_Processed',statistics:'03_Statistics',display:'04_Display'
 };
-type Editor={
+type EditorBase={
   action:'create'|'rename'|'delete';
-  kind:ProjectTreeKind|ExperimentKind;
   id?:string;parentId?:string;name:string;
-  scope:'project'|'experiment';
-  request?:ProjectTreeRequest|ExperimentRequest;
 };
+type ProjectEditor=EditorBase&{scope:'project';kind:ProjectTreeKind;request?:ProjectTreeRequest};
+type ExperimentEditor=EditorBase&{scope:'experiment';kind:ExperimentKind;request?:ExperimentRequest};
+type Editor=ProjectEditor|ExperimentEditor;
 type View='grid'|'list'|'table';
 
 /** A production entry point. No demo fixtures or simulated previews are imported. */
@@ -143,31 +143,44 @@ export function ProductionWorkbench(){
     }).catch(()=>{if(token===requestVersion.current)setError('无法读取实验分组和四阶段资产。');});
     return ()=>{requestVersion.current++;};
   },[assayId]);
-  const open=(scope:Editor['scope'],kind:Editor['kind'],action:Editor['action'],id?:string,parentId?:string,name='')=>{
-    setError('');setEditor({scope,kind,action,id,parentId,name});
-  };
+  function open(scope:'project',kind:ProjectTreeKind,action:Editor['action'],id?:string,parentId?:string,name?:string):void;
+  function open(scope:'experiment',kind:ExperimentKind,action:Editor['action'],id?:string,parentId?:string,name?:string):void;
+  function open(scope:Editor['scope'],kind:Editor['kind'],action:Editor['action'],id?:string,parentId?:string,name=''){
+    setError('');
+    if(scope==='project')setEditor({scope,kind:kind as ProjectTreeKind,action,id,parentId,name});
+    else setEditor({scope,kind:kind as ExperimentKind,action,id,parentId,name});
+  }
   const submit=async()=>{
     if(!editor||busy)return;
     if(editor.action!=='delete'&&!editor.name.trim()){setError('名称不能为空');return;}
-    const request=editor.request??{
-      action:editor.action,kind:editor.kind,
-      ...(editor.scope==='experiment'?{assayId}:{}),
-      ...(editor.id?{id:editor.id}:{}),
-      ...(editor.parentId?{parentId:editor.parentId}:{}),
-      ...(editor.action!=='delete'?{name:editor.name.trim()}:{}),
-      requestId:crypto.randomUUID()
-    };
-    setEditor({...editor,request});setBusy(true);setError('');
+    setBusy(true);setError('');
     try{
       if(editor.scope==='project'){
-        await projectTreeApi(request as ProjectTreeRequest);
+        const request:ProjectTreeRequest=editor.request??{
+          action:editor.action,kind:editor.kind,
+          ...(editor.id?{id:editor.id}:{}),
+          ...(editor.parentId?{parentId:editor.parentId}:{}),
+          ...(editor.action!=='delete'?{name:editor.name.trim()}:{}),
+          requestId:crypto.randomUUID()
+        };
+        setEditor({...editor,request});
+        await projectTreeApi(request);
         const fresh=await refreshProjects();
         if(editor.action==='delete'&&editor.id===projectId&&!fresh.some(p=>p.id===projectId)){
           const first=fresh[0];setProjectId(first?.id??'');setThemeId(first?.themes[0]?.id??'');
           setAssayId(first?.themes[0]?.assays[0]?.id??'');
         }
       }else{
-        await experimentApi(request as ExperimentRequest);
+        if(!assayId)throw new Error('当前实验无效');
+        const request:ExperimentRequest=editor.request??{
+          action:editor.action,assayId,kind:editor.kind,
+          ...(editor.id?{id:editor.id}:{}),
+          ...(editor.parentId?{parentId:editor.parentId}:{}),
+          ...(editor.action!=='delete'?{name:editor.name.trim()}:{}),
+          requestId:crypto.randomUUID()
+        };
+        setEditor({...editor,request});
+        await experimentApi(request);
         await refreshAssay(assayId);
       }
       setEditor(null);
