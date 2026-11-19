@@ -68,6 +68,10 @@ export function ImportJobsPanel({assayId,target,targetLabel,onClose,onLockChange
       if(!loaded){setError('任务记录尚未加载，请先重新加载任务再准备导入。');return;}
       if(!target){setError('请先选择样本，或选择实验级 Statistics / Display 阶段。');return;}
       if(!paths.length){setError('未收到可准备的测试文件。');return;}
+      if(paths.some(path=>/\.zip$/i.test(path))){
+        setError('ZIP 文件不支持直接解包或自动识别论文结构。请先安全解压并拖入已解压的文件/文件夹。');
+        return;
+      }
       void command({action:'prepare',paths,target,requestId:crypto.randomUUID()},'prepare');
     });
     return ()=>registerImportDrop(null);
