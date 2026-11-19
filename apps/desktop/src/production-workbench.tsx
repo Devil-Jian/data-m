@@ -15,6 +15,7 @@ import {captureProductionTransfer,validatedProductionTarget,commitProductionTran
 import type {ProductionTransferDraft} from './production-transfer';
 import {ImportJobsPanel} from './import-jobs.tsx';
 import {ProductionPaperWorkbench} from './production-paper';
+import type {PaperPosition} from './production-paper';
 import {RepositorySafetyPanel} from './repository-safety.tsx';
 import {ProductionAnalysisDrawer} from './production-analysis';
 import {ProductionRecycleDrawer} from './production-recycle';
@@ -49,6 +50,8 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
   const [view,setView]=useState<View>('grid');
   const [search,setSearch]=useState('');
   const [module,setModule]=useState<'experiment'|'paper'>('experiment');
+  const [paperPosition,setPaperPosition]=useState<PaperPosition|undefined>();
+  const [paperReturn,setPaperReturn]=useState(false);
   const [editor,setEditor]=useState<Editor|null>(null);
   const [busy,setBusy]=useState(false);
   const [loaded,setLoaded]=useState(false);
@@ -192,6 +195,7 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
     const t=next?.themes[0],a=t?.assays[0];
     setProjectId(id);setThemeId(t?.id??'');setAssayId(a?.id??'');
     setGroupId('');setSnapshot(null);setSelectedIds([]);setDetail(null);setSearch('');
+    setPaperPosition(undefined);setPaperReturn(false);
   };
   const refreshProjects=useCallback(async()=>{
     const value=await productionAdapter.loadProjects();
@@ -304,6 +308,12 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
       onNewProject={()=>open('project','project','create')}
       onImport={()=>{setMode('stage');setImportOpen(true)}}
       importDisabled={!assay||importLocked||module==='paper'}/>
+    {module==='experiment'&&paperReturn&&paperPosition?.panelId&&
+      <div className="dm-trace-banner">
+        <strong>版本溯源导航</strong>
+        <span>从真实 Paper/Panel 固定版本定位到实验；当前项目上下文已保留。</span>
+        <UI.Button small variant="secondary" onClick={()=>{setPaperReturn(false);setModule('paper')}}>返回原 Panel</UI.Button>
+      </div>}
     <div className="dm-body">
       {module==='experiment'&&<ResearchNavigationTree
         themes={project?.themes??[]} themeId={themeId} assayId={assayId}
@@ -325,11 +335,13 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
 
         </>}/>}
       <main className="dm-workspace">
-      {module==='paper'?<ProductionPaperWorkbench projectId={projectId} onJumpToAssay={id=>{
-        const owner=project?.themes.find(t=>t.assays.some(a=>a.id===id));
-        if(!owner){setError('目标实验不在当前科研项目中，已阻止跨项目跳转。');return;}
-        setThemeId(owner.id);setAssayId(id);setModule('experiment');
-      }}/>:!loaded?<div className="dm-empty">正在读取真实项目…</div>:!project?<div className="dm-empty">
+      {module==='paper'?<ProductionPaperWorkbench projectId={projectId}
+        initialPosition={paperPosition} onPositionChange={setPaperPosition}
+        onJumpToAssay={id=>{
+          const owner=project?.themes.find(t=>t.assays.some(a=>a.id===id));
+          if(!owner){setError('目标实验不在当前科研项目中，已阻止跨项目跳转。');return;}
+          setPaperReturn(true);setThemeId(owner.id);setAssayId(id);setModule('experiment');
+        }}/>:!loaded?<div className="dm-empty">正在读取真实项目…</div>:!project?<div className="dm-empty">
         <h2>暂无科研项目</h2><p>使用顶部“新建项目”建立真实科研项目。</p>
       </div>:!assay?<div className="dm-empty">
         <h2>暂无实验</h2><p>从左侧新增主题和实验开始。</p>
