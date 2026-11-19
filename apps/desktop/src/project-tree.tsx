@@ -98,10 +98,10 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
     finally{busy.current=false;if(alive.current)setPending(false);}
   }
 
-  function navigate(id:string){
+  function navigate(id:string,closeModules=true){
     if(pending||moduleBusy||!nodes.some(node=>node.id===id))return;
     setSelectedId(id);
-    setExperiment(null);setStatistics(null);setSafetyOpen(false);setPaperOpen(false);
+    if(closeModules){setExperiment(null);setStatistics(null);setSafetyOpen(false);setPaperOpen(false);}
     setNavigation(previous=>{
       const entries=previous.entries.slice(0,previous.index+1);
       if(entries.at(-1)===id)return previous;
@@ -147,7 +147,10 @@ export function ProjectTreeManager({api=projectTreeApi,onClose,onBusyChange,regi
     </li>);
   }
 
+  let activeProject=selected;
+  while(activeProject&&activeProject.kind!=='project')activeProject=nodes.find(node=>node.id===activeProject?.parentId);
   const modulePanel:React.ReactNode=paperOpen?<PaperWorkspace onClose={()=>setPaperOpen(false)} onBusyChange={setModuleBusy}
+    initialProjectId={activeProject?.id} onProjectChange={id=>navigate(id,false)}
     onExportStatus={entry=>reportTask({id:'figure:'+entry.requestId,kind:'export',title:'Figure 固定版本无损导出',
       phase:entry.phase,completed:entry.completed,total:entry.total,detail:entry.detail})}/>:
     statistics?<StatisticalAnalysisPanel key={statistics.id} assayId={statistics.id} assayName={statistics.name} onBusyChange={setModuleBusy} onClose={()=>setStatistics(null)}/>:
