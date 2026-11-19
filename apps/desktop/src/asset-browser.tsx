@@ -89,6 +89,12 @@ export function AssetBrowser({query,api=assetApi,transfers=transferApi}:{query:A
       }).catch(()=>{if(live)setTraceProjectId(null)});
     return()=>{live=false};
   },[query.assayId,detail?.assetId]);
+  function showContextMenu(id:string,x:number,y:number){
+    if(busy||transferPending||!page.some(item=>item.assetLinkId===id))return;
+    if(!chosen.has(id)){setChosen(new Set([id]));setAnchor(id);}
+    setMenu({id,x:Math.min(Math.max(0,x),Math.max(0,window.innerWidth-210)),
+      y:Math.min(Math.max(0,y),Math.max(0,window.innerHeight-295))});
+  }
   function select(id:string,event:React.MouseEvent|React.KeyboardEvent){
     const index=page.findIndex(item=>item.assetLinkId===id);
     if(index<0)return;
@@ -181,6 +187,15 @@ export function AssetBrowser({query,api=assetApi,transfers=transferApi}:{query:A
     <div ref={listRef} className="dm-asset-list" data-view={view} role="listbox" aria-label="资产文件列表" aria-multiselectable="true"
       onKeyDown={event=>{
         if(busy||transferPending||menu)return;
+        if(event.key==='ContextMenu'||(event.shiftKey&&event.key==='F10')){
+          const id=document.activeElement?.getAttribute('data-link-id');
+          if(id&&rowRefs.current.has(id)){
+            event.preventDefault();
+            const box=rowRefs.current.get(id)!.getBoundingClientRect();
+            showContextMenu(id,box.left+18,box.top+20);
+          }
+          return;
+        }
         if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='a'){event.preventDefault();setChosen(new Set(page.map(x=>x.assetLinkId)));return;}
         if(!['ArrowDown','ArrowUp'].includes(event.key))return;
         const current=page.findIndex(x=>x.assetLinkId===document.activeElement?.getAttribute('data-link-id'));
@@ -189,7 +204,7 @@ export function AssetBrowser({query,api=assetApi,transfers=transferApi}:{query:A
       }}>
       {page.map(item=><div key={item.assetLinkId} role="option" aria-selected={chosen.has(item.assetLinkId)}
         className={chosen.has(item.assetLinkId)?'is-selected':''}
-        onContextMenu={event=>{event.preventDefault();if(busy||transferPending)return;if(!chosen.has(item.assetLinkId)){setChosen(new Set([item.assetLinkId]));setAnchor(item.assetLinkId);}setMenu({x:Math.min(event.clientX,Math.max(0,window.innerWidth-200)),y:Math.min(event.clientY,Math.max(0,window.innerHeight-280)),id:item.assetLinkId});}}>
+        onContextMenu={event=>{event.preventDefault();showContextMenu(item.assetLinkId,event.clientX,event.clientY);}}>
         <button type="button" data-link-id={item.assetLinkId} draggable
           onDragStart={event=>{try{beginAssetDrag(selectedSources(item.assetLinkId));event.dataTransfer.setData('application/x-data-m-asset-links','1');event.dataTransfer.effectAllowed='copyMove';}catch(reason){event.preventDefault();setError(safeTransferError(reason).message);}}}
           onDragEnd={endAssetDrag} ref={node=>{if(node)rowRefs.current.set(item.assetLinkId,node);else rowRefs.current.delete(item.assetLinkId);}}
@@ -200,7 +215,14 @@ export function AssetBrowser({query,api=assetApi,transfers=transferApi}:{query:A
       </div>)}
       {!busy&&!error&&!page.length&&<p>该范围尚无已入库文件。</p>}
     </div>
-    {menu&&<div ref={menuRef} className="dm-asset-context" role="menu" aria-label="资产右键菜单" style={{left:menu.x,top:menu.y}}>
+    {menu&&<div ref={menuRef} className="dm-asset-context" role="menu" aria-label="资产右键菜单" style={{left:menu.x,top:menu.y}}
+      onKeyDown={event=>{
+        const buttons=Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')??[]);
+        const current=buttons.indexOf(document.activeElement as HTMLButtonElement);
+        const next=event.key==='ArrowDown'?current+1:event.key==='ArrowUp'?current-1:event.key==='Home'?0:event.key==='End'?buttons.length-1:-1;
+        if(next===-1||!buttons.length)return;
+        event.preventDefault();buttons[(next+buttons.length)%buttons.length]?.focus();
+      }}>
       <button type="button" role="menuitem" onClick={()=>capture('copy')}>复制</button>
       <button type="button" role="menuitem" onClick={()=>capture('move')}>剪切</button>
       <button type="button" role="menuitem" disabled={!clipboardCount||!target||transferPending} onClick={()=>void paste()}>粘贴到当前阶段</button>
