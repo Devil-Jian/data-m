@@ -23,7 +23,7 @@ function errorText(error:unknown):string {
   return String(error);
 }
 export type PaperExportStatus={requestId:string;phase:'running'|'completed'|'failed';completed:number;total:number;detail:string};
-export function PaperWorkspace({onClose,onExportStatus,onBusyChange}:{onClose?:()=>void;onExportStatus?:(entry:PaperExportStatus)=>void;onBusyChange?:(busy:boolean)=>void}={}) {
+export function PaperWorkspace({onClose,onExportStatus,onBusyChange,initialProjectId,onProjectChange}:{onClose?:()=>void;onExportStatus?:(entry:PaperExportStatus)=>void;onBusyChange?:(busy:boolean)=>void;initialProjectId?:string;onProjectChange?:(id:string)=>void}={}) {
  const [projects,setProjects]=useState<ProjectNode[]>([]);
  const [projectId,setProjectId]=useState('');
  const [snapshot,setSnapshot]=useState<Snapshot>(empty);
@@ -63,7 +63,7 @@ export function PaperWorkspace({onClose,onExportStatus,onBusyChange}:{onClose?:(
  useEffect(()=>{
    let cancelled=false;
    invoke<{nodes:ProjectNode[]}>('project_tree',{request:{action:'list'}})
-     .then(result=>{if(cancelled)return;const items=result.nodes.filter(n=>n.kind==='project');setProjects(items);setProjectId(id=>id||items[0]?.id||'');setReady(true)})
+     .then(result=>{if(cancelled)return;const items=result.nodes.filter(n=>n.kind==='project');setProjects(items);setProjectId(id=>id||items.find(item=>item.id===initialProjectId)?.id||items[0]?.id||'');setReady(true)})
      .catch(e=>{if(!cancelled){setError('无法连接真实项目数据库：'+errorText(e));setReady(true)}});
    return()=>{cancelled=true};
  },[]);
@@ -170,7 +170,7 @@ export function PaperWorkspace({onClose,onExportStatus,onBusyChange}:{onClose?:(
  return <div className="s9-shell" aria-label="S9 真实论文管理工作区">
    <div className="s9-top"><div><h1>论文管理</h1><small>Paper / Figure / Panel · 固定 AssetVersion · 真实 SQLite 持久化</small></div>
      {onClose&&<button disabled={exportBusy} onClick={onClose}>返回项目管理</button>}
-     <label>科研项目 <select disabled={exportBusy} aria-label="选择真实科研项目" value={projectId} onChange={e=>setProjectId(e.target.value)}>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+     <label>科研项目 <select disabled={exportBusy} aria-label="选择真实科研项目" value={projectId} onChange={e=>{setProjectId(e.target.value);onProjectChange?.(e.target.value);}}>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
    </div>
    {error&&<div className="s9-error" role="alert">{error}</div>}
    {notice&&<div className="s9-notice" role="status">{notice}</div>}
