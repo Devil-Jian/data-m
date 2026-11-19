@@ -61,8 +61,8 @@ export function AssetBrowser({query,api=assetApi,transfers=transferApi}:{query:A
   },[]);
   const pageCursor=pages.at(-1);
   // A new page invalidates the previous page's write selection.
-  useEffect(()=>{setChosen(new Set());setAnchor(null);setMenu(null);setDetail(null);},[pageCursor]);
-  useEffect(()=>{setPages([]);setPage([]);setChosen(new Set());setAnchor(null);setDetail(null);setMenu(null);},[query.assayId,query.stage,query.groupId,query.replicateId,search,sort]);
+  useEffect(()=>{marqueeStart.current=null;setMarquee(null);setChosen(new Set());setAnchor(null);setMenu(null);setDetail(null);},[pageCursor]);
+  useEffect(()=>{marqueeStart.current=null;setMarquee(null);setPages([]);setPage([]);setChosen(new Set());setAnchor(null);setDetail(null);setMenu(null);},[query.assayId,query.stage,query.groupId,query.replicateId,search,sort]);
   useEffect(()=>{
     const ticket=++epoch.current;setBusy(true);setError('');
     const timeout=window.setTimeout(()=>{
