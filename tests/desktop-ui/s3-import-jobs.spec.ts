@@ -85,6 +85,12 @@ test('@S3 drop only prepares; explicit confirmation imports 100 files and preser
   await expect(panel(page).getByText('浏览器 Mock（不写入原生数据库）',{exact:true})).toBeVisible();
   await drop(page,100);
   await expect(panel(page).getByText('待确认',{exact:true})).toBeVisible();
+  // S12 task tray reflects the same validated persisted S3 reply; no auto-start.
+  await expect(page.getByRole('button',{name:/任务状态/})).toBeVisible();
+  await page.getByRole('button',{name:/任务状态/}).click();
+  await expect(page.getByRole('region',{name:'任务进度明细'})).toContainText('等待人工确认');
+  await expect(page.getByRole('region',{name:'任务进度明细'})).toContainText('0 / 100');
+
   await expect(panel(page).getByRole('button',{name:'确认导入（仅限可丢弃测试文件）',exact:true})).toBeEnabled();
   expect(await page.evaluate(()=>(window as any).__S3_TEST__.requests.filter((r:any)=>r.action==='start').length)).toBe(0);
   await expect(page.getByRole('button',{name:'返回项目管理',exact:true})).toBeDisabled();
@@ -96,6 +102,7 @@ test('@S3 drop only prepares; explicit confirmation imports 100 files and preser
   await panel(page).getByRole('button',{name:'确认导入（仅限可丢弃测试文件）',exact:true}).click();
   await expect(panel(page).getByText('已完成',{exact:true})).toBeVisible();
   await expect(panel(page)).toContainText('已登记 100 / 100 个文件');
+  await expect(page.getByRole('region',{name:'任务进度明细'})).toContainText('100 / 100');
   await expect(page.getByRole('status',{name:'实验样本统计'})).toContainText('n = 2');
   await expect(page.getByRole('button',{name:'返回项目管理',exact:true})).toBeEnabled();
   const prepare=await page.evaluate(()=>(window as any).__S3_TEST__.requests.find((r:any)=>r.action==='prepare'));
