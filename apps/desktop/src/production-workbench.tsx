@@ -1,6 +1,6 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {shadcnUI as UI} from '@data-m/ui/workbench-ui';
-import {VirtualAssetList,virtualAssetRects} from '@data-m/core';
+import {VirtualAssetList,virtualAssetRects,WorkbenchHeader} from '@data-m/core';
 import {projectTreeApi,safeProjectTreeError} from './project-tree';
 import type {ProjectTreeKind,ProjectTreeRequest} from './project-tree';
 import {experimentApi,safeExperimentError} from './experiment-tree';
@@ -273,23 +273,13 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
       </button>)}
   </div>;
   return <div className="dm-app dm-shadcn dm-production">
-    <header className="dm-header">
-      <div className="dm-logo"><span>BM</span><strong>科研实验与论文管理系统</strong></div>
-      <div className="dm-history-controls" role="group" aria-label="目录导航历史">
-        <button disabled title="导航历史将在后续阶段接入">←</button><button disabled>→</button>
-      </div>
-      <div className="dm-project-picker"><small>课题/论文项目</small>
-        <UI.Select value={projectId} onChange={selectProject} ariaLabel="选择科研项目"
-          options={projects.map(p=>({value:p.id,label:p.name}))}/></div>
-      <nav className="dm-primary-nav" aria-label="核心模块">
-        <UI.Button variant={module==='experiment'?'primary':'ghost'} onClick={()=>setModule('experiment')}>实验整理</UI.Button>
-        <UI.Button variant={module==='paper'?'primary':'ghost'} onClick={()=>setModule('paper')}>论文管理</UI.Button>
-      </nav><div className="dm-header-spacer"/>
-      <UI.Button variant="secondary" onClick={()=>open('project','project','create')}>＋ 新建项目</UI.Button>
-      <UI.Button disabled={!assay||importLocked} onClick={()=>{setMode('stage');setImportOpen(true)}}>
-        导入文件 / 实验归档
-      </UI.Button>
-    </header>
+    <WorkbenchHeader ui={UI} projectId={projectId}
+      projectOptions={projects.map(p=>({value:p.id,label:p.name}))}
+      module={module} onModuleChange={setModule} onProjectChange={selectProject}
+      canBack={false} canForward={false} onBack={()=>{}} onForward={()=>{}}
+      onNewProject={()=>open('project','project','create')}
+      onImport={()=>{setMode('stage');setImportOpen(true)}}
+      importDisabled={!assay||importLocked||module==='paper'}/>
     <div className="dm-body">
       {module==='experiment'&&<aside className="dm-sidebar">
         <div className="dm-sidebar-title"><span>研究项目 / 实验导航</span>▣</div>
