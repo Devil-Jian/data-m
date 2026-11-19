@@ -65,7 +65,7 @@ async function setup(page:Page,{behavior='complete',unavailable=false}={}){
       persist();return reply(job);
     };
   },{behavior,unavailable});
-  await page.goto('/');
+  await page.goto('/?legacy=1');
   await enter(page);
 }
 async function enter(page:Page){
