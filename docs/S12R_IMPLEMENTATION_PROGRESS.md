@@ -67,3 +67,5 @@ Windows 11 EXE 启动、真实数据和 10,024 文件 GUI 浏览性能、键盘/
 - 第二次 CI `210b54ca2e9ae6e1b478c81191c430e9b9811615`：S0 和早期原生 S10 通过；正式桌面编译发现 `production-paper.ts` 与 `production-paper.tsx` 同名导致解析到数据 API 而非 React 组件，及默认 UIKit 名称引用错误。已将 React 组件迁为 `production-paper-workbench.tsx`、明确导入并修复 UIKit 默认值。发布隔离检查因上游编译中断而没有可检查的 dist；待下一轮完整 CI 验证。
 
 - 第三次 CI `3fe23d840293a45e4ac03aed7b7c85d78a394888`：三套 Demo 变体构建成功、S0 和早期 Rust 通过；桌面 TSC 只报 S9 requestId UUID 模板类型不兼容。已显式将编辑提交的 `requestId` 参数声明为 `string`；发布隔离步骤因上游构建失败尚未运行有效扫描。重新送检。
+
+- 第四次 CI `eff8aae211d3df3a118afcfde8fb0fd23ff41197`：S0、桌面 TypeScript+Vite、S12R 单测、Demo 发布包隔离、原 SHA 截图采集成功。独立 Linux 浏览器交互 21 通过、8 失败；8 项均在旧虚拟文件列表用例等待 `getByTitle('虚拟文件列表')`，共享工具栏重构丢失原始可访问 title。已恢复旧 title，原有 8 项测试保留并重新送检。
