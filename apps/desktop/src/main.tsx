@@ -1,6 +1,8 @@
-import React, {useCallback,useEffect,useReducer,useRef} from 'react';
+import React, {useCallback,useEffect,useReducer,useRef,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {ProductionWorkbench} from './production-workbench';
+import {Workbench} from '@data-m/core';
+import {ProjectTreeManager} from './project-tree.tsx';
 import {getCurrentWebview} from '@tauri-apps/api/webview';
 import {invoke,isTauri} from '@tauri-apps/api/core';
 import {dropReducer,formatDropSize,initialDropState} from './drop-preview';
@@ -10,6 +12,24 @@ import '@data-m/core/style.css';
 import '@data-m/ui/style.css';
 import './desktop.css';
 import type {ImportDropHandler,ImportDropRegistrar} from './import-jobs.ts';
+
+/** Historical UI test harness, only routed from the dev server with ?legacy=1.
+ * Bundled production builds cannot activate these fixtures or this old shell. */
+function LegacyDevelopmentHarness({registerImportDrop}:{registerImportDrop:ImportDropRegistrar}){
+  const [managingProjects,setManagingProjects]=useState(false);
+  const [projectBusy,setProjectBusy]=useState(false);
+  return <>
+    <nav className="dm-desktop-modebar" aria-label="工作区模式">
+      <shadcnUI.Button disabled={projectBusy} variant={managingProjects?'primary':'secondary'} small onClick={()=>setManagingProjects(true)}>项目管理</shadcnUI.Button>
+      <shadcnUI.Button disabled={projectBusy} variant={managingProjects?'secondary':'primary'} small onClick={()=>setManagingProjects(false)}>演示工作区</shadcnUI.Button>
+      <span>{managingProjects?'Project / Theme / Assay':'演示数据与文件交互，不代表真实入库'}</span>
+      <small className="dm-release-candidate" aria-label="安装及版本信息">0.1.0 S11 测试构建 · 未签名 · 支持仓库 Schema v1–v3 · 非正式 v1.0</small>
+    </nav>
+    <div className="dm-desktop-content">
+      {managingProjects?<ProjectTreeManager onBusyChange={setProjectBusy} registerImportDrop={registerImportDrop}/>:<Workbench ui={shadcnUI} variant="shadcn"/>}
+    </div>
+  </>;
+}
 
 /** Native Windows drop adapter. Inspection is read-only; source paths never reach UI state. */
 function DesktopApp(){
@@ -95,7 +115,9 @@ function DesktopApp(){
   const summary=drop.kind==='ready'?drop.preview:null;
   return <div className="dm-desktop-shell">
     <div className="dm-desktop-content">
-      <ProductionWorkbench/>
+      {import.meta.env.DEV && new URLSearchParams(window.location.search).get('legacy')==='1'
+        ?<LegacyDevelopmentHarness registerImportDrop={registerImportDrop}/>
+        :<ProductionWorkbench/>}
     </div>
     {drop.kind!=='idle'&&<section
       className={'dm-native-drop '+(drop.kind==='over'?'is-over':'')}
