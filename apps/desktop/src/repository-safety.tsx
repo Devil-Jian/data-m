@@ -8,8 +8,8 @@ const phases:Record<string,string>={
  verify_blobs:'检查快照哈希及版本',published:'封存备份',
  restore_sqlite:'复制隔离恢复数据库',restore_blobs:'恢复并核验 CAS',restore_published:'隔离恢复已完成'
 };
-export function RepositorySafetyPanel({onClose,api=safetyApi,listenProgress=safetyListen}:
- {onClose:()=>void;api?:SafetyApi;listenProgress?:ProgressListen}){
+export function RepositorySafetyPanel({onClose,api=safetyApi,listenProgress=safetyListen,closeLabel='返回项目管理'}:
+ {onClose:()=>void;api?:SafetyApi;listenProgress?:ProgressListen;closeLabel?:string}){
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const [snapshots,setSnapshots]=useState<SnapshotSummary[]>([]);
  const [report,setReport]=useState<SafetyReport|null>(null),[progress,setProgress]=useState<SafetyProgress|null>(null);
@@ -53,7 +53,7 @@ export function RepositorySafetyPanel({onClose,api=safetyApi,listenProgress=safe
   <header className="dm-safety-header">
     <div><small>DATA M / S7 · 仅测试仓库</small><h1>完整性检查 · 备份 · 恢复</h1>
       <p>只允许可抛弃测试数据；恢复演练签收前，禁止珍贵或唯一科研文件入库。</p></div>
-    <button type="button" disabled={busy} onClick={onClose}>返回项目管理</button>
+    <button type="button" disabled={busy} onClick={onClose}>{closeLabel}</button>
   </header>
   <div className="dm-safety-warning" role="note">
     <strong>不是异地备份：</strong>快照保存在当前设备应用数据目录，须另行复制至独立磁盘并再次核验。
