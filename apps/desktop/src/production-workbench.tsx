@@ -1,6 +1,6 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {shadcnUI as UI} from '@data-m/ui/workbench-ui';
-import {VirtualAssetList,virtualAssetRects,WorkbenchHeader,ResearchNavigationTree,WorkbenchStatusBar} from '@data-m/core';
+import {VirtualAssetList,virtualAssetRects,WorkbenchHeader,ResearchNavigationTree,WorkbenchStatusBar,WorkbenchExplorerToolbar} from '@data-m/core';
 import {projectTreeApi,safeProjectTreeError} from './project-tree';
 import type {ProjectTreeKind,ProjectTreeRequest} from './project-tree';
 import {experimentApi,safeExperimentError} from './experiment-tree';
@@ -351,34 +351,25 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
               onClick={()=>open('experiment','group','delete',groupId)}>删除当前分组</UI.Button>}
           </div>
         </div>
-        <div className="dm-workspace-toolbar">
-          <div className="dm-mode-switch">
-            <UI.Button small variant={mode==='overview'?'primary':'ghost'} onClick={()=>setMode('overview')}>▦ 全阶段全景</UI.Button>
-            <UI.Button small variant={mode==='stage'?'primary':'ghost'} onClick={()=>setMode('stage')}>☷ 分阶段</UI.Button>
-          </div><div className="dm-toolbar-spacer"/>
-          <UI.Input value={search} onChange={setSearch} placeholder="搜索样本文件…" ariaLabel="搜索样本文件"/>
-          <UI.Button small variant="secondary" disabled={!assayId||busy} onClick={()=>setAnalysisOpen(true)}>
-            统计分析{analysisEvidence?.frozenAt?` · 已冻结 n=${analysisEvidence.includedN}`:''}
-          </UI.Button>
-          <UI.Button small variant="ghost" disabled={!assayId||busy} onClick={()=>setRecycleOpen(true)}>回收区</UI.Button>
-        </div>
-        <div className="dm-filter-toolbar">
-          {mode==='overview'&&analysisEvidence?.frozenAt&&<div className="dm-real-inclusion-filter">
-            <UI.Select ariaLabel="按真实冻结分析筛选" value={inclusionFilter} onChange={v=>setInclusionFilter(v as typeof inclusionFilter)}
-              options={[{value:'all',label:'全部生物学重复'},{value:'included',label:'本分析已纳入'},
-                {value:'excluded',label:'本分析未纳入'}]}/>
-          </div>}
-          {mode==='overview'?<>
-            <span className="dm-filter-label">展示阶段</span>
-            {PRODUCTION_STAGES.map(s=><label key={s} className={'dm-stage-filter'+(stageFilter.includes(s)?' on':'')}>
-              <input type="checkbox" checked={stageFilter.includes(s)} onChange={e=>setStageFilter(old=>
-                e.target.checked?[...new Set([...old,s])]:old.filter(x=>x!==s))}/>{labels[s]}</label>)}
-          </>:PRODUCTION_STAGES.map(s=><UI.Button key={s} small
-            variant={stage===s?'primary':'ghost'} onClick={()=>{setStage(s);setSelectedIds([])}}>{labels[s]}</UI.Button>)}
-          <div className="dm-toolbar-spacer"/>
-          <div className="dm-view-switch">{(['grid','list','table'] as const).map(v=>
-            <UI.Button key={v} small variant={view===v?'primary':'ghost'} onClick={()=>setView(v)}>{v==='grid'?'▦':v==='list'?'☷':'▤'}</UI.Button>)}</div>
-        </div>
+        <WorkbenchExplorerToolbar ui={UI} mode={mode} stage={stage}
+          stages={PRODUCTION_STAGES.map(id=>({id,label:labels[id]}))}
+          stageFilter={stageFilter} view={view} search={search}
+          onMode={setMode} onStage={id=>{setStage(id);setSelectedIds([])}}
+          onStageFilter={setStageFilter} onView={setView} onSearch={setSearch}
+          searchExtras={<>
+            <UI.Button small variant="secondary" disabled={!assayId||busy}
+              onClick={()=>setAnalysisOpen(true)}>
+              统计分析{analysisEvidence?.frozenAt?` · 已冻结 n=${analysisEvidence.includedN}`:''}
+            </UI.Button>
+            <UI.Button small variant="ghost" disabled={!assayId||busy}
+              onClick={()=>setRecycleOpen(true)}>回收区</UI.Button>
+          </>}
+          filterExtras={mode==='overview'&&analysisEvidence?.frozenAt?
+            <UI.Select ariaLabel="按真实冻结分析筛选" value={inclusionFilter}
+              onChange={v=>setInclusionFilter(v as typeof inclusionFilter)}
+              options={[{value:'all',label:'全部生物学重复'},
+                {value:'included',label:'本分析已纳入'},
+                {value:'excluded',label:'本分析未纳入'}]}/>:null}/>
         <div className="dm-workspace-scroll dm-explorer-canvas" role="group" aria-label="文件资源管理器工作区" tabIndex={0}
           onFocusCapture={explorer.onFocusCapture} onPointerDown={explorer.onPointerDown}
           onContextMenu={explorer.onContextMenu} onDragStart={e=>e.preventDefault()}>
