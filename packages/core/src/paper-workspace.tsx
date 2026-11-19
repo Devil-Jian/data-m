@@ -22,7 +22,8 @@ function errorText(error:unknown):string {
   if(error && typeof error==='object' && 'message' in error) return String((error as {message:unknown}).message);
   return String(error);
 }
-export function PaperWorkspace({onClose}:{onClose?:()=>void}={}) {
+export type PaperExportStatus={requestId:string;phase:'running'|'completed'|'failed';completed:number;total:number;detail:string};
+export function PaperWorkspace({onClose,onExportStatus}:{onClose?:()=>void;onExportStatus?:(entry:PaperExportStatus)=>void}={}) {
  const [projects,setProjects]=useState<ProjectNode[]>([]);
  const [projectId,setProjectId]=useState('');
  const [snapshot,setSnapshot]=useState<Snapshot>(empty);
@@ -109,7 +110,12 @@ export function PaperWorkspace({onClose}:{onClose?:()=>void}={}) {
    let cleanup:(()=>void)|undefined;
    let disposed=false;
    void listen<ExportProgress>('s10-figure-export-progress',event=>{
-     if(event.payload.requestId===exportRequestId)setExportProgress(event.payload);
+     if(event.payload.requestId===exportRequestId&&Number.isSafeInteger(event.payload.completed)&&Number.isSafeInteger(event.payload.total)
+       &&event.payload.completed>=0&&event.payload.total>=event.payload.completed){
+       setExportProgress(event.payload);
+       onExportStatus?.({requestId:exportRequestId,phase:'running',completed:event.payload.completed,total:event.payload.total,
+         detail:'原生 Figure 导出正在校验固定版本文件'});
+     }
    }).then(unlisten=>{if(disposed)unlisten();else cleanup=unlisten})
      .catch(()=>{});
    return()=>{disposed=true;cleanup?.()};
@@ -131,6 +137,8 @@ export function PaperWorkspace({onClose}:{onClose?:()=>void}={}) {
    const requestId=crypto.randomUUID();
    setExportBusy(true);setExportRequestId(requestId);setExportError('');setExportResult(null);
    setExportProgress({requestId,completed:0,total:exportPreview.uniqueFileCount});
+   onExportStatus?.({requestId,phase:'running',completed:0,total:exportPreview.uniqueFileCount,
+     detail:'选择目标并导出固定版本，原生 SHA-256 校验尚未完成'});
    try{
      const result=await invoke<ExportResult>('figure_export',{request:{
        action:'export',projectId,paperId:paper.id,figureId:exportFigure.id,confirm:true,requestId
@@ -138,14 +146,23 @@ export function PaperWorkspace({onClose}:{onClose?:()=>void}={}) {
      if(result.status!=='complete'||result.manifest?.status!=='complete')
        throw Error('导出未获得完整 SHA 校验确认');
      setExportResult(result);
-   }catch(e){setExportError(errorText(e))}
+     onExportStatus?.({requestId,phase:'completed',completed:exportPreview.uniqueFileCount,total:exportPreview.uniqueFileCount,
+       detail:'原生 Figure 导出返回完整 SHA-256 Manifest'});
+   }catch(e){setExportError(errorText(e));
+     onExportStatus?.({requestId,phase:'failed',completed:0,total:exportPreview.uniqueFileCount,
+       detail:'导出尚未确认成功；请检查原生输出和错误详情'});
+   }
    finally{setExportBusy(false);setExportRequestId(null)}
  }
  async function cancelExport(){
    if(!exportRequestId)return;
    try {
      const accepted=await invoke<boolean>('figure_export_cancel',{requestId:exportRequestId});
-     if(accepted)setExportError('已请求取消，正在安全结束文件复制；未完成包不会正式发布。');
+     if(accepted){
+       setExportError('已请求取消，正在安全结束文件复制；未完成包不会正式发布。');
+       onExportStatus?.({requestId:exportRequestId,phase:'running',completed:exportProgress?.completed??0,
+         total:exportProgress?.total??0,detail:'原生端已接受取消请求；仍在等待最终结果'});
+     }
    }catch(e){setExportError(errorText(e))}
  }
  const grouped=candidates.reduce<Record<string,Candidate[]>>((out,c)=>{const k=c.assayId+' / '+(c.groupId||'未分组')+' / '+(c.replicateId||'未关联样本');(out[k]??=[]).push(c);return out},{});
