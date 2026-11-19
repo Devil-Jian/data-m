@@ -10,8 +10,8 @@ const sharedSelectors=[
 ];
 
 test('@S12R Demo and native Workbench use the same structural visual components',async({browser},testInfo)=>{
-  const demo=await browser.newPage();
-  const production=await browser.newPage();
+  const demo=await browser.newPage({viewport:{width:1440,height:900},deviceScaleFactor:1});
+  const production=await browser.newPage({viewport:{width:1440,height:900},deviceScaleFactor:1});
   try{
     await demo.goto('http://127.0.0.1:5176/?legacy=1');
     await expect(demo.getByRole('heading',{name:'ROS 活性氧荧光染色'})).toBeVisible();
