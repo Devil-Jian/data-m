@@ -7,7 +7,7 @@ import type {NativePanel,PaperCandidate,PaperRequest,PaperSnapshot} from './prod
 import './production-paper.css';
 
 type PaperView='grid'|'list'|'table';
-type Editor={kind:'paper'|'figure'|'panel';parentId?:string;name:string;requestId:string};
+type Editor={action:'create'|'rename'|'delete';kind:'paper'|'figure'|'panel';id?:string;parentId?:string;name:string;requestId:string};
 const blank:PaperSnapshot={papers:[],candidates:[]};
 
 /** S9/S10 native data in the same Figure/Panel card-and-drawer hierarchy as Demo. */
@@ -30,6 +30,8 @@ export function ProductionPaperWorkbench({
   const [candidateSearch,setCandidateSearch]=useState('');
   const [selectedVersions,setSelectedVersions]=useState<string[]>([]);
   const [usage,setUsage]=useState('display');
+  const [paperStatus,setPaperStatus]=useState('draft');
+  const [paperNotes,setPaperNotes]=useState('');
   const [exportFigureId,setExportFigureId]=useState('');
   const [exportPreview,setExportPreview]=useState<{figureId:string;panelCount:number;referenceCount:number;uniqueFileCount:number;uniqueBytes:number}|null>(null);
   const [exportRequestId,setExportRequestId]=useState<string|null>(null);
@@ -40,6 +42,9 @@ export function ProductionPaperWorkbench({
   const paper=snapshot.papers.find(p=>p.id===paperId)??snapshot.papers[0];
   const panel=paper?.figures.flatMap(f=>f.panels).find(p=>p.id===panelId);
   const figure=paper?.figures.find(f=>f.id===exportFigureId)??paper?.figures[0];
+  const panelOwner=paper?.figures.find(f=>f.panels.some(p=>p.id===panelId));
+  useEffect(()=>{setPaperStatus(paper?.status??'draft');setPaperNotes(paper?.notes??'')},
+    [paper?.id,paper?.status,paper?.notes]);
 
   const reload=useCallback(async(id:string)=>{
     const request=++serial.current;
@@ -77,8 +82,14 @@ export function ProductionPaperWorkbench({
     }catch(e){setError(e instanceof Error?e.message:'论文操作未确认');}
     finally{setBusy(false);}
   }
-  function begin(kind:Editor['kind'],parentId?:string){
-    setEditor({kind,parentId,name:'',requestId:crypto.randomUUID()});setError('');
+  function begin(kind:Editor['kind'],parentId?:string,action:Editor['action']='create',id?:string,name=''){
+    setEditor({action,kind,id,parentId,name,requestId:crypto.randomUUID()});setError('');
+  }
+  function reorder(kind:'figure'|'panel',parentId:string,ids:string[],index:number,direction:-1|1){
+    const target=index+direction;
+    if(target<0||target>=ids.length)return;
+    const next=[...ids];[next[index],next[target]]=[next[target],next[index]];
+    void mutate({action:'reorder',kind,parentId,orderIds:next});
   }
   function openPanel(selected:NativePanel,figureId:string){
     setPanelId(selected.id);setExportFigureId(figureId);
@@ -137,6 +148,10 @@ export function ProductionPaperWorkbench({
         <strong>{paper.title}</strong><span>{paper.status}</span>
         <div className="dm-toolbar-spacer"/>
         <UI.Button small onClick={()=>begin('figure',paper.id)}>＋ 新建 Figure</UI.Button>
+        <UI.Button small variant="ghost" onClick={()=>begin('paper',undefined,'rename',paper.id,paper.title)}>修改论文标题</UI.Button>
+        <UI.Button small variant="ghost" disabled={paper.figures.length>0} onClick={()=>{
+          if(window.confirm('确认归档当前空论文？'))void mutate({action:'delete',kind:'paper',id:paper.id});
+        }}>归档空论文</UI.Button>
         {(['grid','list','table'] as const).map(v=>
           <UI.Button key={v} small variant={view===v?'primary':'ghost'} onClick={()=>setView(v)}>
             {v==='grid'?'网格':v==='list'?'列表':'表格'}</UI.Button>)}
@@ -159,9 +174,27 @@ export function ProductionPaperWorkbench({
         }}
         figureActions={f=><div className="dm-real-figure-actions">
           <UI.Button small variant="secondary" onClick={()=>begin('panel',f.id)}>＋ Panel</UI.Button>
+          <UI.Button small variant="ghost" onClick={()=>begin('figure',paper.id,'rename',f.id,f.label)}>重命名</UI.Button>
+          <UI.Button small variant="ghost" disabled={paper.figures.findIndex(x=>x.id===f.id)===0}
+            onClick={()=>reorder('figure',paper.id,paper.figures.map(x=>x.id),paper.figures.findIndex(x=>x.id===f.id),-1)}>上移</UI.Button>
+          <UI.Button small variant="ghost" disabled={!paper.figures.some((x,i)=>i>paper.figures.findIndex(y=>y.id===f.id))}
+            onClick={()=>reorder('figure',paper.id,paper.figures.map(x=>x.id),paper.figures.findIndex(x=>x.id===f.id),1)}>下移</UI.Button>
+          <UI.Button small variant="ghost" disabled={Boolean(paper.figures.find(x=>x.id===f.id)?.panels.length)}
+            onClick={()=>{if(window.confirm('确认删除当前空 Figure？'))void mutate({action:'delete',kind:'figure',id:f.id})}}>删除空组</UI.Button>
           <UI.Button small disabled={!isTauri()}
             onClick={()=>{setExportFigureId(f.id);setExportPreview(null);void previewExport(f.id)}}>预览导出</UI.Button>
         </div>}/>
+      <section className="dm-real-paper-metadata" aria-label="论文状态与备注">
+        <label>论文状态
+          <select aria-label="真实论文状态" value={paperStatus} onChange={e=>setPaperStatus(e.target.value)}>
+            {['draft','in_progress','ready','submitted','published','archived'].map(v=><option key={v} value={v}>{v}</option>)}
+          </select>
+        </label>
+        <label>备注<textarea aria-label="真实论文备注" maxLength={4000}
+          value={paperNotes} onChange={e=>setPaperNotes(e.target.value)}/></label>
+        <UI.Button small disabled={busy||paperStatus===paper.status&&paperNotes===paper.notes}
+          onClick={()=>void mutate({action:'metadata',id:paper.id,status:paperStatus,notes:paperNotes})}>保存状态与备注</UI.Button>
+      </section>
       {exportPreview&&<div className="dm-paper-export" role="region" aria-label="Figure 导出核验">
         <strong>{figure?.label} · 待确认导出</strong>
         <p>{exportPreview.panelCount} 个 Panel，{exportPreview.referenceCount} 条引用，
@@ -174,21 +207,40 @@ export function ProductionPaperWorkbench({
     </div>}
     {editor&&<div className="dm-real-modal-backdrop"><section role="dialog" aria-modal="true"
       aria-label="新增论文结构" className="dm-real-modal">
-      <h2>新建 {editor.kind}</h2>
-      <UI.Input ariaLabel="结构名称" placeholder="输入名称" value={editor.name}
-        onChange={name=>setEditor({...editor,name})}/>
+      <h2>{editor.action==='create'?'新建':editor.action==='rename'?'重命名':'删除'} {editor.kind}</h2>
+      {editor.action==='delete'?<p>只能删除没有有效引用和依赖子节点的记录。</p>:
+        <UI.Input ariaLabel="结构名称" placeholder="输入名称" value={editor.name}
+          onChange={name=>setEditor({...editor,name})}/>} 
       {error&&<p role="alert">{error}</p>}
       <div className="dm-real-modal-actions">
         <UI.Button disabled={busy} onClick={()=>setEditor(null)}>取消</UI.Button>
-        <UI.Button variant="primary" disabled={busy||!editor.name.trim()} onClick={()=>void mutate({
-          action:'create',kind:editor.kind,name:editor.name.trim(),
-          ...(editor.parentId?{parentId:editor.parentId}:{})
-        },editor.requestId)}>确认创建</UI.Button>
+        <UI.Button variant={editor.action==='delete'?'danger':'primary'}
+          disabled={busy||(editor.action!=='delete'&&!editor.name.trim())}
+          onClick={()=>void mutate({
+            action:editor.action,kind:editor.kind,
+            ...(editor.id?{id:editor.id}:{}),
+            ...(editor.action!=='delete'?{name:editor.name.trim()}:{}),
+            ...(editor.action==='create'&&editor.parentId?{parentId:editor.parentId}:{})
+          },editor.requestId)}>确认{editor.action==='create'?'创建':editor.action==='rename'?'修改':'删除'}</UI.Button>
       </div>
     </section></div>}
     {panel&&<aside className="dm-real-detail dm-paper-drawer" role="dialog" aria-label="Panel 详情抽屉">
       <button type="button" onClick={()=>setPanelId(null)}>关闭 ×</button>
       <h2>{panel.label}</h2>
+      <div className="dm-real-panel-actions">
+        <UI.Button small onClick={()=>begin('panel',panelOwner?.id,'rename',panel.id,panel.label)}>修改标题</UI.Button>
+        <UI.Button small disabled={busy||!panelOwner||panelOwner.panels[0]?.id===panel.id}
+          onClick={()=>{if(!panelOwner)return;
+            reorder('panel',panelOwner.id,panelOwner.panels.map(x=>x.id),
+              panelOwner.panels.findIndex(x=>x.id===panel.id),-1);}}>上移</UI.Button>
+        <UI.Button small disabled={busy||!panelOwner||panelOwner.panels.at(-1)?.id===panel.id}
+          onClick={()=>{if(!panelOwner)return;
+            reorder('panel',panelOwner.id,panelOwner.panels.map(x=>x.id),
+              panelOwner.panels.findIndex(x=>x.id===panel.id),1);}}>下移</UI.Button>
+        <UI.Button small disabled={busy||panel.assets.length>0||panel.representatives.length>0}
+          onClick={()=>{if(window.confirm('确认删除没有任何固定引用的 Panel？'))
+            void mutate({action:'delete',kind:'panel',id:panel.id});}}>删除空 Panel</UI.Button>
+      </div>
       <p>本 Panel 的版本关系来自 S9 SQLite，不能通过文件名推断。</p>
       <h3>显示与统计固定版本</h3>
       {panel.assets.length===0?<p>尚未固定任何文件版本。</p>:panel.assets.map(a=>
@@ -203,8 +255,15 @@ export function ProductionPaperWorkbench({
       <h3>代表性样本</h3>
       {panel.representatives.length?panel.representatives.map(r=>
         <div key={r.replicateId} className="dm-paper-reference">
-          {r.replicateId} → {r.assetVersionId??'无固定版本'}</div>):
+          {r.replicateId} → {r.assetVersionId??'无固定版本'}
+          <UI.Button small disabled={busy} onClick={()=>void mutate({
+            action:'clearRepresentative',id:panel.id,replicateId:r.replicateId
+          })}>取消代表来源</UI.Button></div>):
         <p>未设置有证据的代表样本。</p>}
+      {panel.assets.filter(a=>a.replicateId).map(a=>
+        <UI.Button key={a.assetVersionId} small disabled={busy} onClick={()=>void mutate({
+          action:'representative',id:panel.id,replicateId:a.replicateId!,versionId:a.assetVersionId
+        })}>设定代表来源：{a.replicateId} · v{a.versionNumber}</UI.Button>)}
       {isTauri()?<ProvenanceView key={projectId+panel.id} projectId={projectId} action="panel" id={panel.id}/>:
         <p>原生版本溯源仅在 Windows 后端可用。</p>}
       <h3>关联真实文件版本</h3>
