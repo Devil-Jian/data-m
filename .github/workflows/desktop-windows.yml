@@ -11,6 +11,7 @@ on:
       - feat/s8-statistics-sample-inclusion
       - feat/i1-s8-s9-integration
       - feat/s10-bidirectional-trace-export
+      - feat/s12r-demo-workbench-production
     paths:
       - 'apps/desktop/**'
       - 'packages/**'
@@ -84,6 +85,8 @@ jobs:
           npm run test:interaction
           npm run test:assets
           npm run test:desktop
+      - name: S12R production adapter isolated scope tests
+        run: npm run test:desktop
       - name: Verify Windows source-protection fixture checker (non-GUI)
         run: ./scripts/test-p1-drop-source.ps1 -SelfTest
       - name: Install Chromium for Windows interaction tests
