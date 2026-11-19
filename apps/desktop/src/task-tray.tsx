@@ -38,7 +38,7 @@ export function TaskTray(){
    任务状态 · {active?active+' 项待确认或执行中':tasks.length+' 条记录'} {expanded?'收起':'展开'}
   </button>
   {expanded&&<div className="dm-task-items" role="region" aria-label="任务进度明细">
-    <p className="dm-task-disclaimer">状态来自当前会话已验证的原生业务响应；重新启动后请在对应模块查询持久任务记录。本栏不执行任务取消。</p>
+    <p className="dm-task-disclaimer">状态来自当前会话已校验的业务响应；浏览器 Mock 不代表原生持久化。重启后请在对应模块查询任务记录。本栏不执行任务取消。</p>
     {tasks.map(task=><div key={task.id} className="dm-task-item" data-phase={task.phase}>
       <div><strong>{task.title}</strong><span>{phaseLabels[task.phase]}</span></div>
       <p>{task.detail}</p>
