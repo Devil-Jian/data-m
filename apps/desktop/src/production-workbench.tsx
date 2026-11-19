@@ -515,7 +515,7 @@ export function ProductionWorkbench({registerImportDrop}:{registerImportDrop?:Im
     {safetyOpen&&<div className="dm-real-modal-backdrop dm-real-safety-overlay">
       <section role="dialog" aria-modal="true" aria-label="仓库数据安全工具"
         className="dm-real-safety-modal">
-        <RepositorySafetyPanel onClose={()=>setSafetyOpen(false)}/>
+        <RepositorySafetyPanel onClose={()=>setSafetyOpen(false)} closeLabel="关闭安全工具"/>
       </section>
     </div>}
     {transferDraft&&<div className="dm-real-modal-backdrop">
