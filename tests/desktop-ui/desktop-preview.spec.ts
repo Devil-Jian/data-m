@@ -1,7 +1,7 @@
 import {expect,test} from '@playwright/test';
 
 test.beforeEach(async ({page})=>{
-  await page.goto('/');
+  await page.goto('/?legacy=1');
   await expect(page.getByRole('heading',{name:'ROS 活性氧荧光染色'})).toBeVisible();
 });
 
