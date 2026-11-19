@@ -169,8 +169,8 @@ export function PaperWorkspace({onClose,onExportStatus,onBusyChange,initialProje
  const grouped=candidates.reduce<Record<string,Candidate[]>>((out,c)=>{const k=c.assayId+' / '+(c.groupId||'未分组')+' / '+(c.replicateId||'未关联样本');(out[k]??=[]).push(c);return out},{});
  return <div className="s9-shell" aria-label="S9 真实论文管理工作区">
    <div className="s9-top"><div><h1>论文管理</h1><small>Paper / Figure / Panel · 固定 AssetVersion · 真实 SQLite 持久化</small></div>
-     {onClose&&<button disabled={exportBusy} onClick={onClose}>返回项目管理</button>}
-     <label>科研项目 <select disabled={exportBusy} aria-label="选择真实科研项目" value={projectId} onChange={e=>{setProjectId(e.target.value);onProjectChange?.(e.target.value);}}>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+     {onClose&&<button disabled={busy||exportBusy} onClick={onClose}>返回项目管理</button>}
+     <label>科研项目 <select disabled={busy||exportBusy} aria-label="选择真实科研项目" value={projectId} onChange={e=>{setProjectId(e.target.value);onProjectChange?.(e.target.value);}}>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
    </div>
    {error&&<div className="s9-error" role="alert">{error}</div>}
    {notice&&<div className="s9-notice" role="status">{notice}</div>}
