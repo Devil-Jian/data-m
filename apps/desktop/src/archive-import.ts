@@ -19,7 +19,7 @@ export interface ArchiveEntry{
   id:string;relativePath:string;sourcePath:string;sizeBytes:number;sha256:string;
   projectName:string;themeName:string;assayName:string;groupName:string;
   replicateName:string;stage:ImportStage|'review';decision:ArchiveDecision;
-  alias:string;issue:string;status:string;jobId:string|null;
+  alias:string;processTag:string;issue:string;status:string;jobId:string|null;
 }
 export interface ArchiveTask{
   id:string;rootName:string;layout:ArchiveLayout;targetProjectId:string|null;
@@ -50,7 +50,7 @@ const options:{stage:readonly string[];layout:readonly string[];decision:readonl
 function validateEntry(raw:unknown):ArchiveEntry{
   if(!valid(raw)||!nonblank(raw.id)||!nonblank(raw.relativePath)||!nonblank(raw.sourcePath)||
     !count(raw.sizeBytes)||typeof raw.sha256!=='string'||!/^[a-f0-9]{64}$/.test(raw.sha256)||
-    !['projectName','themeName','assayName','groupName','replicateName','alias','issue','status']
+    !['projectName','themeName','assayName','groupName','replicateName','alias','processTag','issue','status']
       .every(key=>typeof raw[key]==='string')||
     !options.stage.includes(String(raw.stage))||!options.decision.includes(String(raw.decision))||
     !(raw.jobId===null||nonblank(raw.jobId)))
@@ -126,7 +126,7 @@ export function reportArchive(task:ArchiveTask,entries:ArchiveEntry[]){
     reviewCount:task.review,failedCount:task.failed,
     entries:entries.map(e=>({
       relativePath:e.relativePath,project:e.projectName,theme:e.themeName,assay:e.assayName,
-      group:e.groupName,replicate:e.replicateName,stage:e.stage,alias:e.alias,
+      group:e.groupName,replicate:e.replicateName,stage:e.stage,alias:e.alias,processTag:e.processTag,
       sha256:e.sha256,status:e.status,decision:e.decision,issue:e.issue,jobId:e.jobId
     }))
   };
