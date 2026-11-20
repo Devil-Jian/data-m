@@ -41,7 +41,7 @@ pub struct ArchiveRequest {
 pub struct ArchiveEntry {
     id:String, relative_path:String, source_path:String, size_bytes:i64, sha256:String,
     project_name:String, theme_name:String, assay_name:String, group_name:String,
-    replicate_name:String, stage:String, decision:String, alias:String, issue:String,
+    replicate_name:String, stage:String, decision:String, alias:String, process_tag:String, issue:String,
     status:String, job_id:Option<String>,
 }
 #[derive(Debug, Clone, Serialize)]
@@ -128,7 +128,9 @@ fn parse_name(file:&str)->(String,String,String,String){
             if token.contains("quant") && matches!(ext.as_str(),"csv"|"xlsx"|"xls"|"tsv"){
                 return (stem[..index].into(),"review".into(),"quant result: choose processed or statistics".into(),String::new());
             }
-            return (stem[..index].into(),stage.into(),String::new(),remainder.trim_start_matches(['_','-']).to_string());
+            let tag=if token.contains("quant"){"quant".to_string()}
+                else{remainder.trim_start_matches(['_','-']).to_string()};
+            return (stem[..index].into(),stage.into(),String::new(),tag);
         }
     }
     (String::new(),"review".into(),"cannot determine stage or biological replicate".into(),String::new())
@@ -213,8 +215,8 @@ fn db(path:&Path)->Result<Connection,TreeError>{
         size_bytes INTEGER NOT NULL,mtime TEXT NOT NULL,sha256 TEXT NOT NULL,
         project_name TEXT NOT NULL,theme_name TEXT NOT NULL,assay_name TEXT NOT NULL,
         group_name TEXT NOT NULL,replicate_name TEXT NOT NULL,stage TEXT NOT NULL,
-        decision TEXT NOT NULL,alias TEXT NOT NULL,issue TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'queued',job_id TEXT,
+        decision TEXT NOT NULL,alias TEXT NOT NULL,process_tag TEXT NOT NULL DEFAULT '',
+        issue TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'queued',job_id TEXT,
         UNIQUE(task_id,ordinal),UNIQUE(task_id,relative_path)
       ) STRICT;
       CREATE INDEX IF NOT EXISTS s13_entries_task ON s13_entries(task_id,ordinal);
@@ -242,7 +244,7 @@ fn task(con:&Connection,id:&str,offset:usize)->Result<ArchiveTask,TreeError>{
         r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?))).map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
     let mut stmt=con.prepare(
         "SELECT id,relative_path,source_path,size_bytes,sha256,project_name,theme_name,
-        assay_name,group_name,replicate_name,stage,decision,alias,issue,status,job_id
+        assay_name,group_name,replicate_name,stage,decision,alias,process_tag,issue,status,job_id
         FROM s13_entries WHERE task_id=?1 ORDER BY ordinal LIMIT ?2 OFFSET ?3"
     ).map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
     let entries=stmt.query_map(params![id,PAGE_SIZE as i64,offset as i64],|r|Ok(ArchiveEntry{
@@ -250,7 +252,7 @@ fn task(con:&Connection,id:&str,offset:usize)->Result<ArchiveTask,TreeError>{
         size_bytes:r.get(3)?,sha256:r.get(4)?,project_name:r.get(5)?,
         theme_name:r.get(6)?,assay_name:r.get(7)?,group_name:r.get(8)?,
         replicate_name:r.get(9)?,stage:r.get(10)?,decision:r.get(11)?,
-        alias:r.get(12)?,issue:r.get(13)?,status:r.get(14)?,job_id:r.get(15)?,
+        alias:r.get(12)?,process_tag:r.get(13)?,issue:r.get(14)?,status:r.get(15)?,job_id:r.get(16)?,
     })).map_err(|_|invalid("QUEUE_UNAVAILABLE"))?
        .collect::<Result<Vec<_>,_>>().map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
     Ok(ArchiveTask{id:id.into(),root_name:head.0,layout:head.1,
@@ -320,6 +322,7 @@ fn scan(con:&mut Connection,request:&ArchiveRequest,repo_path:&Path)->Result<Str
             inferred(&root,relative,layout,theme,fallback);
         let decision=if issue.is_empty(){"import"}else{"review"};
         let file_name=path.file_name().and_then(|x|x.to_str()).ok_or_else(||invalid("UNSAFE_PATH"))?;
+        let (_,_,_,process_tag)=parse_name(file_name);
         let size=i64::try_from(source.len()).map_err(|_|invalid("SOURCE_TOO_LARGE"))?;
         let mtime=modified(&source)?.to_string();
         let sha=file_hash(path)?;
@@ -330,10 +333,10 @@ fn scan(con:&mut Connection,request:&ArchiveRequest,repo_path:&Path)->Result<Str
         let id:String=tx.query_row("SELECT lower(hex(randomblob(16)))",[],|r|r.get(0))
             .map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
         tx.execute("INSERT INTO s13_entries(id,task_id,ordinal,relative_path,source_path,size_bytes,mtime,sha256,
-            project_name,theme_name,assay_name,group_name,replicate_name,stage,decision,alias,issue)
-            VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)",
+            project_name,theme_name,assay_name,group_name,replicate_name,stage,decision,alias,process_tag,issue)
+            VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18)",
             params![id,task_id,ordinal as i64,text,path.to_string_lossy().as_ref(),size,mtime,sha,
-                project,theme_name,assay,group,replicate,stage,decision,file_name,issue]
+                project,theme_name,assay,group,replicate,stage,decision,file_name,process_tag,issue]
         ).map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
     }
     tx.commit().map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
