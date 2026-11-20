@@ -69,7 +69,7 @@ function validateTask(raw:unknown):ArchiveTask{
   const entries=raw.entries.map(validateEntry);
   if(new Set(entries.map(e=>e.id)).size!==entries.length)
     throw Error('S13 native archive duplicate entry identity');
-  if(raw.imported+raw.skipped>raw.total||raw.review>raw.total||raw.ready>raw.total)
+  if(Number(raw.imported)+Number(raw.skipped)>Number(raw.total)||Number(raw.review)>Number(raw.total)||Number(raw.ready)>Number(raw.total))
     throw Error('S13 native archive totals inconsistent');
   return {...raw,entries} as ArchiveTask;
 }
