@@ -662,7 +662,7 @@ pub async fn archive_pick_folder()->Result<Option<String>,TreeError>{
     #[cfg(windows)]
     {
         tauri::async_runtime::spawn_blocking(||{
-            let script=r#"Add-Type -AssemblyName System.Windows.Forms; $d = New-Object System.Windows.Forms.FolderBrowserDialog; $d.Description = 'Select a research archive folder'; if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.Write($d.SelectedPath) }"#;
+            let script=r#"Add-Type -AssemblyName System.Windows.Forms; $d = New-Object System.Windows.Forms.FolderBrowserDialog; $d.Description = 'Select a research archive folder'; if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $utf8 = [System.Text.Encoding]::UTF8.GetBytes($d.SelectedPath); $stream = [Console]::OpenStandardOutput(); $stream.Write($utf8, 0, $utf8.Length); $stream.Flush() }"#;
             let output=std::process::Command::new("powershell.exe")
                 .args(["-NoLogo","-NoProfile","-STA","-Command",script])
                 .output().map_err(|_|invalid("PICKER_UNAVAILABLE"))?;
