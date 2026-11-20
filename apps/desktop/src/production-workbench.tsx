@@ -20,6 +20,8 @@ import type {PaperPosition} from './production-paper-workbench';
 import {displayEvidenceFromPapers,productionPaperApi} from './production-paper';
 import {RepositorySafetyPanel} from './repository-safety.tsx';
 import {ProductionAnalysisDrawer} from './production-analysis';
+import {ArchiveImportWizard} from './archive-import-wizard';
+import type {ArchiveTask} from './archive-import';
 import {ProductionRecycleDrawer} from './production-recycle';
 import type {AnalysisEvidence} from './production-analysis';
 import {useProductionStageAssets} from './use-production-stage-assets';
@@ -61,6 +63,7 @@ export function ProductionWorkbench({registerImportDrop,ui:UI=shadcnUI}:{registe
   const [error,setError]=useState('');
   const [detail,setDetail]=useState<AssetRow|null>(null);
   const [importOpen,setImportOpen]=useState(false);
+  const [archiveOpen,setArchiveOpen]=useState(false);
   const [safetyOpen,setSafetyOpen]=useState(false);
   const [recycleOpen,setRecycleOpen]=useState(false);
   const [analysisOpen,setAnalysisOpen]=useState(false);
@@ -322,6 +325,7 @@ export function ProductionWorkbench({registerImportDrop,ui:UI=shadcnUI}:{registe
       module={module} onModuleChange={setModule} onProjectChange={selectProject}
       canBack={false} canForward={false} onBack={()=>{}} onForward={()=>{}}
       onNewProject={()=>open('project','project','create')}
+      onImportFolder={()=>{setImportOpen(false);setArchiveOpen(true)}}
       onImport={()=>{if(module==='paper')setPaperExportSignal(v=>v+1);
         else{setMode('stage');setImportOpen(true)}}}
       importDisabled={module==='paper'?!projectId:!assay||importLocked}/>
@@ -573,6 +577,18 @@ export function ProductionWorkbench({registerImportDrop,ui:UI=shadcnUI}:{registe
         </div>
       </section>
     </div>}
+    {archiveOpen&&<ArchiveImportWizard registerImportDrop={registerImportDrop}
+      projects={projects.map(p=>({id:p.id,name:p.name}))}
+      onClose={()=>setArchiveOpen(false)}
+      onImported={async (task:ArchiveTask)=>{
+        const list=await refreshProjects();
+        const target=list.find(p=>p.id===task.targetProjectId)
+          ??list.find(p=>p.name===task.rootName)
+          ??list[0];
+        if(target)selectProject(target.id);
+        setModule('experiment');setArchiveOpen(false);
+        stageView.refresh();
+      }}/>}
     {importOpen&&assay&&<div className="dm-real-modal-backdrop dm-real-import-overlay">
       <section className="dm-real-import-modal" role="dialog" aria-modal="true" aria-label="受控安全导入">
         <div className="dm-real-import-target"><strong>选择导入目标</strong>
