@@ -199,8 +199,21 @@ export async function runArchiveTask(
           paths:chunk.map(x=>x.sourcePath),aliases:chunk.map(x=>x.alias),
           target:group.target,requestId});
         const job=oneJob(response,group.target);
+        // A reused S3 requestId can return an existing job. Never bind an
+        // unrelated file manifest merely because its target and count match.
+        const expectedFiles=new Map<string,number>();
+        for(const item of chunk){
+          const key=JSON.stringify([item.alias,item.sizeBytes]);
+          expectedFiles.set(key,(expectedFiles.get(key)??0)+1);
+        }
         if(job.files.length!==chunk.length)
           throw new ArchiveRunnerError('S3 目标文件数与已确认计划不一致');
+        for(const file of job.files){
+          const key=JSON.stringify([file.name,file.sizeBytes]);
+          const remaining=expectedFiles.get(key)??0;
+          if(!remaining)throw new ArchiveRunnerError('S3 返回文件名或大小与确认计划不一致，拒绝绑定');
+          expectedFiles.set(key,remaining-1);
+        }
         await deps.archive({action:'bind',taskId:task.id,
           entryIds:chunk.map(x=>x.id),jobId:job.id});
         await finishJob(job.id,group.target,deps,signal);
