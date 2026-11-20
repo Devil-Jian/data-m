@@ -26,6 +26,7 @@ fn s13_names_decode_raw_processing_variants_and_experiment_scoped_display(){
     assert_eq!(parse_name("ROS01_raw.tif").0,"ROS01");
     assert_eq!(parse_name("ROS01_raw.tif").1,"raw");
     assert_eq!(parse_name("ROS01_process_crop.tif").1,"processed");
+    assert_eq!(parse_name("ROS01_process_crop.tif").3,"crop");
     assert_eq!(parse_name("ROS01_processed_adjust.png").1,"processed");
     assert_eq!(parse_name("ROS01_show.png").1,"display");
     assert_eq!(parse_name("ROS_statistics.xlsx").1,"statistics");
@@ -43,7 +44,7 @@ fn s13_scan_reads_only_original_files_and_persists_pageable_manifest(){
     assert_eq!(task.total,4);
     assert_eq!(task.review,1);
     assert_eq!(task.status,"scanned");
-    assert!(task.entries.iter().any(|e|e.stage=="processed"&&e.replicate_name=="ROS01"));
+    assert!(task.entries.iter().any(|e|e.stage=="processed"&&e.replicate_name=="ROS01"&&e.process_tag=="crop"));
     assert!(task.entries.iter().any(|e|e.stage=="display"&&e.replicate_name=="ROS01"));
     assert_eq!(task.entries.iter().find(|e|e.stage=="raw").unwrap().sha256,format!("{:x}",Sha256::digest(b"RAW1")));
     // Scanning metadata does not create a project, assay, asset link or CAS blob.
