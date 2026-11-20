@@ -117,6 +117,26 @@ describe('S13 resumable multi-target coordinator',()=>{
       .rejects.toThrow();
     expect(requests.some(r=>r.action==='prepare')).toBe(false);
   });
+  it('refuses to bind a reused S3 job with a different filename or size',async()=>{
+    for(const mismatch of ['name','size'] as const){
+      const {task,fake}=fixture();
+      const original=fake.importer;
+      fake.importer=vi.fn(async req=>{
+        const response=await original(req);
+        if(req.action==='prepare'){
+          const file=response.jobs[0].files[0];
+          if(mismatch==='name')file.name='unrelated.tif';
+          else file.sizeBytes=999;
+        }
+        return response;
+      });
+      await expect(runArchiveTask(task,()=>{},new AbortController().signal,fake))
+        .rejects.toThrow('S3 返回文件名或大小与确认计划不一致');
+      expect(fake.archive).not.toHaveBeenCalledWith(expect.objectContaining({action:'bind'}));
+      expect(fake.importer).not.toHaveBeenCalledWith(expect.objectContaining({action:'start'}));
+      expect(fake.archive).toHaveBeenCalledWith(expect.objectContaining({action:'pause'}));
+    }
+  });
   it('never enters mutations while a review item remains unresolved',async()=>{
     const {task,fake}=fixture();task.review=1;task.status='review';
     await expect(runArchiveTask(task,()=>{},new AbortController().signal,fake)).rejects.toThrow();
