@@ -264,10 +264,11 @@ fn task(con:&Connection,id:&str,offset:usize)->Result<ArchiveTask,TreeError>{
 fn templates(con:&Connection)->Result<Vec<ArchiveTemplate>,TreeError>{
     let mut stmt=con.prepare("SELECT name,layout,target_theme_name,fallback_group FROM s13_templates ORDER BY name")
         .map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
-    stmt.query_map([],|r|Ok(ArchiveTemplate{
+    let rows=stmt.query_map([],|r|Ok(ArchiveTemplate{
         name:r.get(0)?,layout:r.get(1)?,target_theme_name:r.get(2)?,fallback_group:r.get(3)?
     })).map_err(|_|invalid("QUEUE_UNAVAILABLE"))?
-        .collect::<Result<Vec<_>,_>>().map_err(|_|invalid("QUEUE_UNAVAILABLE"))
+        .collect::<Result<Vec<_>,_>>().map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+    Ok(rows)
 }
 fn make_response(con:&Connection,id:Option<&str>,offset:usize)->Result<ArchiveResponse,TreeError>{
     let current=id.map(|id|task(con,id,offset)).transpose()?;
@@ -324,6 +325,7 @@ fn scan(con:&mut Connection,request:&ArchiveRequest,repo_path:&Path)->Result<Str
         let file_name=path.file_name().and_then(|x|x.to_str()).ok_or_else(||invalid("UNSAFE_PATH"))?;
         let (_,_,_,process_tag)=parse_name(file_name);
         let size=i64::try_from(source.len()).map_err(|_|invalid("SOURCE_TOO_LARGE"))?;
+        if size>9_007_199_254_740_991{return Err(invalid("SOURCE_TOO_LARGE"))}
         let mtime=modified(&source)?.to_string();
         let sha=file_hash(path)?;
         let after=safe_regular(path)?;
@@ -427,9 +429,14 @@ fn prepare(con:&mut Connection,repo:&Path,id:&str)->Result<(),TreeError>{
             let target_project=con.query_row("SELECT target_project_id FROM s13_tasks WHERE id=?1",
                 [id],|r|r.get::<_,Option<String>>(0))
                 .map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+            // The S3 namespace for Display/Statistics is assay-level, shared by
+            // all biological groups; only Raw/Processed may include group/sample.
+            let (scope_group,scope_sample)=if stage=="raw"||stage=="processed"{
+                (group.as_str(),sample.as_str())
+            }else{("","")};
             let key=format!("{}|{}|{}|{}|{}|{}|{}",
-                target_project.as_deref().unwrap_or(project),theme,assay,group,sample,stage,
-                alias.to_lowercase());
+                target_project.as_deref().unwrap_or(project),theme,assay,
+                scope_group,scope_sample,stage,alias.to_lowercase());
             if let Some((prior_hash,_))=seen.get(&key){
                 if prior_hash==sha{
                     changed.push((entry.clone(),"skip".into(),"same staged target and SHA".into()));
