@@ -38,7 +38,8 @@ test('S0 shell retains authorized metadata/import IPC without storage work at st
   }
   const s10 = ['provenance_trace::provenance_trace','figure_export::figure_export','figure_export::figure_export_cancel'];
   for (const command of s10) assert.equal(registered.filter(x=>x===command).length,1,'S10 provenance IPC missing or duplicated');
-  assert.deepEqual([...registered].sort(),[...baseline,...s4,...s5,...s6,...s7,...s8,...s9,...s10].sort(),'unexpected IPC command registered');
+  const s13 = ['archive_import::archive_import','archive_import::archive_pick_folder'];
+  assert.deepEqual([...registered].sort(),[...baseline,...s4,...s5,...s6,...s7,...s8,...s9,...s10,...s13].sort(),'unexpected IPC command registered');
   const start=shell.indexOf('pub fn run()');
   const end=shell.indexOf('#[cfg(test)]',start);
   const run=shell.slice(start,end<0?undefined:end);
