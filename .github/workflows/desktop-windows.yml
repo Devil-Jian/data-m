@@ -90,12 +90,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:desktop
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: S13 native guarded directory scanner, dedupe and recovery contracts
+      - name: S13 native guarded folder scan, dedupe and durable recovery
         working-directory: apps/desktop/src-tauri
         run: |
           $discovered = cargo test --locked --no-default-features s13_ -- --list
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (-not ($discovered -match 's13_.*: test
+          if (-not ($discovered -match 's13_.*: test$')) { throw 'S13 native tests not discovered' }
+          cargo test --locked --no-default-features s13_ -- --test-threads=1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: S12R release-only renderer must not ship Demo fixtures
         run: node scripts/check-s12r-release-bundle.mjs
       - name: S12R production adapter isolated scope tests
         run: npm run test:desktop
@@ -151,7 +154,7 @@ jobs:
           if (-not ($tests -match '@S12R')) { throw 'S12R Playwright tests missing' }
           npm run test:e2e:desktop -- --grep "@S12R"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: S13 smart folder archive mapping and import E2E
+      - name: S13 research folder scan and real S3 import E2E
         run: |
           $tests = npx playwright test -c playwright.desktop.config.ts --list --grep "@S13"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -284,215 +287,10 @@ jobs:
           path: s11-release-artifacts/*
           if-no-files-found: error
           retention-days: 30
-      - name: Upload S13 unsigned Windows EXE, NSIS and independent SHA-256
+      - name: Upload S13 Windows EXE, NSIS and checksum manifest
         uses: actions/upload-artifact@v4
         with:
           name: data-m-s13-smart-archive-import-windows-exe-nsis
-          path: s11-release-artifacts/*
-          if-no-files-found: error
-          retention-days: 30
-      - name: Upload S12R visual evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: s12r-visual-evidence
-          path: |
-            s12r-evidence
-            test-results
-          if-no-files-found: warn
-      - name: Export dependency lock corrections on failure
-        if: failure()
-        working-directory: apps/desktop/src-tauri
-        run: cargo generate-lockfile
-      - name: Upload Rust dependency lock
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: s1-cargo-lock
-          path: apps/desktop/src-tauri/Cargo.lock
-          if-no-files-found: warn
-)) { throw 'S13 native tests were not discovered' }
-          cargo test --locked --no-default-features s13_ -- --test-threads=1
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: S12R release-only renderer must not ship Demo fixtures
-        run: node scripts/check-s12r-release-bundle.mjs
-      - name: S12R production adapter isolated scope tests
-        run: npm run test:desktop
-      - name: Verify Windows source-protection fixture checker (non-GUI)
-        run: ./scripts/test-p1-drop-source.ps1 -SelfTest
-      - name: Install Chromium for Windows interaction tests
-        run: npx playwright install chromium
-      - name: Capture immutable e7b12d Demo Workbench baseline for visual comparison
-        shell: pwsh
-        run: |
-          git fetch --no-tags --depth=1 origin e7b12d7022ed40d33bccc42f9a628b305e91ccf9
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $baseline = Join-Path $env:RUNNER_TEMP 's12r-original-ui'
-          git worktree add --detach $baseline e7b12d7022ed40d33bccc42f9a628b305e91ccf9
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Push-Location $baseline
-          try {
-            npm ci --no-audit --no-fund
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          } finally { Pop-Location }
-          node scripts/capture-s12r-baseline.mjs $baseline s12r-evidence/baseline
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Windows Chromium pointer and keyboard E2E
-        run: npm run test:e2e
-      - name: S0 renderer consistency
-        run: npm run test:e2e:desktop -- --grep "@S0"
-      - name: Desktop renderer CSS and keyboard E2E (port 5176)
-        run: npm run test:e2e:desktop
-      - name: S1 project tree browser mock E2E
-        run: npm run test:e2e:desktop -- --grep "@S1"
-      - name: S2 experiment structure browser mock E2E
-        run: npm run test:e2e:desktop -- --grep "@S2"
-      - name: S3 import workflow browser mock E2E
-        run: npm run test:e2e:desktop -- --grep "@S3"
-      - name: S4 real asset browsing browser regression
-        run: npm run test:e2e:desktop -- --grep "@S4"
-      - name: S5 real workspace transfer browser flows (explicit renderer mock)
-        run: npm run test:e2e:desktop -- --grep "@S5"
-      - name: S8 statistics workspace browser flows (explicit renderer mock)
-        run: npm run test:e2e:desktop -- --grep "@S8"
-      - name: S7 safety workbench browser flows (explicit renderer mock)
-        run: npm run test:e2e:desktop -- --grep "@S7"
-      - name: S9 paper workspace UI E2E
-        run: npm run test:e2e:desktop -- --grep "@S9"
-      - name: S10 provenance UI E2E (explicit renderer IPC mock)
-        run: npm run test:e2e:desktop -- --grep "@S10"
-      - name: S11 renderer paging and nested-context-menu E2E (mock)
-        run: npm run test:e2e:desktop -- --grep "@S11"
-      - name: S12R production Workbench interactions and native mocks
-        run: |
-          $tests = npx playwright test -c playwright.desktop.config.ts --list --grep "@S12R"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (-not ($tests -match '@S12R')) { throw 'S12R Playwright tests missing' }
-          npm run test:e2e:desktop -- --grep "@S12R"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: I1 integrated workspace UI E2E
-        run: npm run test:e2e:desktop -- --grep "@I1"
-      - name: S9 native SQLite paper and pinned-version regression
-        working-directory: apps/desktop/src-tauri
-        run: |
-          $discovered = cargo test --locked --no-default-features s9_ -- --list
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (-not ($discovered -match 's9_.*: test$')) { throw 'S9 native tests not discovered' }
-          cargo test --locked --no-default-features s9_
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: I1 native integrated schema and repository regression
-        working-directory: apps/desktop/src-tauri
-        run: |
-          $discovered = cargo test --locked --no-default-features i1_ -- --list
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (-not ($discovered -match 'i1_.*: test$')) { throw 'I1 native tests not discovered' }
-          cargo test --locked --no-default-features i1_
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: S10 native exact-version provenance tests
-        working-directory: apps/desktop/src-tauri
-        run: |
-          $discovered = cargo test --locked --no-default-features s10_ -- --list
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (-not ($discovered -match 's10_.*: test$')) { throw 'S10 native tests not discovered' }
-          cargo test --locked --no-default-features s10_
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: S8 native SQLite analysis inclusion and freeze tests
-        working-directory: apps/desktop/src-tauri
-        run: |
-          $discovered = cargo test --locked --no-default-features s8_ -- --list
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $count = ($discovered | Select-String 's8_.*: test').Count
-          if ($count -lt 1) { throw 'S8 native test filter discovered zero tests' }
-          cargo test --locked --no-default-features s8_
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: S7 native WAL snapshot, manifest, corruption and isolated restore tests
-        working-directory: apps/desktop/src-tauri
-        run: |
-          $discovered = cargo test --locked --no-default-features s7_ -- --list
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (-not ($discovered -match 's7_.*: test$')) { throw 'S7 Rust suite must contain tests' }
-          cargo test --locked --no-default-features s7_
-      - name: S6 real workspace lifecycle and recycle browser flows (explicit renderer mock)
-        run: npm run test:e2e:desktop -- --grep "@S6"
-      - name: S6 native SQLite asset-link lifecycle and recycle invariants
-        working-directory: apps/desktop/src-tauri
-        run: |
-          $discovered = cargo test --locked --no-default-features s6_ -- --list
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (-not ($discovered -match 's6_.*: test$')) { throw 'S6 Rust suite must contain tests' }
-          cargo test --locked --no-default-features s6_
-      - name: S5 native SQLite asset-link transaction and invariants tests
-        working-directory: apps/desktop/src-tauri
-        run: |
-          $discovered = cargo test --locked --no-default-features s5_ -- --list
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (-not ($discovered -match 's5_.*: test$')) { throw 'S5 Rust suite must contain tests' }
-          cargo test --locked --no-default-features s5_
-      - name: S4 SQLite pagination and scoped identity tests
-        working-directory: apps/desktop/src-tauri
-        run: |
-          $discovered = cargo test --locked --no-default-features s4_ -- --list
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (-not ($discovered -match 's4_.*: test$')) { throw 'S4 Rust suite must contain tests' }
-          cargo test --locked --no-default-features s4_
-      - name: S3 source protection and crash recovery
-        working-directory: apps/desktop/src-tauri
-        run: |
-          $discovered = cargo test --locked --no-default-features s3_ -- --list
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (-not ($discovered -match 's3_.*: test$')) { throw 'S3 Rust suite must contain tests' }
-          cargo test --locked --no-default-features s3_
-      - name: S2 experiment persistence and sample identity
-        working-directory: apps/desktop/src-tauri
-        run: |
-          $discovered = cargo test --locked --no-default-features s2_ -- --list
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (-not ($discovered -match 's2_.*: test$')) { throw 'S2 Rust suite must contain tests' }
-          cargo test --locked --no-default-features s2_
-      - name: S1 project tree persistence and validation
-        working-directory: apps/desktop/src-tauri
-        run: |
-          $discovered = cargo test --locked --no-default-features s1_ -- --list
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (-not ($discovered -match 's1_.*: test$')) { throw 'S1 Rust suite must contain tests' }
-          cargo test --locked --no-default-features s1_
-      - name: S0 read-only Rust tests
-        working-directory: apps/desktop/src-tauri
-        run: |
-          $discovered = cargo test --locked --no-default-features s0_ -- --list
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (-not ($discovered -match 's0_.*: test$')) { throw 'S0 Rust suite must contain tests' }
-          cargo test --locked --no-default-features s0_
-      - name: S11 native real SQLite/CAS 10024 asset benchmark
-        working-directory: apps/desktop/src-tauri
-        run: |
-          $discovered = cargo test --locked --no-default-features s11_ -- --list
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (-not ($discovered -match 's11_.*: test$')) { throw 'S11 native tests not discovered' }
-          cargo test --locked --no-default-features s11_ -- --nocapture --test-threads=1 2>&1 | Tee-Object -FilePath ../../../s11-benchmark.log
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Upload S11 native benchmark logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: s11-native-benchmark-logs
-          path: s11-benchmark.log
-          if-no-files-found: warn
-      - name: Rust full suite (serial; no skipped tests; isolates S11 performance thresholds)
-        working-directory: apps/desktop/src-tauri
-        run: cargo test --locked --no-default-features -- --test-threads=1
-      - name: Rust check
-        working-directory: apps/desktop/src-tauri
-        run: cargo check --locked
-      - name: Build Windows Release executable and unsigned NSIS installer
-        run: npm run tauri:build
-      - name: Generate and verify S11 release-manifest and independent binary SHA-256
-        run: |
-          ./scripts/s11-release-manifest.ps1 -SourceSha "${{ github.event.pull_request.head.sha || github.sha }}" -BuildRunUrl "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-      - name: Upload S11 unsigned installer, portable EXE and release manifest
-        uses: actions/upload-artifact@v4
-        with:
-          name: data-m-s11-unsigned-nsis-and-portable
           path: s11-release-artifacts/*
           if-no-files-found: error
           retention-days: 30
