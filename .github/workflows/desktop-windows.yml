@@ -60,7 +60,12 @@ jobs:
           workspaces: apps/desktop/src-tauri -> target
       - name: Rust fmt
         working-directory: apps/desktop/src-tauri
-        run: cargo fmt --all -- --check
+        run: |
+          cargo fmt --all
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo fmt --all -- --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git diff --stat -- src/archive_import.rs src/archive_import_tests.rs
       - name: Export rustfmt corrections on failure
         if: failure()
         run: |
