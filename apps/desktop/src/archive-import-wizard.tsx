@@ -313,7 +313,7 @@ export function ArchiveImportWizard({registerImportDrop,projects,onClose,onImpor
                 <div className="dm-s13-file-main">
                   <strong>{e.relativePath}</strong>
                   <small>{e.themeName||'?'} / {e.assayName||'?'} / {e.groupName||'实验级'} /
-                    {e.replicateName||'无特定样本'} → {e.stage}</small>
+                    {e.replicateName||'无特定样本'} → {e.stage}{e.processTag?' · 处理标签 '+e.processTag:''}</small>
                   {e.issue&&<span className="dm-s13-issue">{e.issue}</span>}
                   <small>{e.sizeBytes} bytes · SHA-256 {e.sha256.slice(0,12)}… ·
                     {e.decision==='skip'?'跳过':e.status==='imported'?'已验证':e.decision==='review'?'待确认':'待导入'}</small>
