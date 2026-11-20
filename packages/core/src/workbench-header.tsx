@@ -1,5 +1,5 @@
 import React from 'react';
-import {ArrowLeft,ArrowRight,BookOpen,Download,FlaskConical,Plus,Upload} from 'lucide-react';
+import {ArrowLeft,ArrowRight,BookOpen,Download,FlaskConical,FolderInput,Plus,Upload} from 'lucide-react';
 import type {UIKit} from './workbench';
 import type {ModuleName} from './data';
 
@@ -17,11 +17,12 @@ export interface WorkbenchHeaderProps {
   onBack:()=>void;onForward:()=>void;
   onNewProject:()=>void;
   onImport:()=>void;
+  onImportFolder?:()=>void;
   importDisabled?:boolean;
 }
 export function WorkbenchHeader({
   ui:UI,projectId,projectOptions,module,onProjectChange,onModuleChange,
-  canBack,canForward,onBack,onForward,onNewProject,onImport,importDisabled=false
+  canBack,canForward,onBack,onForward,onNewProject,onImport,onImportFolder,importDisabled=false
 }:WorkbenchHeaderProps){
   return <header className="dm-header">
     <div className="dm-logo"><span>BM</span><strong>科研实验与论文管理系统</strong></div>
@@ -43,6 +44,9 @@ export function WorkbenchHeader({
     </nav>
     <div className="dm-header-spacer"/>
     <UI.Button variant="secondary" onClick={onNewProject}><Plus size={15}/> 新建项目</UI.Button>
+    {module==='experiment'&&onImportFolder&&<UI.Button variant="secondary" onClick={onImportFolder}>
+      <FolderInput size={15}/> 智能导入文件夹
+    </UI.Button>}
     <UI.Button variant="primary" disabled={importDisabled} onClick={onImport}>
       {module==='experiment'?<Upload size={15}/>:<Download size={15}/>}
       {module==='experiment'?'导入实验归档包':'导出投稿材料包'}

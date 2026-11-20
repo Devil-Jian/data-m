@@ -2,6 +2,7 @@
 //!
 //! This first milestone intentionally exposes no destructive file operations.
 //! All real asset mutations will go through validated application use cases.
+mod archive_import;
 mod asset_browser;
 mod asset_lifecycle;
 mod asset_recycle;
@@ -39,6 +40,8 @@ pub fn run() {
             project_tree::project_tree,
             experiment_tree::experiment_tree,
             import_jobs::import_jobs,
+            archive_import::archive_import,
+            archive_import::archive_pick_folder,
             repository_safety::repository_safety,
             statistical_analysis::statistical_analysis,
             paper_workspace::paper_workspace,

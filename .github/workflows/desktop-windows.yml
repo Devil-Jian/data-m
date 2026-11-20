@@ -12,6 +12,7 @@ on:
       - feat/i1-s8-s9-integration
       - feat/s10-bidirectional-trace-export
       - feat/s12r-demo-workbench-production
+      - feat/s13-smart-folder-archive-import
     paths:
       - 'apps/desktop/**'
       - 'packages/**'
@@ -59,7 +60,12 @@ jobs:
           workspaces: apps/desktop/src-tauri -> target
       - name: Rust fmt
         working-directory: apps/desktop/src-tauri
-        run: cargo fmt --all -- --check
+        run: |
+          cargo fmt --all
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo fmt --all -- --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git diff --stat -- src/archive_import.rs src/archive_import_tests.rs
       - name: Export rustfmt corrections on failure
         if: failure()
         run: |
@@ -88,6 +94,14 @@ jobs:
           npm run test:assets
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:desktop
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: S13 native guarded folder scan, dedupe and durable recovery
+        working-directory: apps/desktop/src-tauri
+        run: |
+          $discovered = cargo test --locked --no-default-features s13_ -- --list
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not ($discovered -match 's13_.*: test$')) { throw 'S13 native tests not discovered' }
+          cargo test --locked --no-default-features s13_ -- --test-threads=1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: S12R release-only renderer must not ship Demo fixtures
         run: node scripts/check-s12r-release-bundle.mjs
@@ -144,6 +158,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not ($tests -match '@S12R')) { throw 'S12R Playwright tests missing' }
           npm run test:e2e:desktop -- --grep "@S12R"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: S13 research folder scan and real S3 import E2E
+        run: |
+          $tests = npx playwright test -c playwright.desktop.config.ts --list --grep "@S13"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not ($tests -match '@S13')) { throw 'S13 Playwright tests missing' }
+          npm run test:e2e:desktop -- --grep "@S13"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: I1 integrated workspace UI E2E
         run: npm run test:e2e:desktop -- --grep "@I1"
@@ -268,6 +289,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: data-m-s11-unsigned-nsis-and-portable
+          path: s11-release-artifacts/*
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload S13 Windows EXE, NSIS and checksum manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: data-m-s13-smart-archive-import-windows-exe-nsis
           path: s11-release-artifacts/*
           if-no-files-found: error
           retention-days: 30

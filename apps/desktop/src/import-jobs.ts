@@ -6,7 +6,7 @@ export type ImportJobStatus='prepared'|'running'|'completed'|'failed'|'cancelled
 export type ImportFileStatus='queued'|'copying'|'staged'|'blob_published'|'committed'|'failed'|'cancelled'|'interrupted';
 export interface ImportFile {id:string;name:string;sizeBytes:number;sha256:string|null;status:ImportFileStatus;assetVersionId:string|null;errorCode:string|null}
 export interface ImportJob {id:string;status:ImportJobStatus;target:ImportTarget;files:ImportFile[];totalBytes:number;copiedBytes:number;completedCount:number;errorCode:string|null}
-export type ImportRequest={action:'prepare';paths:string[];target:ImportTarget;requestId:string}|{action:'start'|'get'|'cancel'|'retry';jobId:string}|{action:'list'};
+export type ImportRequest={action:'prepare';paths:string[];target:ImportTarget;requestId:string;aliases?:string[]}|{action:'start'|'get'|'cancel'|'retry';jobId:string}|{action:'list'};
 export interface ImportResponse {jobs:ImportJob[]}
 export type ImportApi=(request:ImportRequest)=>Promise<ImportResponse>;
 export type ImportDropHandler=(paths:string[])=>void;
