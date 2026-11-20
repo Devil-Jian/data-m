@@ -132,8 +132,9 @@ export function ArchiveImportWizard({registerImportDrop,projects,onClose,onImpor
     if(edit.decision!=='skip'&&edit.stage==='__choose__'){
       setError('请选择明确阶段；未识别的文件不能直接导入。');return;
     }
+    const {id:_ignored,...values}=edit;
     const result=await send({action:'edit',taskId:task.id,entryId:edit.id,
-      ...edit,stage:edit.stage==='__choose__'?undefined:edit.stage},false);
+      ...values,stage:edit.stage==='__choose__'?undefined:edit.stage},false);
     if(result)setEdit(null);
   }
   async function applyBulk(){
