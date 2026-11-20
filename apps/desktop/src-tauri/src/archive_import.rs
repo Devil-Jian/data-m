@@ -544,7 +544,7 @@ fn reconcile(con:&mut Connection,repo:&Path,id:&str)->Result<(),TreeError>{
                 params![job,path,alias],|r|Ok((
                     r.get::<_,String>(0)?,r.get::<_,Option<String>>(1)?,
                     r.get::<_,Option<String>>(2)?))
-                )).optional().map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+                ).optional().map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
             let state=match result{
                 Some((status,Some(digest),Some(version))) if status=="committed"
                     && digest==*hash&&version==*hash =>"imported",
