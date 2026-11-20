@@ -363,9 +363,11 @@ fn edit(con:&Connection,req:&ArchiveRequest)->Result<(),TreeError>{
         req.stage.as_deref().unwrap_or(&old.5),
         req.decision.as_deref().unwrap_or(&old.6),
         req.alias.as_deref().unwrap_or(&old.7));
-    if !matches!(decision,"import"|"skip"|"review") || !name(alias) || !name(theme)||!name(assay)
-        || (decision!="skip" && !stage_ok(stage)) || (stage=="raw"||stage=="processed")&&(!name(group)||!name(replicate))
-        || (!project.is_empty()&&!name(project)){return Err(invalid("INVALID_MAPPING"))}
+    if !matches!(decision,"import"|"skip"|"review")
+        || (decision!="skip" && (!name(alias)||!name(theme)||!name(assay)||!stage_ok(stage)
+            || (stage=="raw"||stage=="processed")&&(!name(group)||!name(replicate))
+            || (!project.is_empty()&&!name(project))))
+        {return Err(invalid("INVALID_MAPPING"))}
     con.execute("UPDATE s13_entries SET project_name=?1,theme_name=?2,assay_name=?3,
       group_name=?4,replicate_name=?5,stage=?6,decision=?7,alias=?8,issue=?9
       WHERE id=?10 AND task_id=?11",
@@ -663,3 +665,7 @@ pub async fn archive_pick_folder()->Result<Option<String>,TreeError>{
     #[cfg(not(windows))]
     {Err(invalid("PICKER_UNAVAILABLE"))}
 }
+
+#[cfg(test)]
+#[path = "archive_import_tests.rs"]
+mod tests;
