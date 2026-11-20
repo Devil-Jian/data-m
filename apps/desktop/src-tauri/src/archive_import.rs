@@ -5,7 +5,7 @@ use crate::project_tree::{database_path, with_database_at, TreeError};
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{collections::HashSet, fs::{self, File}, io::Read, path::{Component, Path, PathBuf}, time::UNIX_EPOCH};
+use std::{collections::{HashMap, HashSet}, fs::{self, File}, io::Read, path::{Component, Path, PathBuf}, time::UNIX_EPOCH};
 use tauri::Manager;
 
 const MAX_FILES: usize = 50_000;
@@ -194,6 +194,7 @@ fn scan_walk(root:&Path,dir:&Path,depth:usize,paths:&mut Vec<PathBuf>)->Result<(
 }
 fn db(path:&Path)->Result<Connection,TreeError>{
     let parent=path.parent().ok_or_else(||invalid("UNSAFE_PATH"))?;
+    if !parent.exists(){fs::create_dir_all(parent).map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;}
     safe_directory(parent)?;
     if path.exists(){safe_regular(path)?;}
     let con=Connection::open(path).map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
@@ -363,7 +364,7 @@ fn edit(con:&Connection,req:&ArchiveRequest)->Result<(),TreeError>{
         req.decision.as_deref().unwrap_or(&old.6),
         req.alias.as_deref().unwrap_or(&old.7));
     if !matches!(decision,"import"|"skip"|"review") || !name(alias) || !name(theme)||!name(assay)
-        || !stage_ok(stage) || (stage=="raw"||stage=="processed")&&(!name(group)||!name(replicate))
+        || (decision!="skip" && !stage_ok(stage)) || (stage=="raw"||stage=="processed")&&(!name(group)||!name(replicate))
         || (!project.is_empty()&&!name(project)){return Err(invalid("INVALID_MAPPING"))}
     con.execute("UPDATE s13_entries SET project_name=?1,theme_name=?2,assay_name=?3,
       group_name=?4,replicate_name=?5,stage=?6,decision=?7,alias=?8,issue=?9
@@ -373,6 +374,192 @@ fn edit(con:&Connection,req:&ArchiveRequest)->Result<(),TreeError>{
     ).map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
     con.execute("UPDATE s13_tasks SET status='scanned' WHERE id=?1",[id])
         .map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+    Ok(())
+}
+
+
+fn prepare(con:&mut Connection,repo:&Path,id:&str)->Result<(),TreeError>{
+    let state:String=con.query_row("SELECT status FROM s13_tasks WHERE id=?1",[id],|r|r.get(0))
+        .optional().map_err(|_|invalid("QUEUE_UNAVAILABLE"))?
+        .ok_or_else(||invalid("TASK_NOT_FOUND"))?;
+    if !matches!(state.as_str(),"scanned"|"review"|"prepared"|"paused"|"failed"){
+        return Err(invalid("TASK_LOCKED"));
+    }
+    let mut stmt=con.prepare("SELECT id,source_path,size_bytes,mtime,sha256,
+       project_name,theme_name,assay_name,group_name,replicate_name,stage,alias,decision
+       FROM s13_entries WHERE task_id=?1 ORDER BY ordinal")
+       .map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+    type Row=(String,String,i64,String,String,String,String,String,String,String,String,String,String);
+    let rows:Vec<Row>=stmt.query_map([id],|r|Ok((
+        r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,
+        r.get(5)?,r.get(6)?,r.get(7)?,r.get(8)?,r.get(9)?,
+        r.get(10)?,r.get(11)?,r.get(12)?
+    ))).map_err(|_|invalid("QUEUE_UNAVAILABLE"))?.collect::<Result<_,_>>()
+        .map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+    drop(stmt);
+    let mut changed=Vec::<(String,String,String)>::new();
+    let mut seen=HashMap::<String,(String,String)>::new();
+    let mut any_review=false;
+    // Never mutate S1/S2/S3 while preparing: all other views remain consistent.
+    with_database_at(repo,|db|{
+        for (entry,path,size,mtime,sha,project,theme,assay,group,sample,stage,alias,decision) in &rows{
+            if decision=="skip"{
+                changed.push((entry.clone(),"skip".into(),"skipped by user".into()));
+                continue;
+            }
+            if decision=="review"||!stage_ok(stage)||!name(theme)||!name(assay)||!name(alias)
+               ||(stage=="raw"||stage=="processed")&&(!name(group)||!name(sample)){
+                changed.push((entry.clone(),"review".into(),"unresolved directory or stage mapping".into()));
+                any_review=true;continue;
+            }
+            let source=Path::new(path);
+            let meta=safe_regular(source)?;
+            if meta.len()!=*size as u64||modified(&meta)?.to_string()!=*mtime
+                ||file_hash(source)?!=*sha {
+                changed.push((entry.clone(),"review".into(),"SOURCE_CHANGED".into()));
+                any_review=true;continue;
+            }
+            let target_project=con.query_row("SELECT target_project_id FROM s13_tasks WHERE id=?1",
+                [id],|r|r.get::<_,Option<String>>(0))
+                .map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+            let key=format!("{}|{}|{}|{}|{}|{}|{}",
+                target_project.as_deref().unwrap_or(project),theme,assay,group,sample,stage,
+                alias.to_lowercase());
+            if let Some((prior_hash,_))=seen.get(&key){
+                if prior_hash==sha{
+                    changed.push((entry.clone(),"skip".into(),"same staged target and SHA".into()));
+                }else{
+                    changed.push((entry.clone(),"review".into(),"DUPLICATE_TARGET_IN_PLAN".into()));
+                    any_review=true;
+                }
+                continue;
+            }
+            seen.insert(key,(sha.clone(),entry.clone()));
+            // Missing entity levels are created only by S1/S2 after explicit confirmation.
+            // Existing names must match at every parent level and in the correct assay scope.
+            let mut st=db.prepare("SELECT v.blob_sha256
+                FROM asset_links l
+                JOIN assays a ON a.id=l.assay_id AND a.deleted_at IS NULL
+                JOIN themes t ON t.id=a.theme_id AND t.deleted_at IS NULL
+                JOIN projects p ON p.id=t.project_id AND p.deleted_at IS NULL
+                JOIN data_assets da ON da.id=l.asset_id
+                JOIN asset_versions v ON v.asset_id=da.id
+                LEFT JOIN experiment_groups g ON g.id=l.group_id
+                LEFT JOIN replicates r ON r.id=l.replicate_id
+                WHERE (?1 IS NULL OR p.id=?1)
+                  AND (?1 IS NOT NULL OR p.name=?2 COLLATE NOCASE)
+                  AND t.name=?3 COLLATE NOCASE AND a.name=?4 COLLATE NOCASE
+                  AND (l.stage IN ('statistics','display') OR
+                       (g.name=?5 COLLATE NOCASE AND r.label=?6 COLLATE NOCASE))
+                  AND l.stage=?7 AND l.display_name=?8 COLLATE NOCASE
+                  AND l.deleted_at IS NULL
+                ORDER BY v.version_number DESC LIMIT 2")
+                .map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+            let matches=st.query_map(params![target_project,project,theme,assay,group,sample,stage,alias],
+                |r|r.get::<_,String>(0)).map_err(|_|invalid("QUEUE_UNAVAILABLE"))?
+                .collect::<Result<Vec<_>,_>>().map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+            if matches.is_empty(){changed.push((entry.clone(),"import".into(),String::new()));}
+            else if matches.iter().any(|known|known==sha){
+                changed.push((entry.clone(),"skip".into(),"already imported same SHA".into()));
+            }else{
+                changed.push((entry.clone(),"review".into(),"NAME_CONFLICT_DIFFERENT_CONTENT".into()));
+                any_review=true;
+            }
+        }
+        Ok(())
+    })?;
+    let tx=con.transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+    for (entry,decision,issue) in &changed{
+        tx.execute("UPDATE s13_entries SET decision=?1,issue=?2
+             WHERE task_id=?3 AND id=?4",params![decision,issue,id,entry])
+             .map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+    }
+    tx.execute("UPDATE s13_tasks SET status=?1 WHERE id=?2",
+        params![if any_review{"review"}else{"prepared"},id])
+        .map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+    tx.commit().map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+    Ok(())
+}
+fn bind_job(con:&mut Connection,id:&str,req:&ArchiveRequest)->Result<(),TreeError>{
+    let job=required(req.job_id.as_deref())?;
+    if job.len()>128||req.entry_ids.as_ref().map_or(true,|ids|ids.is_empty()||ids.len()>1000){
+        return Err(invalid("INVALID_REQUEST"));
+    }
+    let task_status:String=con.query_row("SELECT status FROM s13_tasks WHERE id=?1",[id],|r|r.get(0))
+        .optional().map_err(|_|invalid("QUEUE_UNAVAILABLE"))?
+        .ok_or_else(||invalid("TASK_NOT_FOUND"))?;
+    if !matches!(task_status.as_str(),"prepared"|"running"|"failed"|"paused"){
+        return Err(invalid("TASK_NOT_READY"));
+    }
+    let ids=req.entry_ids.as_ref().ok_or_else(||invalid("INVALID_REQUEST"))?;
+    let distinct:HashSet<&String>=ids.iter().collect();
+    if distinct.len()!=ids.len(){return Err(invalid("INVALID_REQUEST"))}
+    let tx=con.transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+    for entry in ids{
+        let changed=tx.execute(
+            "UPDATE s13_entries SET job_id=?1,status='running'
+             WHERE id=?2 AND task_id=?3 AND decision='import'
+               AND status NOT IN ('imported','skipped') AND (job_id IS NULL OR job_id=?1)",
+            params![job,entry,id]).map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+        if changed!=1{return Err(invalid("ENTRY_CONFLICT"))}
+    }
+    tx.execute("UPDATE s13_tasks SET status='running' WHERE id=?1",[id])
+        .map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+    tx.commit().map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+    Ok(())
+}
+fn reconcile(con:&mut Connection,repo:&Path,id:&str)->Result<(),TreeError>{
+    let mut st=con.prepare("SELECT id,job_id,source_path,sha256,alias
+        FROM s13_entries WHERE task_id=?1 AND job_id IS NOT NULL AND decision='import'")
+        .map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+    let entries=st.query_map([id],|r|Ok((r.get::<_,String>(0)?,
+        r.get::<_,String>(1)?,r.get::<_,String>(2)?,
+        r.get::<_,String>(3)?,r.get::<_,String>(4)?)))
+        .map_err(|_|invalid("QUEUE_UNAVAILABLE"))?.collect::<Result<Vec<_>,_>>()
+        .map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+    drop(st);
+    let mut findings=Vec::<(String,String)>::new();
+    with_database_at(repo,|db|{
+        for (entry,job,path,hash,alias) in &entries{
+            // Never trust a renderer claim of completion: verify both S3's recorded
+            // SHA and its committed immutable version from the actual DB.
+            let result=db.query_row("SELECT f.status,f.sha256,v.blob_sha256
+                FROM import_files f
+                LEFT JOIN asset_versions v ON v.id=f.version_id
+                WHERE f.job_id=?1 AND f.source_path=?2 AND f.name=?3 LIMIT 1",
+                params![job,path,alias],|r|Ok((
+                    r.get::<_,String>(0)?,r.get::<_,Option<String>>(1)?,
+                    r.get::<_,Option<String>>(2)?))
+                )).optional().map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+            let state=match result{
+                Some((status,Some(digest),Some(version))) if status=="committed"
+                    && digest==*hash&&version==*hash =>"imported",
+                Some((status,_,_)) if matches!(status.as_str(),"failed"|"cancelled"|"interrupted")=>"failed",
+                Some(_)=>"running",
+                None=>"failed"
+            };
+            findings.push((entry.clone(),state.into()));
+        }
+        Ok(())
+    })?;
+    let tx=con.transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+    for (entry,state) in findings{
+        tx.execute("UPDATE s13_entries SET status=?1 WHERE task_id=?2 AND id=?3
+            AND status!='imported'",params![state,id,entry])
+            .map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+    }
+    let (left,failed):(i64,i64)=tx.query_row("SELECT
+        COALESCE(sum(decision='import' AND status!='imported'),0),
+        COALESCE(sum(decision='import' AND status='failed'),0)
+        FROM s13_entries WHERE task_id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?)))
+        .map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+    let next=if left==0{"completed"}else if failed>0{"failed"}else{"running"};
+    tx.execute("UPDATE s13_tasks SET status=?1 WHERE id=?2",
+        params![next,id]).map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+    tx.commit().map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
     Ok(())
 }
 
