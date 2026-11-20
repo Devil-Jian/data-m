@@ -53,10 +53,10 @@ function fixture(){
       return {assayId:req.assayId,groups:groups.map(g=>({
         ...g,replicates:[...g.replicates]})),replicateCount:groups.reduce((n,g)=>n+g.replicates.length,0),
         stages:[
-          {id:'raw',label:'Raw',scope:'replicate'},
-          {id:'processed',label:'Processed',scope:'replicate'},
-          {id:'statistics',label:'Statistics',scope:'assay'},
-          {id:'display',label:'Display',scope:'assay'}
+          {id:'raw' as const,label:'Raw',scope:'replicate' as const},
+          {id:'processed' as const,label:'Processed',scope:'replicate' as const},
+          {id:'statistics' as const,label:'Statistics',scope:'assay' as const},
+          {id:'display' as const,label:'Display',scope:'assay' as const}
         ]};
     }),
     importer:vi.fn(async req=>{
@@ -101,11 +101,14 @@ describe('S13 resumable multi-target coordinator',()=>{
     entry.jobId='old-job';entry.status='running';task.status='paused';
     const realImport=fake.importer;
     fake.importer=vi.fn(async req=>{
-      if(req.action==='get')return {jobs:[{id:'old-job',status:'completed',
-        target:{assayId:'created-assay',stage:'raw',groupId:'group-1',replicateId:'rep-1'},
-        files:[{id:'file-1',name:entry.alias,sizeBytes:5,status:'committed',
-          sha256:entry.sha256,assetVersionId:'v1',errorCode:null}],
-        totalBytes:5,copiedBytes:5,completedCount:1,errorCode:null}]};
+      if(req.action==='get'){
+        const finished:ImportJob={id:'old-job',status:'completed',
+          target:{assayId:'created-assay',stage:'raw',groupId:'group-1',replicateId:'rep-1'},
+          files:[{id:'file-1',name:entry.alias,sizeBytes:5,status:'committed',
+            sha256:entry.sha256,assetVersionId:'v1',errorCode:null}],
+          totalBytes:5,copiedBytes:5,completedCount:1,errorCode:null};
+        return {jobs:[finished]};
+      }
       return realImport(req);
     });
     // Pre-existing project/experiment IDs must match the bound native S3 job.
