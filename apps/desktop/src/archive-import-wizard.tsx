@@ -223,11 +223,11 @@ export function ArchiveImportWizard({registerImportDrop,projects,onClose,onImpor
             </UI.Button>
           </div>
           <label>目录层级规则
-            <UI.Select ariaLabel="导入目录层级规则" value={layout} disabled={busy||running}
+            <UI.Select ariaLabel="导入目录层级规则" value={layout}
               options={layouts} onChange={v=>setLayout(v as ArchiveLayout)}/>
           </label>
           <label>项目目标
-            <UI.Select ariaLabel="归档项目目标" value={projectId||'__new__'} disabled={busy||running}
+            <UI.Select ariaLabel="归档项目目标" value={projectId||'__new__'}
               options={[{value:'__new__',label:'按根目录创建新 Project'},
                 ...projects.map(p=>({value:p.id,label:'合并：'+p.name}))]}
               onChange={v=>setProjectId(v==='__new__'?'':v)}/>
