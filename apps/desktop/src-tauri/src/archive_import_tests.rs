@@ -176,3 +176,26 @@ fn s13_folder_symlinks_cannot_escort_scanner_outside_source(){
       "rootPath":root.to_str().unwrap(),"layout":"project_theme_assay_group"
     }))).is_err());
 }
+
+#[test]
+fn s13_scans_more_than_s3_single_job_limit_without_losing_identity(){
+    let (_temp,repo,root)=fixtures();
+    for i in 0..1_005 {
+        put(&root,&format!("ROS{i:04}_raw.bin"),&[i as u8,(i>>8) as u8]);
+    }
+    let first=scan_task(&repo,&root);
+    assert_eq!(first.total,1_005);
+    assert_eq!(first.entries.len(),500);
+    assert_eq!(first.next_offset,Some(500));
+    let second=execute(&repo,request(json!({"action":"get","taskId":first.id,
+        "offset":500}))).unwrap().current.unwrap();
+    assert_eq!(second.entries.len(),500);
+    assert_eq!(second.next_offset,Some(1_000));
+    let third=execute(&repo,request(json!({"action":"get","taskId":first.id,
+        "offset":1_000}))).unwrap().current.unwrap();
+    assert_eq!(third.entries.len(),5);
+    assert_eq!(third.next_offset,None);
+    let all:HashSet<_>=first.entries.iter().chain(second.entries.iter())
+        .chain(third.entries.iter()).map(|e|e.id.as_str()).collect();
+    assert_eq!(all.len(),1_005);
+}
