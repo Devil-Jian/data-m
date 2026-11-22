@@ -10,7 +10,8 @@ type Panel={id:string;label:string;assets:Asset[];representatives:Rep[]};
 type Figure={id:string;label:string;panels:Panel[]};
 type Paper={id:string;title:string;status:string;notes:string;figures:Figure[]};
 type Candidate={assetVersionId:string;assetId:string;versionNumber:number;name:string;sha256:string;stage:string;assayId:string;groupId:string|null;replicateId:string|null};
-type Snapshot={papers:Paper[];candidates:Candidate[];candidateTotalCount?:number;candidateTruncated?:boolean};
+type ProjectDocument={id:string;name:string;kind:'paper'|'figure';assetVersionId:string;sha256:string};
+type Snapshot={papers:Paper[];documents?:ProjectDocument[];candidates:Candidate[];candidateTotalCount?:number;candidateTruncated?:boolean};
 type ProjectNode={id:string;kind:string;name:string};
 type ExportPreview={figureId:string;panelCount:number;referenceCount:number;uniqueFileCount:number;uniqueBytes:number};
 type ExportResult={status:string;preview:ExportPreview|null;folderPath:string|null;manifest:{status:string;referenceCount:number;physicalFileCount:number}|null};
@@ -160,6 +161,15 @@ export function PaperWorkspace({onClose}:{onClose?:()=>void}={}) {
    {ready&&!projects.length&&<p>没有可用的真实项目。请先在项目管理工作区创建科研项目；演示论文不会写入数据库。</p>}
    {!!projects.length&&<div className="s9-columns">
     <section className="s9-structure"><h3>论文结构</h3>
+     <section aria-label="项目级论文与组图原件">
+       <h4>已导入项目原件（尚未绑定 Panel）</h4>
+       {(snapshot.documents??[]).map(doc=><div key={doc.id} className="s9-node">
+         <strong>{doc.kind==='paper'?'论文原件':'Figure 组图'}：{doc.name}</strong>
+         <small>AssetVersion {doc.assetVersionId.slice(0,12)} · SHA-256 {doc.sha256.slice(0,12)}…</small>
+       </div>)}
+       {!(snapshot.documents?.length)&&<p>暂无项目级论文/组图文件。</p>}
+       <small>原件已按项目保存，不自动创建 Paper、Figure、Panel 或 ShowData 关系。</small>
+     </section>
      <div className="s9-new"><input aria-label="新增或修改名称" value={name} onChange={e=>setName(e.target.value)} placeholder="论文 / Figure / Panel 名称"/>
        <button disabled={busy} onClick={()=>create('paper')}>新建论文</button></div>
      {snapshot.papers.map(p=><div key={p.id} className="s9-tree-paper">
