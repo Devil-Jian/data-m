@@ -1,7 +1,7 @@
 import {invoke,isTauri} from '@tauri-apps/api/core';
 import type {ImportStage} from './import-jobs';
 
-export type ArchiveLayout='project_theme_assay_group'|'theme_assay_group'|'assay_group';
+export type ArchiveLayout='project_theme_assay_group'|'theme_assay_group'|'assay_group'|'project_exp_data_experiment_assay_group';
 export type ArchiveDecision='import'|'skip'|'review';
 export type ArchiveStatus='scanned'|'review'|'prepared'|'running'|'paused'|'failed'|'completed'|'cancelled';
 export type ArchiveAction=
@@ -43,7 +43,7 @@ const nonblank=(v:unknown):v is string=>typeof v==='string'&&v.length>0&&v.lengt
 const count=(v:unknown):v is number=>Number.isSafeInteger(v)&&typeof v==='number'&&v>=0;
 const options:{stage:readonly string[];layout:readonly string[];decision:readonly string[];status:readonly string[]}={
   stage:['raw','processed','statistics','display','review'],
-  layout:['project_theme_assay_group','theme_assay_group','assay_group'],
+  layout:['project_theme_assay_group','theme_assay_group','assay_group','project_exp_data_experiment_assay_group'],
   decision:['import','skip','review'],
   status:['scanned','review','prepared','running','paused','failed','completed','cancelled']
 };
