@@ -199,3 +199,75 @@ fn s13_scans_more_than_s3_single_job_limit_without_losing_identity(){
         .chain(third.entries.iter()).map(|e|e.id.as_str()).collect();
     assert_eq!(all.len(),1_005);
 }
+
+#[test]
+fn s14_double_experiment_346_files_have_correct_science_mapping_and_block_paper_figure(){
+    let (_temp,repo,root)=fixtures();
+    let assays=[("01_ROS检测","ROS"),("02_WesternBlot","WB"),("03_细胞活力","CV")];
+    let groups=[("Control","C"),("Model","M"),("Treatment","T")];
+    for (n,exp) in ["实验1","实验2"].iter().enumerate(){
+        let prefix=format!("E{}",n+1);
+        for (assay,short) in assays {
+            for (group,tag) in groups {
+                let folder=root.join("exp_data").join(exp).join(assay).join(group);
+                for stage in ["raw_data","process_data","statistics_data","show_data"] {
+                    fs::create_dir_all(folder.join(stage)).unwrap();
+                }
+                for i in 1..=6 {
+                    let sample=format!("{prefix}_{short}_{tag}{i:02}");
+                    for (stage,suffix,ext) in [
+                        ("raw_data","raw","tif"),
+                        ("process_data","process","tif"),
+                        ("statistics_data","quant","png")]
+                    {
+                        fs::write(folder.join(stage).join(format!("{sample}_{suffix}.{ext}")),
+                            format!("{sample}:{suffix}").as_bytes()).unwrap();
+                    }
+                }
+                fs::write(folder.join("show_data").join(format!(
+                    "{prefix}_{short}_{group}_show.png")),b"show").unwrap();
+            }
+        }
+    }
+    fs::create_dir_all(root.join("figure")).unwrap();
+    fs::create_dir_all(root.join("paper")).unwrap();
+    for f in ["Figure1.png","Figure2.png"] {fs::write(root.join("figure").join(f),b"figure").unwrap();}
+    for f in ["DataM_模拟论文.docx","DataM_模拟论文.pdf"] {
+        fs::write(root.join("paper").join(f),b"paper").unwrap();
+    }
+    let scanned=execute(&repo,request(json!({
+        "action":"scan","rootPath":root.to_str().unwrap(),
+        "layout":"project_exp_data_experiment_assay_group"
+    }))).unwrap().current.unwrap();
+    assert_eq!(scanned.total,346);
+    assert_eq!(scanned.review,4,"project-level documents must not be reclassified as assays");
+    let mut all=scanned.entries;
+    let mut offset=500;
+    while offset<346 {let p=execute(&repo,request(json!({
+        "action":"get","taskId":scanned.id,"offset":offset
+    }))).unwrap().current.unwrap();all.extend(p.entries);offset+=500;}
+    assert_eq!(all.iter().filter(|e|e.stage=="raw").count(),108);
+    assert_eq!(all.iter().filter(|e|e.stage=="processed").count(),108);
+    assert_eq!(all.iter().filter(|e|e.stage=="statistics").count(),108);
+    assert_eq!(all.iter().filter(|e|e.stage=="display").count(),18);
+    assert_eq!(all.iter().filter(|e|e.decision=="review").count(),4);
+    for e in all.iter().filter(|e|e.decision=="import") {
+        assert!(["实验1","实验2"].contains(&e.theme_name.as_str()));
+        assert!(assays.iter().any(|(a,_)|*a==e.assay_name));
+        assert!(groups.iter().any(|(g,_)|*g==e.group_name));
+        assert_eq!(e.project_name,"科研项目A");
+    }
+    assert!(all.iter().filter(|e|e.stage=="statistics").all(|e|e.alias.ends_with("_quant.png")));
+    assert!(all.iter().filter(|e|e.relative_path.starts_with("figure/")||e.relative_path.starts_with("paper/"))
+        .all(|e|e.decision=="review"));
+    let check=execute(&repo,request(json!({
+        "action":"prepare","taskId":scanned.id
+    }))).unwrap().current.unwrap();
+    assert_eq!(check.status,"review");
+    assert_eq!(check.review,4);
+    with_database_at(&repo,|db|{
+        let count:i64=db.query_row("SELECT count(*) FROM projects",[],|r|r.get(0))?;
+        assert_eq!(count,0);
+        Ok(())
+    }).unwrap();
+}
