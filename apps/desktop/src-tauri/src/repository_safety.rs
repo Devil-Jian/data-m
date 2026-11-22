@@ -42,6 +42,7 @@ const TABLES: &[&str] = &[
     "import_files",
 ];
 const S8_TABLES: &[&str] = &["analysis_asset_versions"];
+const S14_TABLES: &[&str] = &["project_document_links"];
 const MAX_ISSUES: usize = 100;
 const CHUNK: usize = 1024 * 1024;
 
@@ -344,6 +345,10 @@ fn counts(c: &Connection) -> Result<BTreeMap<String, i64>, TreeError> {
         .map_err(map_read)?;
     for table in TABLES.iter().copied().chain(if version >= 3 {
         S8_TABLES.iter().copied()
+    } else {
+        [].iter().copied()
+    }).chain(if version >= 4 {
+        S14_TABLES.iter().copied()
     } else {
         [].iter().copied()
     }) {
