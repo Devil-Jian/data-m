@@ -953,3 +953,70 @@ fn s11_inflight_import_blocks_backup_then_restores_frozen_and_pinned_records() {
         );
     }
 }
+
+#[test]
+fn s14_paper_figure_files_use_native_cas_and_survive_s7_backup_without_panel_links() {
+    let (temp, database, source) = fixture();
+    let originals=[
+        ("DataM_模拟论文.docx","paper"),
+        ("DataM_模拟论文.pdf","paper"),
+        ("Figure1.png","figure"),
+        ("Figure2.png","figure")
+    ];
+    let repo=Repository::acquire(&database).unwrap();
+    for (i,(filename,stage)) in originals.iter().enumerate(){
+        let file=source.join(filename);
+        std::fs::write(&file,format!("s14 test bytes {filename}")).unwrap();
+        let original_hash=hash(&file);
+        let original_mtime=std::fs::metadata(&file).unwrap().modified().unwrap();
+        let prepared=prepare(&repo,&[file.clone()],
+            json!({"assayId":"","projectId":"p","stage":stage}),
+            &format!("s14-{i}"));
+        assert_eq!(prepared.status,"prepared");
+        action(&repo,"start",&prepared.id);
+        let finished=wait(&repo,&prepared.id);
+        assert_eq!(finished.status,"completed");
+        assert_eq!(finished.files[0].sha256.as_deref(),Some(original_hash.as_str()));
+        assert_eq!(hash(&file),original_hash);
+        assert_eq!(std::fs::metadata(&file).unwrap().modified().unwrap(),original_mtime);
+        assert_eq!(hash(&repo.objects.join(&original_hash)),original_hash);
+    }
+    with_database_at(&database,|c|{
+        for (table,expected) in [("project_document_links",4),("asset_versions",4),
+            ("asset_links",0),("papers",0),("figures",0),
+            ("panels",0),("panel_asset_versions",0)]{
+            let found:i64=c.query_row(&format!("SELECT count(*) FROM {table}"),[],|r|r.get(0))?;
+            assert_eq!(found,expected,"{table}");
+        }
+        let version:i64=c.pragma_query_value(None,"user_version",|r|r.get(0))?;
+        assert_eq!(version,4);
+        Ok(())
+    }).unwrap();
+    let backups=temp.path().join("s14-backups");
+    let restores=temp.path().join("s14-restores");
+    std::fs::create_dir_all(&backups).unwrap();
+    std::fs::create_dir_all(&restores).unwrap();
+    let backup_request=serde_json::from_value(json!({"action":"backup"})).unwrap();
+    let snapshot=crate::repository_safety::execute_at(
+        &database,&backups,&restores,backup_request,&|_|{}
+    ).unwrap();
+    let snap_json=serde_json::to_value(snapshot).unwrap();
+    assert_eq!(snap_json["status"],"verified");
+    let snapshot_id=snap_json["snapshotId"].as_str().unwrap();
+    let restore_request=serde_json::from_value(json!({
+        "action":"restore","snapshotId":snapshot_id,
+        "restoreLabel":"s14-isolated","confirm":true
+    })).unwrap();
+    let restored=crate::repository_safety::execute_at(
+        &database,&backups,&restores,restore_request,&|_|{}
+    ).unwrap();
+    assert_eq!(serde_json::to_value(restored).unwrap()["status"],"restored");
+    let restored_db=restores.join("s14-isolated").join("project-tree.sqlite");
+    with_database_at(&restored_db,|c|{
+        let count:i64=c.query_row("SELECT count(*) FROM project_document_links",[],|r|r.get(0))?;
+        assert_eq!(count,4);
+        let linked:i64=c.query_row("SELECT count(*) FROM panel_asset_versions",[],|r|r.get(0))?;
+        assert_eq!(linked,0);
+        Ok(())
+    }).unwrap();
+}
