@@ -201,7 +201,7 @@ fn s13_scans_more_than_s3_single_job_limit_without_losing_identity(){
 }
 
 #[test]
-fn s14_double_experiment_346_files_have_correct_science_mapping_and_block_paper_figure(){
+fn s14_double_experiment_346_files_have_correct_science_mapping_and_project_documents(){
     let (_temp,repo,root)=fixtures();
     let assays=[("01_ROS检测","ROS"),("02_WesternBlot","WB"),("03_细胞活力","CV")];
     let groups=[("Control","C"),("Model","M"),("Treatment","T")];
@@ -240,7 +240,7 @@ fn s14_double_experiment_346_files_have_correct_science_mapping_and_block_paper_
         "layout":"project_exp_data_experiment_assay_group"
     }))).unwrap().current.unwrap();
     assert_eq!(scanned.total,346);
-    assert_eq!(scanned.review,4,"project-level documents must not be reclassified as assays");
+    assert_eq!(scanned.review,0,"S14 project documents must be independently importable");
     let mut all=scanned.entries;
     let mut offset=500;
     while offset<346 {let p=execute(&repo,request(json!({
@@ -250,8 +250,15 @@ fn s14_double_experiment_346_files_have_correct_science_mapping_and_block_paper_
     assert_eq!(all.iter().filter(|e|e.stage=="processed").count(),108);
     assert_eq!(all.iter().filter(|e|e.stage=="statistics").count(),108);
     assert_eq!(all.iter().filter(|e|e.stage=="display").count(),18);
-    assert_eq!(all.iter().filter(|e|e.decision=="review").count(),4);
+    assert_eq!(all.iter().filter(|e|e.stage=="paper").count(),2);
+    assert_eq!(all.iter().filter(|e|e.stage=="figure").count(),2);
+    assert_eq!(all.iter().filter(|e|e.decision=="review").count(),0);
     for e in all.iter().filter(|e|e.decision=="import") {
+        if matches!(e.stage.as_str(),"paper"|"figure") {
+            assert!(e.theme_name.is_empty()&&e.assay_name.is_empty());
+            assert_eq!(e.project_name,"科研项目A");
+            continue;
+        }
         assert!(["实验1","实验2"].contains(&e.theme_name.as_str()));
         assert!(assays.iter().any(|(a,_)|*a==e.assay_name));
         assert!(groups.iter().any(|(g,_)|*g==e.group_name));
@@ -259,12 +266,12 @@ fn s14_double_experiment_346_files_have_correct_science_mapping_and_block_paper_
     }
     assert!(all.iter().filter(|e|e.stage=="statistics").all(|e|e.alias.ends_with("_quant.png")));
     assert!(all.iter().filter(|e|e.relative_path.starts_with("figure/")||e.relative_path.starts_with("paper/"))
-        .all(|e|e.decision=="review"));
+        .all(|e|e.decision=="import" && matches!(e.stage.as_str(),"paper"|"figure")));
     let check=execute(&repo,request(json!({
         "action":"prepare","taskId":scanned.id
     }))).unwrap().current.unwrap();
-    assert_eq!(check.status,"review");
-    assert_eq!(check.review,4);
+    assert_eq!(check.status,"prepared");
+    assert_eq!(check.review,0);
     with_database_at(&repo,|db|{
         let count:i64=db.query_row("SELECT count(*) FROM projects",[],|r|r.get(0))?;
         assert_eq!(count,0);
