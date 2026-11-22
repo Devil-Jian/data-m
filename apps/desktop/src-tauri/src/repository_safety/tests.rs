@@ -881,7 +881,7 @@ fn s10_g0_01_v1_and_v2_upgrade_to_v3_preserve_pinned_references_and_reject_futur
         }
         with_database_at(&path, |c| {
             let version: i64 = c.pragma_query_value(None, "user_version", |r| r.get(0))?;
-            assert_eq!(version, 3);
+            assert_eq!(version, 4);
             let pins: (String, String) = c.query_row(
                 "SELECT v.id,v.blob_sha256 FROM panel_asset_versions pav
                  JOIN asset_versions v ON v.id=pav.asset_version_id
@@ -898,14 +898,14 @@ fn s10_g0_01_v1_and_v2_upgrade_to_v3_preserve_pinned_references_and_reject_futur
         with_database_at(&path, |c| {
             let count: i64 =
                 c.query_row("SELECT count(*) FROM schema_migrations", [], |r| r.get(0))?;
-            assert_eq!(count, 3);
+            assert_eq!(count, 4);
             Ok(())
         })
         .unwrap();
         // A future version is NOT auto-downgraded or initialized.
         {
             let c = Connection::open(&path).unwrap();
-            c.pragma_update(None, "user_version", 4).unwrap();
+            c.pragma_update(None, "user_version", 5).unwrap();
         }
         let before = fs::read(&path).unwrap();
         let rejected = with_database_at(&path, |_c| Ok(()));
