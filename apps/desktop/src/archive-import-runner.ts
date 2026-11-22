@@ -42,7 +42,7 @@ async function allEntries(taskId:string,api:ArchiveApi):Promise<ArchiveEntry[]>{
 }
 function sameName(a:string,b:string){return a.toLocaleLowerCase()===b.toLocaleLowerCase();}
 function contextKey(t:ImportTarget){return [
-  t.assayId,t.stage,t.groupId??'',t.replicateId??''
+  t.projectId??'',t.assayId,t.stage,t.groupId??'',t.replicateId??''
 ].join('\u0001')}
 type Assignment={entry:ArchiveEntry;target:ImportTarget};
 
@@ -109,6 +109,11 @@ class StructureResolver{
     const projectId=this.task.targetProjectId??await this.ensure('project',null,entry.projectName);
     if(this.task.targetProjectId&&!this.nodes.some(n=>n.kind==='project'&&n.id===projectId))
       throw new ArchiveRunnerError('现有项目已删除，请重新检查导入映射');
+    if(entry.stage==='paper'||entry.stage==='figure'){
+      // The target is the Project itself. Do not invent a Theme/Assay, Paper,
+      // Figure/Panel or any automatic show_data binding.
+      return {projectId,assayId:'',stage:entry.stage};
+    }
     const themeId=await this.ensure('theme',projectId,entry.themeName);
     const assayId=await this.ensure('assay',themeId,entry.assayName);
     if(entry.stage==='raw'||entry.stage==='processed'){
