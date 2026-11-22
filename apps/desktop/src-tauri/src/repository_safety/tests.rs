@@ -115,7 +115,7 @@ fn s7_audit_clean_snapshot_manifest_and_listing_preserve_file_bytes() {
     let manifest: Manifest =
         serde_json::from_slice(&fs::read(snap(&f, &id).join("manifest.json")).unwrap()).unwrap();
     assert_eq!(manifest.format_version, 1);
-    assert_eq!(manifest.schema_version, 3);
+    assert_eq!(manifest.schema_version, 4);
     assert_eq!(manifest.table_counts["analysis_asset_versions"], 0);
     assert_eq!(manifest.blobs.len(), 1);
     assert_eq!(manifest.versions[0].id, "version");
@@ -766,7 +766,7 @@ fn s10_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
     )
     .unwrap();
     assert_eq!(manifest.manifest_version, 1);
-    assert_eq!(manifest.schema_version, 3);
+    assert_eq!(manifest.schema_version, 4);
     assert_eq!(manifest.panels.len(), 3);
     assert_eq!(manifest.reference_count, 5);
     assert_eq!(manifest.physical_file_count, 2);
