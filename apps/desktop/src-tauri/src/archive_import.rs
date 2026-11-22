@@ -71,7 +71,7 @@ fn name(value:&str)->bool {
        && !value.chars().any(|c|c.is_control()||c=='/'||c=='\\')
 }
 fn layout_ok(value:&str)->bool{
-    matches!(value,"project_theme_assay_group"|"theme_assay_group"|"assay_group")
+    matches!(value,"project_theme_assay_group"|"theme_assay_group"|"assay_group"|"project_exp_data_experiment_assay_group")
 }
 fn stage_ok(value:&str)->bool{
     matches!(value,"raw"|"processed"|"statistics"|"display")
@@ -144,6 +144,51 @@ fn inferred(
     let file=parts.last().cloned().unwrap_or_default();
     let folders=&parts[..parts.len().saturating_sub(1)];
     let root_name=root.file_name().and_then(|x|x.to_str()).unwrap_or("Imported");
+    // S14: the controlled dual-experiment hierarchy is
+    // Project/exp_data/Experiment/Assay/Group/(raw_data|process_data|statistics_data|show_data).
+    // Experiment is stored as Theme (no invented Experiment database entity).
+    if layout=="project_exp_data_experiment_assay_group" {
+        if folders.first().is_some_and(|x| x.eq_ignore_ascii_case("paper") || x.eq_ignore_ascii_case("figure")) {
+            // Paper/Figure are project-level documents, NOT assay assets.
+            // The S3 API does not accept project-level document targets. Never
+            // invent a synthetic assay, a Panel reference, or silently skip them.
+            return (root_name.into(),String::new(),String::new(),String::new(),
+                String::new(),"review".into(),
+                "project-level paper/figure asset: dedicated document import required".into());
+        }
+        if folders.first().map(String::as_str)!=Some("exp_data") || folders.len()<4 {
+            return (root_name.into(),String::new(),String::new(),String::new(),
+                String::new(),"review".into(),
+                "unexpected S14 directory; expected exp_data/Experiment/Assay/Group/Stage".into());
+        }
+        let theme=folders[1].clone();
+        let assay=folders[2].clone();
+        let group=folders[3].clone();
+        let stage_folder=folders.get(4).map(|s| s.as_str()).unwrap_or("");
+        let (sample,parsed_stage,_,_) = parse_name(&file);
+        let stage=match stage_folder {
+            "raw_data"=>"raw",
+            "process_data"=>"processed",
+            "statistics_data"=>"statistics",
+            "show_data"=>"display",
+            _=>"review"
+        };
+        let mut issue=String::new();
+        if !name(&theme)||!name(&assay)||!name(&group) {
+            issue="invalid experiment/assay/group directory mapping".into();
+        } else if folders.len()!=5||stage=="review" {
+            issue="unexpected or missing data-stage folder".into();
+        } else if (stage=="raw"||stage=="processed") && !name(&sample) {
+            issue="raw/processed requires a confirmed biological replicate".into();
+        } else if parsed_stage!="review" && parsed_stage!=stage
+              && !(stage=="statistics" && parsed_stage=="processed" &&
+                   file.to_ascii_lowercase().contains("_quant.")) {
+            issue="filename stage disagrees with parent stage folder".into();
+        } else if parsed_stage=="review" {
+            issue="filename does not identify a known stage suffix".into();
+        }
+        return (root_name.into(),theme,assay,group,sample,stage.into(),issue);
+    }
     let (project,theme,assay,group,required_dirs): (String,String,String,String,usize)=match layout{
         "project_theme_assay_group"=>(
             root_name.into(),folders.first().cloned().unwrap_or_default(),
@@ -295,7 +340,7 @@ fn scan(con:&mut Connection,request:&ArchiveRequest,repo_path:&Path)->Result<Str
     if !layout_ok(layout){return Err(invalid("INVALID_LAYOUT"))}
     if let Some(project)=request.target_project_id.as_deref(){
         if !name(project){return Err(invalid("INVALID_REQUEST"))}
-    }else if layout!="project_theme_assay_group"{return Err(invalid("TARGET_PROJECT_REQUIRED"))}
+    }else if layout!="project_theme_assay_group" && layout!="project_exp_data_experiment_assay_group"{return Err(invalid("TARGET_PROJECT_REQUIRED"))}
     let fallback=request.fallback_group.as_deref().unwrap_or("");
     let theme=request.target_theme_name.as_deref().unwrap_or("");
     if !fallback.is_empty()&&!name(fallback){return Err(invalid("INVALID_GROUP"))}
