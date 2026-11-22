@@ -51,7 +51,7 @@ fn load_manifest(root: &Path, id: &str) -> Result<Manifest, TreeError> {
     let m: Manifest = serde_json::from_slice(&data).map_err(|_| failure("SNAPSHOT_CORRUPT"))?;
     if m.format_version != 1
         || m.snapshot_id != id
-        || !matches!(m.schema_version, 2 | 3)
+        || !matches!(m.schema_version, 2 | 3 | 4)
         || !valid_digest(&m.database_sha256)
         || m.database_size_bytes == 0
         || m.blobs.windows(2).any(|w| w[0].sha256 >= w[1].sha256)
@@ -59,11 +59,16 @@ fn load_manifest(root: &Path, id: &str) -> Result<Manifest, TreeError> {
         || m.blobs
             .iter()
             .any(|b| !valid_digest(&b.sha256) || b.size_bytes < 0)
-        || m.table_counts.len() != TABLES.len() + usize::from(m.schema_version >= 3)
+        || m.table_counts.len() != TABLES.len() + usize::from(m.schema_version >= 3) + usize::from(m.schema_version >= 4)
         || TABLES
             .iter()
             .chain(if m.schema_version >= 3 {
                 S8_TABLES.iter()
+            } else {
+                [].iter()
+            })
+            .chain(if m.schema_version >= 4 {
+                S14_TABLES.iter()
             } else {
                 [].iter()
             })
