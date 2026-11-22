@@ -237,8 +237,10 @@ fn s14_double_experiment_346_files_have_correct_science_mapping_and_project_docu
     }
     let scanned=execute(&repo,request(json!({
         "action":"scan","rootPath":root.to_str().unwrap(),
-        "layout":"project_exp_data_experiment_assay_group"
+        "layout":"project_theme_assay_group"
     }))).unwrap().current.unwrap();
+    assert_eq!(scanned.layout,"project_exp_data_experiment_assay_group",
+        "S14 must auto-detect exp_data when legacy UI layout was selected");
     assert_eq!(scanned.total,346);
     assert_eq!(scanned.review,0,"S14 project documents must be independently importable");
     let mut all=scanned.entries;
