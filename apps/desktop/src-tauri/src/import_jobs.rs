@@ -10,7 +10,7 @@ use std::{
 };
 use tauri::{Emitter, Manager};
 
-mod filesystem;
+pub(crate) mod filesystem;
 mod worker;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -18,6 +18,8 @@ mod worker;
 pub struct ImportTarget {
     assay_id: String,
     stage: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    project_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     group_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -29,6 +31,8 @@ pub struct ImportTarget {
 pub struct ImportRequest {
     action: String,
     paths: Option<Vec<String>>,
+    // Optional S13 user-reviewed destination names. Source names/bytes are unchanged.
+    aliases: Option<Vec<String>>,
     target: Option<ImportTarget>,
     request_id: Option<String>,
     job_id: Option<String>,
@@ -238,15 +242,24 @@ fn validate(request: &ImportRequest) -> Result<(), TreeError> {
             for path in paths {
                 required(Some(path), 32767)?;
             }
+            if let Some(aliases)=request.aliases.as_ref(){
+                if aliases.len()!=paths.len(){return Err(TreeError::input());}
+                for alias in aliases {
+                    required_name(Some(alias)).map_err(|_|failure("INVALID_REQUEST"))?;
+                    if alias.contains('/')||alias.contains('\\')||alias.contains(':')
+                        || alias=="." || alias==".." {return Err(failure("INVALID_REQUEST"))}
+                }
+            }
         }
         "start" | "get" | "cancel" | "retry" => {
             required(request.job_id.as_deref(), 128)?;
-            if request.paths.is_some() || request.target.is_some() || request.request_id.is_some() {
+            if request.paths.is_some() || request.aliases.is_some() || request.target.is_some() || request.request_id.is_some() {
                 return Err(TreeError::input());
             }
         }
         "list" => {
             if request.paths.is_some()
+                || request.aliases.is_some()
                 || request.target.is_some()
                 || request.request_id.is_some()
                 || request.job_id.is_some()
@@ -310,6 +323,18 @@ fn execute(
 }
 
 fn target(connection: &Connection, input: &ImportTarget) -> Result<ImportTarget, TreeError> {
+    if matches!(input.stage.as_str(), "paper" | "figure") {
+        if !input.assay_id.is_empty() || input.group_id.is_some() || input.replicate_id.is_some() {
+            return Err(failure("INVALID_TARGET"));
+        }
+        let project = required(input.project_id.as_deref(), 128)
+            .map_err(|_|failure("INVALID_TARGET"))?;
+        let active:bool=connection.query_row(
+            "SELECT EXISTS(SELECT 1 FROM projects WHERE id=?1 AND deleted_at IS NULL)",
+            [project],|r|r.get(0))?;
+        return if active {Ok(input.clone())} else {Err(failure("INVALID_TARGET"))};
+    }
+    if input.project_id.is_some() {return Err(failure("INVALID_TARGET"))}
     required(Some(&input.assay_id), 128).map_err(|_| failure("INVALID_TARGET"))?;
     let active:bool=connection.query_row("SELECT EXISTS(SELECT 1 FROM assays a JOIN themes t ON t.id=a.theme_id JOIN projects p ON p.id=t.project_id WHERE a.id=?1 AND a.deleted_at IS NULL AND t.deleted_at IS NULL AND p.deleted_at IS NULL)",[&input.assay_id],|r|r.get(0))?;
     if !active {
@@ -365,9 +390,8 @@ fn prepare_job(repo: &Repository, request: &ImportRequest) -> Result<String, Tre
         tx.execute("INSERT INTO import_jobs(id,request_id,payload,target_json,status) VALUES(?1,?2,?3,?4,'prepared')",params![job,token,payload,target_json])?;
         for (ordinal, source) in inspected.iter().enumerate() {
             let path = source.path.to_str().ok_or_else(|| failure("UNSAFE_PATH"))?;
-            let name = Path::new(&paths[ordinal])
-                .file_name()
-                .and_then(|n| n.to_str())
+            let name = request.aliases.as_ref().map(|a|a[ordinal].as_str())
+                .or_else(||Path::new(&paths[ordinal]).file_name().and_then(|n|n.to_str()))
                 .ok_or_else(|| failure("UNSAFE_PATH"))?;
             tx.execute("INSERT INTO import_files(id,job_id,ordinal,source_path,source_identity,source_mtime,size_bytes,name,staging_name,phase,status,asset_id,version_id,link_id) VALUES(lower(hex(randomblob(16))),?1,?2,?3,?4,?5,?6,?7,lower(hex(randomblob(16))),'queued','queued',lower(hex(randomblob(16))),lower(hex(randomblob(16))),lower(hex(randomblob(16))))",params![job,ordinal as i64,path,source.info.id,source.info.mtime,source.info.size,name])?;
         }

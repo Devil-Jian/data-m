@@ -13,6 +13,11 @@ async function openExperiment(page:Page,{initialFailure=false,missingBackend=fal
     (window as any).__S1_PROJECT_TREE_MOCK__=async ()=>structuredClone(projects);
     const state={groups:[] as any[],requests:[] as any[],next:1,failList:initialFailure,failMutation:false,delay:0};
     (window as any).__S2_TEST__=state;
+    // S2 renderer tests use an explicit empty asset fixture; no native storage is simulated.
+    (window as any).__S4_ASSETS_MOCK__={
+      async list(){return {items:[],total:0,nextCursor:null};},
+      async detail(){throw new Error('No assets in S2 fixture');}
+    };
     if(missingBackend)return;
     const applied=new Map<string,string>();
     const stages=[{id:'raw',label:'Raw',scope:'replicate'},{id:'processed',label:'Processed',scope:'replicate'},
@@ -59,7 +64,7 @@ async function openExperiment(page:Page,{initialFailure=false,missingBackend=fal
       return reply(request.assayId);
     };
   },{initialFailure,missingBackend});
-  await page.goto('/');
+  await page.goto('/?legacy=1');
   await page.getByRole('button',{name:'项目管理',exact:true}).click();
   await page.getByRole('button',{name:'实验：S2测试实验',exact:true}).click();
   await page.getByRole('button',{name:'分组与样本',exact:true}).click();
@@ -110,7 +115,7 @@ test('@S2 four empty stages enforce replicate and assay scopes without changing 
   for(const stage of ['Statistics','Display']){
     await page.getByRole('button',{name:new RegExp(`^${stage} `)}).click();
     await expect(page.getByRole('region',{name:'阶段内容'})).toContainText('实验级');
-    await expect(page.getByRole('region',{name:'阶段内容'})).toContainText('暂无文件');
+    await expect(page.getByRole('region',{name:'阶段内容'})).toContainText('该范围尚无已入库文件');
   }
   await create(page,'分组','分组A');
   await page.getByRole('button',{name:'分组：分组A',exact:true}).click();
@@ -119,7 +124,7 @@ test('@S2 four empty stages enforce replicate and assay scopes without changing 
   for(const stage of ['Raw','Processed']){
     await page.getByRole('button',{name:new RegExp(`^${stage} `)}).click();
     await expect(page.getByRole('region',{name:'阶段内容'})).toContainText('生物学重复1');
-    await expect(page.getByRole('region',{name:'阶段内容'})).toContainText('暂无文件');
+    await expect(page.getByRole('region',{name:'阶段内容'})).toContainText('该范围尚无已入库文件');
   }
   for(const stage of ['Statistics','Display']){
     await page.getByRole('button',{name:new RegExp(`^${stage} `)}).click();

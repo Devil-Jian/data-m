@@ -39,7 +39,7 @@ async function mockServer(page:Page,initialFailure=false){
       return {nodes:structuredClone(state.nodes)};
     };
   },{initialFailure});
-  await page.goto('/');
+  await page.goto('/?legacy=1');
   await page.getByRole('button',{name:'项目管理',exact:true}).click();
   await expect(page.getByText('浏览器 Mock（不写入原生数据库）',{exact:true})).toBeVisible();
 }
@@ -167,7 +167,7 @@ test('@S1 pending mutation disables all editing controls',async ({page})=>{
 });
 
 test('@S1 browser without injected backend clearly reports unavailable',async ({page})=>{
-  await page.goto('/');
+  await page.goto('/?legacy=1');
   await page.getByRole('button',{name:'项目管理',exact:true}).click();
   await expect(page.getByRole('alert')).toContainText('浏览器未连接原生项目存储');
   await expect(page.getByRole('button',{name:'新建项目',exact:true})).toBeDisabled();

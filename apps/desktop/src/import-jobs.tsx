@@ -8,7 +8,7 @@ import './import-jobs.css';
 const {Button,Badge}=shadcnUI;
 const statuses={prepared:'待确认',running:'导入中',completed:'已完成',failed:'失败',cancelled:'已取消',interrupted:'已中断',integrity_failed:'完整性检查失败'};
 const fileStatuses={queued:'排队中',copying:'复制中',staged:'已暂存',blob_published:'已发布，待登记',committed:'已登记',failed:'失败',cancelled:'已取消',interrupted:'已中断'};
-const stages={raw:'Raw 原始数据',processed:'Processed 处理数据',statistics:'Statistics 统计结果',display:'Display 展示成果'};
+const stages={raw:'Raw 原始数据',processed:'Processed 处理数据',statistics:'Statistics 统计结果',display:'Display 展示成果',paper:'Paper 项目文件',figure:'Figure 项目组图'};
 function active(job:ImportJob){return job.status==='prepared'||job.status==='running';}
 interface Props {
   assayId:string;target:ImportTarget|null;targetLabel:string;onClose:()=>void;
@@ -68,6 +68,10 @@ export function ImportJobsPanel({assayId,target,targetLabel,onClose,onLockChange
       if(!loaded){setError('任务记录尚未加载，请先重新加载任务再准备导入。');return;}
       if(!target){setError('请先选择样本，或选择实验级 Statistics / Display 阶段。');return;}
       if(!paths.length){setError('未收到可准备的测试文件。');return;}
+      if(paths.some(path=>/\.zip$/i.test(path))){
+        setError('ZIP 文件不支持直接解包或自动识别论文结构。请先安全解压并拖入已解压的文件/文件夹。');
+        return;
+      }
       void command({action:'prepare',paths,target,requestId:crypto.randomUUID()},'prepare');
     });
     return ()=>registerImportDrop(null);

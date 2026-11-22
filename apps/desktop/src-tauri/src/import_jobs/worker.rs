@@ -447,7 +447,15 @@ fn commit(
         let input: ImportTarget =
             serde_json::from_str(&target_json).map_err(|_| failure("DATABASE_UNAVAILABLE"))?;
         let target = target(&tx, &input)?;
-        let conflict:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM asset_links WHERE assay_id=?1 AND COALESCE(group_id,'')=COALESCE(?2,'') AND COALESCE(replicate_id,'')=COALESCE(?3,'') AND stage=?4 AND display_name=?5 COLLATE NOCASE AND deleted_at IS NULL)",params![target.assay_id,target.group_id,target.replicate_id,target.stage,file.name],|r|r.get(0))?;
+        let conflict:bool=if let Some(project)=target.project_id.as_deref(){
+            tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM project_document_links
+                 WHERE project_id=?1 AND kind=?2 AND display_name=?3 COLLATE NOCASE
+                   AND deleted_at IS NULL)",
+                params![project,target.stage,file.name],|r|r.get(0))?
+        }else{
+            tx.query_row("SELECT EXISTS(SELECT 1 FROM asset_links WHERE assay_id=?1 AND COALESCE(group_id,'')=COALESCE(?2,'') AND COALESCE(replicate_id,'')=COALESCE(?3,'') AND stage=?4 AND display_name=?5 COLLATE NOCASE AND deleted_at IS NULL)",params![target.assay_id,target.group_id,target.replicate_id,target.stage,file.name],|r|r.get(0))?
+        };
         if conflict {
             return Err(failure("NAME_CONFLICT"));
         }
@@ -472,7 +480,16 @@ fn commit(
             params![file.asset, file.name],
         )?;
         tx.execute("INSERT INTO asset_versions(id,asset_id,version_number,blob_sha256,source_name) VALUES(?1,?2,1,?3,?4)",params![file.version,file.asset,hash,file.name])?;
-        tx.execute("INSERT INTO asset_links(id,asset_id,assay_id,group_id,replicate_id,stage,display_name) VALUES(?1,?2,?3,?4,?5,?6,?7)",params![file.link,file.asset,target.assay_id,target.group_id,target.replicate_id,target.stage,file.name])?;
+        if let Some(project)=target.project_id.as_deref(){
+            // S14 project documents share S3's immutable CAS and fixed
+            // AssetVersion registration but are never assay or Panel links.
+            tx.execute(
+                "INSERT INTO project_document_links(id,project_id,asset_id,kind,display_name)
+                 VALUES(?1,?2,?3,?4,?5)",
+                params![file.link,project,file.asset,target.stage,file.name])?;
+        }else{
+            tx.execute("INSERT INTO asset_links(id,asset_id,assay_id,group_id,replicate_id,stage,display_name) VALUES(?1,?2,?3,?4,?5,?6,?7)",params![file.link,file.asset,target.assay_id,target.group_id,target.replicate_id,target.stage,file.name])?;
+        }
         tx.execute("UPDATE import_files SET phase='committed',status='committed',error_code=NULL,copied_bytes=size_bytes WHERE id=?1",[&file.id])?;
         let remaining: i64 = tx.query_row(
             "SELECT count(*) FROM import_files WHERE job_id=?1 AND phase!='committed'",

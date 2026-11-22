@@ -10,7 +10,7 @@ export function SelectField({value,onChange,options,ariaLabel}:SelectProps) {
       <SelectPrimitive.Icon><ChevronDown size={13}/></SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
     <SelectPrimitive.Portal>
-      <SelectPrimitive.Content position="popper" sideOffset={5} className="z-[120] max-h-[300px] min-w-[190px] overflow-hidden rounded-md border border-slate-200 bg-white p-1 shadow-lg">
+      <SelectPrimitive.Content position="popper" sideOffset={5} className="z-[420] max-h-[300px] min-w-[190px] overflow-hidden rounded-md border border-slate-200 bg-white p-1 shadow-lg">
         <SelectPrimitive.Viewport>
           {options.map(o=><SelectPrimitive.Item value={o.value} key={o.value}
             className="relative flex cursor-pointer select-none items-center rounded-sm py-1.5 pl-7 pr-2 text-[11px] text-slate-700 outline-none data-[highlighted]:bg-blue-50">

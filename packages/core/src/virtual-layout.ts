@@ -7,7 +7,7 @@ export const VIRTUAL_ASSET_ROW_HEIGHT=56;
  * No biological replicate is synthesized while building this layout.
  */
 export function virtualAssetRects(
-  assets:readonly DemoAsset[], width:number
+  assets:readonly Pick<DemoAsset,'id'>[], width:number
 ):PositionedItem[]{
   return assets.map((asset,index)=>({
     id:asset.id,

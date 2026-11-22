@@ -7,6 +7,8 @@ use tauri::Manager;
 const APPLICATION_ID: i64 = 0x444d5331;
 pub(super) const MIGRATION: &str = include_str!("../migrations/0001_initial.sql");
 const MIGRATION_2: &str = include_str!("../migrations/0002_import_jobs.sql");
+const MIGRATION_3: &str = include_str!("../migrations/0003_statistics.sql");
+const MIGRATION_4: &str = include_str!("../migrations/0004_project_documents.sql");
 pub(super) const REQUEST_SCHEMA: &str =
     "CREATE TABLE s1_requests(request_id TEXT PRIMARY KEY, payload TEXT NOT NULL) STRICT;";
 static ACCESS: Mutex<()> = Mutex::new(());
@@ -202,14 +204,20 @@ pub(super) fn recognized(connection: &Connection) -> Result<(), TreeError> {
         let application: i64 =
             connection.pragma_query_value(None, "application_id", |r| r.get(0))?;
         let version: i64 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
-        if application != APPLICATION_ID || !matches!(version, 1 | 2) {
+        if application != APPLICATION_ID || !matches!(version, 1 | 2 | 3 | 4) {
             return Ok(false);
         }
         let expected = Connection::open_in_memory()?;
         expected.execute_batch(MIGRATION)?;
         expected.execute_batch(REQUEST_SCHEMA)?;
-        if version == 2 {
+        if version >= 2 {
             expected.execute_batch(MIGRATION_2)?;
+        }
+        if version >= 3 {
+            expected.execute_batch(MIGRATION_3)?;
+        }
+        if version >= 4 {
+            expected.execute_batch(MIGRATION_4)?;
         }
         if schema(connection)? != schema(&expected)? {
             return Ok(false);
@@ -281,6 +289,35 @@ fn open(path: &Path) -> Result<Connection, TreeError> {
             tx.execute_batch(MIGRATION_2)?;
             tx.pragma_update(None, "user_version", 2)?;
         }
+        tx.commit()?;
+    }
+    if connection.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))? == 2 {
+        let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        recognized(&tx)?;
+        let invalid: i64 = tx.query_row(
+            "SELECT count(*) FROM analysis_samples s
+             JOIN statistical_analyses a ON a.id=s.analysis_id
+             JOIN replicates r ON r.id=s.replicate_id
+             JOIN experiment_groups g ON g.id=r.group_id
+             WHERE g.assay_id!=a.assay_id",
+            [],
+            |row| row.get(0),
+        )?;
+        if invalid != 0 {
+            return Err(TreeError::new(
+                "INVALID_ANALYSIS_RELATION",
+                "Existing analysis samples are linked to another assay; migration was refused.",
+            ));
+        }
+        tx.execute_batch(MIGRATION_3)?;
+        tx.pragma_update(None, "user_version", 3)?;
+        tx.commit()?;
+    }
+    if connection.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))? == 3 {
+        let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        recognized(&tx)?;
+        tx.execute_batch(MIGRATION_4)?;
+        tx.pragma_update(None, "user_version", 4)?;
         tx.commit()?;
     }
     Ok(connection)
@@ -409,7 +446,7 @@ fn mutate(connection: &Connection, request: &TreeRequest) -> Result<(), TreeErro
         )?;
     } else {
         let guard=match kind {
-            Kind::Project=>"SELECT EXISTS(SELECT 1 FROM themes WHERE project_id=?1 AND deleted_at IS NULL UNION ALL SELECT 1 FROM papers WHERE project_id=?1 AND deleted_at IS NULL)",
+            Kind::Project=>"SELECT EXISTS(SELECT 1 FROM themes WHERE project_id=?1 AND deleted_at IS NULL UNION ALL SELECT 1 FROM papers WHERE project_id=?1 AND deleted_at IS NULL UNION ALL SELECT 1 FROM project_document_links WHERE project_id=?1 AND deleted_at IS NULL)",
             Kind::Theme=>"SELECT EXISTS(SELECT 1 FROM assays WHERE theme_id=?1 AND deleted_at IS NULL)",
             Kind::Assay=>"SELECT EXISTS(SELECT 1 FROM experiment_groups WHERE assay_id=?1 AND deleted_at IS NULL UNION ALL SELECT 1 FROM asset_links WHERE assay_id=?1 AND deleted_at IS NULL UNION ALL SELECT 1 FROM statistical_analyses WHERE assay_id=?1)",
         };

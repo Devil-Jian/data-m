@@ -340,7 +340,7 @@ fn s1_tampered_owned_schema_and_history_are_rejected_without_writes() {
     let dir = tempfile::tempdir().unwrap();
     for (index, sql) in [
         "PRAGMA application_id=0;",
-        "PRAGMA user_version=3;",
+        "PRAGMA user_version=5;",
         "DELETE FROM schema_migrations;",
         "ALTER TABLE projects ADD COLUMN foreign_data TEXT;",
     ]

@@ -1,0 +1,29 @@
+.dm-production-paper{display:flex;flex-direction:column;height:100%;min-height:0;overflow:auto}
+.dm-production-paper .dm-workspace-head{flex:none}
+.dm-paper-tabs{display:flex;gap:7px;flex-wrap:wrap;padding-top:12px}
+.dm-paper-content{padding:12px 18px;overflow:auto}
+.dm-paper-content .dm-filter-toolbar{gap:12px}
+.dm-paper-figure{margin-top:16px;padding:16px;border:1px solid #dbe5ef;border-radius:10px;background:#fff}
+.dm-paper-figure>header{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.dm-paper-figure>header h2{font-size:16px;margin:0}
+.dm-paper-figure>header small{margin-right:auto;color:#63748a}
+.dm-paper-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.dm-paper-card-list{display:flex;flex-direction:column;gap:8px}
+.dm-paper-panel-card{display:flex;flex-direction:column;gap:6px;min-width:0;text-align:left;border:1px solid #dbe4f0;background:#fbfdff;border-radius:9px;padding:10px;cursor:pointer;color:#1d3a58}
+.dm-paper-panel-card:hover,.dm-paper-panel-card:focus-visible{border-color:#447ab8;outline-offset:2px}
+.dm-paper-panel-card strong,.dm-paper-panel-card span,.dm-paper-panel-card small{overflow-wrap:anywhere}
+.dm-paper-panel-thumbnail{display:flex;justify-content:center;align-items:center;flex-direction:column;height:96px;background:#eaf2f9;border-radius:6px;font-size:24px;color:#517092}
+.dm-paper-panel-thumbnail small{font-size:10px;color:#6f8193}
+.dm-paper-panel-card>span{font-size:12px;color:#607387}
+.dm-paper-panel-card>small{font-size:11px;color:#8492a2}
+.dm-paper-error{background:#fff1ed;padding:10px;color:#9a3c2c}
+.dm-paper-notice{color:#296649;padding:8px}
+.dm-paper-drawer{z-index:260;width:min(540px,100vw)}
+.dm-paper-drawer h3{font-size:14px;margin:24px 0 10px}
+.dm-paper-reference{display:flex;flex-direction:column;gap:6px;border:1px solid #d6e2ec;border-radius:7px;padding:10px;margin-bottom:9px}
+.dm-paper-reference span,.dm-paper-reference code{font-size:11px;overflow-wrap:anywhere}
+.dm-paper-reference button{align-self:start}
+.dm-paper-candidates{max-height:210px;overflow:auto;padding:7px;border:1px solid #d9e3ee}
+.dm-paper-candidates label{display:flex;align-items:center;gap:8px;margin:5px}
+.dm-paper-candidates label small{font-size:10px;word-break:break-all}
+.dm-paper-export{padding:12px;background:#f1f6fc;border:1px solid #d6e4f1;border-radius:7px}

@@ -7,8 +7,39 @@ test('S0 shell retains authorized metadata/import IPC without storage work at st
   const shell=read('apps/desktop/src-tauri/src/lib.rs');
   const handlers=shell.match(/generate_handler!\[([\s\S]*?)\]/)?.[1];
   assert.ok(handlers);
-  assert.deepEqual(handlers.split(',').map(x=>x.trim()).filter(Boolean),
-    ['shell_status','drop_preview::inspect_drop_paths','project_tree::project_tree','experiment_tree::experiment_tree','import_jobs::import_jobs']);
+  const registered = handlers.split(',').map(x=>x.trim()).filter(Boolean);
+  const baseline = ['shell_status','drop_preview::inspect_drop_paths','project_tree::project_tree','experiment_tree::experiment_tree','import_jobs::import_jobs'];
+  for (const command of baseline) {
+    assert.equal(registered.filter(x=>x===command).length,1,`baseline IPC missing or duplicated: ${command}`);
+  }
+  const s4 = ['asset_browser::list_assets','asset_browser::get_asset'];
+  for (const command of s4) {
+    assert.equal(registered.filter(x=>x===command).length,1,`S4 IPC missing or duplicated: ${command}`);
+  }
+  const s5 = ['asset_transfer::asset_transfer'];
+  for (const command of s5) {
+    assert.equal(registered.filter(x=>x===command).length,1,`S5 audited transfer IPC missing or duplicated: ${command}`);
+  }
+  const s6 = ['asset_lifecycle::asset_lifecycle','asset_recycle::list_recycled_assets'];
+  for (const command of s6) {
+    assert.equal(registered.filter(x=>x===command).length,1,`S6 audited lifecycle IPC missing or duplicated: ${command}`);
+  }
+  const s7 = ['repository_safety::repository_safety'];
+  for (const command of s7) {
+    assert.equal(registered.filter(x=>x===command).length,1,`S7 audited snapshot IPC missing or duplicated: ${command}`);
+  }
+  const s8 = ['statistical_analysis::statistical_analysis'];
+  for (const command of s8) {
+    assert.equal(registered.filter(x=>x===command).length,1,`S8 audited analysis IPC missing or duplicated: ${command}`);
+  }
+  const s9 = ['paper_workspace::paper_workspace'];
+  for (const command of s9) {
+    assert.equal(registered.filter(x=>x===command).length,1,`S9 paper workspace IPC missing or duplicated: ${command}`);
+  }
+  const s10 = ['provenance_trace::provenance_trace','figure_export::figure_export','figure_export::figure_export_cancel'];
+  for (const command of s10) assert.equal(registered.filter(x=>x===command).length,1,'S10 provenance IPC missing or duplicated');
+  const s13 = ['archive_import::archive_import','archive_import::archive_pick_folder'];
+  assert.deepEqual([...registered].sort(),[...baseline,...s4,...s5,...s6,...s7,...s8,...s9,...s10,...s13].sort(),'unexpected IPC command registered');
   const start=shell.indexOf('pub fn run()');
   const end=shell.indexOf('#[cfg(test)]',start);
   const run=shell.slice(start,end<0?undefined:end);
@@ -29,7 +60,13 @@ test('S0 both renderer entries consume the canonical UI and styles',()=>{
   const config=JSON.parse(read('apps/desktop/src-tauri/tauri.conf.json'));
   assert.equal(config.build.devUrl,'http://127.0.0.1:5176');
   assert.equal(config.build.frontendDist,'../dist');
-  assert.equal(config.bundle.active,false);
+  // S11 deliberately enables an installer. Keep the S0 non-GUI configuration
+  // contract strict while explicitly checking the only authorized bundle type.
+  assert.equal(config.bundle.active,true);
+  assert.deepEqual(config.bundle.targets,['nsis']);
+  assert.equal(config.bundle.windows?.nsis?.installMode,'currentUser');
+  assert.equal(config.identifier,'com.deviljian.datam');
+  assert.equal(config.version,'0.1.0');
 });
 
 test('S0 CI installs locked dependencies and guards S0 test discovery',()=>{
