@@ -44,17 +44,27 @@ function makeCorpus(){
       }
     }
   }
+  for(const [folder,files] of [['paper',['DataM_模拟论文.docx','DataM_模拟论文.pdf']],['figure',['Figure1.png','Figure2.png']]] as const){
+    for(const filename of files){
+      const relativePath=`${folder}/${filename}`;
+      entries.push({id:`entry-${++serial}`,relativePath,
+        sourcePath:`C:\\Research\\${relativePath}`,sizeBytes:serial,
+        sha256:serial.toString(16).padStart(64,'0'),
+        projectName:'DataM_Research_Test',themeName:'',assayName:'',groupName:'',replicateName:'',
+        stage:folder,decision:'import',processTag:'',alias:filename,issue:'',status:'queued',jobId:null});
+    }
+  }
   return entries;
 }
-describe('S14 two-experiment, 342-science-file durable S3 pipeline',()=>{
+describe('S14 346-file multi-scope durable S3 import pipeline',()=>{
   it('creates 2 themes, 6 assays, 18 groups and 108 replicates without auto Paper/Panel linking',async()=>{
     const entries=makeCorpus();
-    expect(entries).toHaveLength(342);
+    expect(entries).toHaveLength(346);
     const task:ArchiveTask={
       id:'s14-dual',rootName:'DataM_Research_Test',
       layout:'project_exp_data_experiment_assay_group',targetProjectId:null,
       targetThemeName:'',fallbackGroup:'',status:'prepared',
-      total:342,imported:0,skipped:0,review:0,failed:0,ready:342,
+      total:346,imported:0,skipped:0,review:0,failed:0,ready:346,
       entries:entries.slice(),nextOffset:null
     };
     let sequence=0;
@@ -127,14 +137,16 @@ describe('S14 two-experiment, 342-science-file durable S3 pipeline',()=>{
     const progress=vi.fn();
     const result=await runArchiveTask(task,progress,new AbortController().signal,deps);
     expect(result.status).toBe('completed');
-    expect(result.imported).toBe(342);
+    expect(result.imported).toBe(346);
     expect(nodes.filter(x=>x.kind==='project')).toHaveLength(1);
     expect(nodes.filter(x=>x.kind==='theme')).toHaveLength(2);
     expect(nodes.filter(x=>x.kind==='assay')).toHaveLength(6);
     expect([...groupsByAssay.values()].reduce((sum,g)=>sum+g.length,0)).toBe(18);
     expect([...groupsByAssay.values()].flat().reduce((sum,g)=>sum+g.replicates.length,0)).toBe(108);
     const imported=[...jobs.values()].flatMap(j=>j.files);
-    expect(imported).toHaveLength(342);
+    expect(imported).toHaveLength(346);
+    expect([...jobs.values()].filter(j=>j.target.stage==='paper').flatMap(j=>j.files)).toHaveLength(2);
+    expect([...jobs.values()].filter(j=>j.target.stage==='figure').flatMap(j=>j.files)).toHaveLength(2);
     expect(progress).toHaveBeenCalled();
   });
 });
