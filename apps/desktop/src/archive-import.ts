@@ -42,7 +42,7 @@ const valid=(v:unknown):v is Record<string,unknown>=>v!==null&&typeof v==='objec
 const nonblank=(v:unknown):v is string=>typeof v==='string'&&v.length>0&&v.length<=32767;
 const count=(v:unknown):v is number=>Number.isSafeInteger(v)&&typeof v==='number'&&v>=0;
 const options:{stage:readonly string[];layout:readonly string[];decision:readonly string[];status:readonly string[]}={
-  stage:['raw','processed','statistics','display','review'],
+  stage:['raw','processed','statistics','display','paper','figure','review'],
   layout:['project_theme_assay_group','theme_assay_group','assay_group','project_exp_data_experiment_assay_group'],
   decision:['import','skip','review'],
   status:['scanned','review','prepared','running','paused','failed','completed','cancelled']
