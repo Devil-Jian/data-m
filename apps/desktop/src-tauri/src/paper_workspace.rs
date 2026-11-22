@@ -83,8 +83,14 @@ struct Candidate {
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+struct ProjectDocument {
+    id:String, name:String, kind:String, asset_version_id:String, sha256:String,
+}
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PaperSnapshot {
     papers: Vec<PaperRow>,
+    documents: Vec<ProjectDocument>,
     candidates: Vec<Candidate>,
     candidate_total_count: i64,
     candidate_truncated: bool,
@@ -585,8 +591,21 @@ fn query(
             .collect::<rusqlite::Result<Vec<_>>>()?;
         candidate_truncated = i64::from(offset) + (candidates.len() as i64) < candidate_total_count;
     }
+    // S14: read project-scoped Paper/Figure source file versions.
+    // These are NOT Panel references and remain unbound until user action.
+    let mut docs=c.prepare("SELECT l.id,l.display_name,l.kind,v.id,v.blob_sha256
+       FROM project_document_links l
+       JOIN data_assets da ON da.id=l.asset_id AND da.deleted_at IS NULL
+       JOIN asset_versions v ON v.asset_id=da.id
+       WHERE l.project_id=?1 AND l.deleted_at IS NULL
+       ORDER BY l.kind,l.display_name COLLATE NOCASE,v.version_number DESC")?;
+    let documents=docs.query_map([project],|r|Ok(ProjectDocument{
+        id:r.get(0)?,name:r.get(1)?,kind:r.get(2)?,
+        asset_version_id:r.get(3)?,sha256:r.get(4)?
+    }))?.collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(PaperSnapshot {
         papers,
+        documents,
         candidates,
         candidate_total_count,
         candidate_truncated,
