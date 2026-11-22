@@ -1140,7 +1140,7 @@ mod tests {
             Ok((version, analyses, papers))
         })
         .unwrap();
-        assert_eq!(tables.0, 3);
+        assert_eq!(tables.0, 4);
         assert_eq!(tables.1, 0);
         assert_eq!(tables.2, 1);
         let reopened = execute_at(&path, request("list", None, None, None, None, None)).unwrap();
