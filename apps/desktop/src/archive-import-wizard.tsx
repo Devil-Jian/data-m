@@ -9,6 +9,7 @@ import './archive-import-wizard.css';
 
 const layouts:{value:ArchiveLayout;label:string}[]=[
   {value:'project_theme_assay_group',label:'项目 → 主题 → 实验 → 分组'},
+  {value:'project_exp_data_experiment_assay_group',label:'项目 → exp_data → 实验1/2 → ROS/WB/CV → 分组 → 数据阶段'},
   {value:'theme_assay_group',label:'主题 → 实验 → 分组（合并现有项目）'},
   {value:'assay_group',label:'实验 → 分组（指定主题）'}
 ];
@@ -47,7 +48,7 @@ export function ArchiveImportWizard({registerImportDrop,projects,onClose,onImpor
   const [task,setTask]=useState<ArchiveTask|null>(null);
   const [templates,setTemplates]=useState<ArchiveTemplate[]>([]);
   const [history,setHistory]=useState<ArchiveTask[]>([]);
-  const [layout,setLayout]=useState<ArchiveLayout>('project_theme_assay_group');
+  const [layout,setLayout]=useState<ArchiveLayout>('project_exp_data_experiment_assay_group');
   const [projectId,setProjectId]=useState('');
   const [themeName,setThemeName]=useState('');
   const [fallbackGroup,setFallbackGroup]=useState('');
@@ -270,7 +271,7 @@ export function ArchiveImportWizard({registerImportDrop,projects,onClose,onImpor
           {!task?<div className="dm-s13-empty">
             <h3>等待扫描项目文件夹</h3>
             <p>自动提取目录结构、ROS01 等样本前缀，以及 raw / process / show / statistics 阶段。</p>
-            <p>不确定的 quant、无样本名文件和同名冲突会要求校对。</p>
+            <p>S14 分组 statistics_data 内的 quant.png 识别为 Statistics。paper/figure 项目级文件暂列待确认，绝不错误地导入实验资产。</p>
           </div>:<>
             <div className="dm-s13-summary">
               <h3>{task.rootName}</h3>
