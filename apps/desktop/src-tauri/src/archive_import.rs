@@ -74,7 +74,7 @@ fn layout_ok(value:&str)->bool{
     matches!(value,"project_theme_assay_group"|"theme_assay_group"|"assay_group"|"project_exp_data_experiment_assay_group")
 }
 fn stage_ok(value:&str)->bool{
-    matches!(value,"raw"|"processed"|"statistics"|"display")
+    matches!(value,"raw"|"processed"|"statistics"|"display"|"paper"|"figure")
 }
 fn safe_regular(path:&Path)->Result<fs::Metadata,TreeError>{
     let m=fs::symlink_metadata(path).map_err(|_|invalid("SOURCE_UNAVAILABLE"))?;
@@ -148,13 +148,15 @@ fn inferred(
     // Project/exp_data/Experiment/Assay/Group/(raw_data|process_data|statistics_data|show_data).
     // Experiment is stored as Theme (no invented Experiment database entity).
     if layout=="project_exp_data_experiment_assay_group" {
-        if folders.first().is_some_and(|x| x.eq_ignore_ascii_case("paper") || x.eq_ignore_ascii_case("figure")) {
-            // Paper/Figure are project-level documents, NOT assay assets.
-            // The S3 API does not accept project-level document targets. Never
-            // invent a synthetic assay, a Panel reference, or silently skip them.
+        if let Some(folder)=folders.first().filter(|x| x.eq_ignore_ascii_case("paper") || x.eq_ignore_ascii_case("figure")) {
+            // Project-scoped files are versioned by S3/CAS, not linked to Panel.
+            if folders.len()!=1 {
+                return (root_name.into(),String::new(),String::new(),String::new(),
+                    String::new(),"review".into(),"unexpected nested project document".into());
+            }
+            let kind=if folder.eq_ignore_ascii_case("paper"){"paper"}else{"figure"};
             return (root_name.into(),String::new(),String::new(),String::new(),
-                String::new(),"review".into(),
-                "project-level paper/figure asset: dedicated document import required".into());
+                String::new(),kind.into(),String::new());
         }
         if folders.first().map(String::as_str)!=Some("exp_data") || folders.len()<4 {
             return (root_name.into(),String::new(),String::new(),String::new(),
@@ -413,10 +415,13 @@ fn edit(con:&Connection,req:&ArchiveRequest)->Result<(),TreeError>{
         req.stage.as_deref().unwrap_or(&old.5),
         req.decision.as_deref().unwrap_or(&old.6),
         req.alias.as_deref().unwrap_or(&old.7));
+    let document=matches!(stage,"paper"|"figure");
     if !matches!(decision,"import"|"skip"|"review")
-        || (decision!="skip" && (!name(alias)||!name(theme)||!name(assay)||!stage_ok(stage)
+        || (decision!="skip" && (!name(alias)||(!document&&(!name(theme)||!name(assay)))
+            ||!stage_ok(stage)
             || (stage=="raw"||stage=="processed")&&(!name(group)||!name(replicate))
-            || (!project.is_empty()&&!name(project))))
+            || (!project.is_empty()&&!name(project))
+            || (document&&(!theme.is_empty()||!assay.is_empty()||!group.is_empty()))))
         {return Err(invalid("INVALID_MAPPING"))}
     con.execute("UPDATE s13_entries SET project_name=?1,theme_name=?2,assay_name=?3,
       group_name=?4,replicate_name=?5,stage=?6,decision=?7,alias=?8,issue=?9
@@ -459,7 +464,9 @@ fn prepare(con:&mut Connection,repo:&Path,id:&str)->Result<(),TreeError>{
                 changed.push((entry.clone(),"skip".into(),"skipped by user".into()));
                 continue;
             }
-            if decision=="review"||!stage_ok(stage)||!name(theme)||!name(assay)||!name(alias)
+            let document=matches!(stage.as_str(),"paper"|"figure");
+            if decision=="review"||!stage_ok(stage)||!name(alias)
+               ||(!document&&(!name(theme)||!name(assay)))
                ||(stage=="raw"||stage=="processed")&&(!name(group)||!name(sample)){
                 changed.push((entry.clone(),"review".into(),"unresolved directory or stage mapping".into()));
                 any_review=true;continue;
@@ -494,27 +501,46 @@ fn prepare(con:&mut Connection,repo:&Path,id:&str)->Result<(),TreeError>{
             seen.insert(key,(sha.clone(),entry.clone()));
             // Missing entity levels are created only by S1/S2 after explicit confirmation.
             // Existing names must match at every parent level and in the correct assay scope.
-            let mut st=db.prepare("SELECT v.blob_sha256
-                FROM asset_links l
-                JOIN assays a ON a.id=l.assay_id AND a.deleted_at IS NULL
-                JOIN themes t ON t.id=a.theme_id AND t.deleted_at IS NULL
-                JOIN projects p ON p.id=t.project_id AND p.deleted_at IS NULL
-                JOIN data_assets da ON da.id=l.asset_id
-                JOIN asset_versions v ON v.asset_id=da.id
-                LEFT JOIN experiment_groups g ON g.id=l.group_id
-                LEFT JOIN replicates r ON r.id=l.replicate_id
-                WHERE (?1 IS NULL OR p.id=?1)
-                  AND (?1 IS NOT NULL OR p.name=?2 COLLATE NOCASE)
-                  AND t.name=?3 COLLATE NOCASE AND a.name=?4 COLLATE NOCASE
-                  AND (l.stage IN ('statistics','display') OR
-                       (g.name=?5 COLLATE NOCASE AND r.label=?6 COLLATE NOCASE))
-                  AND l.stage=?7 AND l.display_name=?8 COLLATE NOCASE
-                  AND l.deleted_at IS NULL
-                ORDER BY v.version_number DESC LIMIT 2")
-                .map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
-            let matches=st.query_map(params![target_project,project,theme,assay,group,sample,stage,alias],
-                |r|r.get::<_,String>(0)).map_err(|_|invalid("QUEUE_UNAVAILABLE"))?
-                .collect::<Result<Vec<_>,_>>().map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+            let matches:Vec<String>=if document {
+                let mut st=db.prepare("SELECT v.blob_sha256
+                  FROM project_document_links l
+                  JOIN projects p ON p.id=l.project_id AND p.deleted_at IS NULL
+                  JOIN data_assets da ON da.id=l.asset_id
+                  JOIN asset_versions v ON v.asset_id=da.id
+                  WHERE (?1 IS NULL OR p.id=?1)
+                    AND (?1 IS NOT NULL OR p.name=?2 COLLATE NOCASE)
+                    AND l.kind=?3 AND l.display_name=?4 COLLATE NOCASE
+                    AND l.deleted_at IS NULL
+                  ORDER BY v.version_number DESC LIMIT 2")
+                    .map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+                let result=st.query_map(params![target_project,project,stage,alias],
+                    |r|r.get::<_,String>(0)).map_err(|_|invalid("QUEUE_UNAVAILABLE"))?
+                    .collect::<Result<Vec<_>,_>>().map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+                result
+            }else{
+                let mut st=db.prepare("SELECT v.blob_sha256
+                    FROM asset_links l
+                    JOIN assays a ON a.id=l.assay_id AND a.deleted_at IS NULL
+                    JOIN themes t ON t.id=a.theme_id AND t.deleted_at IS NULL
+                    JOIN projects p ON p.id=t.project_id AND p.deleted_at IS NULL
+                    JOIN data_assets da ON da.id=l.asset_id
+                    JOIN asset_versions v ON v.asset_id=da.id
+                    LEFT JOIN experiment_groups g ON g.id=l.group_id
+                    LEFT JOIN replicates r ON r.id=l.replicate_id
+                    WHERE (?1 IS NULL OR p.id=?1)
+                      AND (?1 IS NOT NULL OR p.name=?2 COLLATE NOCASE)
+                      AND t.name=?3 COLLATE NOCASE AND a.name=?4 COLLATE NOCASE
+                      AND (l.stage IN ('statistics','display') OR
+                           (g.name=?5 COLLATE NOCASE AND r.label=?6 COLLATE NOCASE))
+                      AND l.stage=?7 AND l.display_name=?8 COLLATE NOCASE
+                      AND l.deleted_at IS NULL
+                    ORDER BY v.version_number DESC LIMIT 2")
+                    .map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+                let result=st.query_map(params![target_project,project,theme,assay,group,sample,stage,alias],
+                    |r|r.get::<_,String>(0)).map_err(|_|invalid("QUEUE_UNAVAILABLE"))?
+                    .collect::<Result<Vec<_>,_>>().map_err(|_|invalid("QUEUE_UNAVAILABLE"))?;
+                result
+            };
             if matches.is_empty(){changed.push((entry.clone(),"import".into(),String::new()));}
             else if matches.iter().any(|known|known==sha){
                 changed.push((entry.clone(),"skip".into(),"already imported same SHA".into()));
