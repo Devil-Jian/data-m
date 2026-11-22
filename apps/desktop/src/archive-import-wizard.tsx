@@ -18,7 +18,9 @@ const stages:{value:string;label:string}[]=[
   {value:'raw',label:'Raw · 原始数据'},
   {value:'processed',label:'Processed · 处理文件'},
   {value:'statistics',label:'Statistics · 实验级统计'},
-  {value:'display',label:'Display · 实验级展示'}
+  {value:'display',label:'Display · 实验级展示'},
+  {value:'paper',label:'Paper · 项目论文原件'},
+  {value:'figure',label:'Figure · 项目组图原件'}
 ];
 interface Editable{
   id:string;projectName:string;themeName:string;assayName:string;groupName:string;
@@ -271,7 +273,7 @@ export function ArchiveImportWizard({registerImportDrop,projects,onClose,onImpor
           {!task?<div className="dm-s13-empty">
             <h3>等待扫描项目文件夹</h3>
             <p>自动提取目录结构、ROS01 等样本前缀，以及 raw / process / show / statistics 阶段。</p>
-            <p>S14 分组 statistics_data 内的 quant.png 识别为 Statistics。paper/figure 项目级文件暂列待确认，绝不错误地导入实验资产。</p>
+            <p>S14 根据父目录识别 Raw/Processed/Statistics/Display；paper/figure 原件作为项目级 CAS 资产导入，不自动关联 Panel 或 ShowData。</p>
           </div>:<>
             <div className="dm-s13-summary">
               <h3>{task.rootName}</h3>
@@ -313,7 +315,7 @@ export function ArchiveImportWizard({registerImportDrop,projects,onClose,onImpor
                     old.filter(id=>id!==e.id))}/></label>
                 <div className="dm-s13-file-main">
                   <strong>{e.relativePath}</strong>
-                  <small>{e.themeName||'?'} / {e.assayName||'?'} / {e.groupName||'实验级'} /
+                  <small>{e.themeName||'项目级'} / {e.assayName||e.stage} / {e.groupName||'实验级'} /
                     {e.replicateName||'无特定样本'} → {e.stage}{e.processTag?' · 处理标签 '+e.processTag:''}</small>
                   {e.issue&&<span className="dm-s13-issue">{e.issue}</span>}
                   <small>{e.sizeBytes} bytes · SHA-256 {e.sha256.slice(0,12)}… ·
