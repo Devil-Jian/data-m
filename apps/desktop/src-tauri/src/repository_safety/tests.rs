@@ -766,7 +766,9 @@ fn s10_combined_schema_v3_backup_restore_frozen_analysis_and_panel_pins() {
     )
     .unwrap();
     assert_eq!(manifest.manifest_version, 1);
-    assert_eq!(manifest.schema_version, 4);
+    // Restored snapshot was deliberately created as schema v3; S14's
+    // compatibility layer must preserve its on-disk schema during export.
+    assert_eq!(manifest.schema_version, 3);
     assert_eq!(manifest.panels.len(), 3);
     assert_eq!(manifest.reference_count, 5);
     assert_eq!(manifest.physical_file_count, 2);
