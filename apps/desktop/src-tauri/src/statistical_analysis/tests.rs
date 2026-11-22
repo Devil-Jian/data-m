@@ -263,7 +263,13 @@ fn s8_migrate_existing_v2_preserves_analysis_and_original_ids() {
     }
     crate::project_tree::with_database_at(&db_path, |c| {
         let version: i64 = c.pragma_query_value(None, "user_version", |r| r.get(0))?;
-        assert_eq!(version, 3);
+        // S14 extends the recognized database to schema v4; the S8 IDs and
+        // sample inclusion must survive the complete v2 -> v3 -> v4 migration.
+        assert_eq!(version, 4);
+        let document_links: i64 = c.query_row(
+            "SELECT count(*) FROM project_document_links", [], |r| r.get(0)
+        )?;
+        assert_eq!(document_links, 0);
         let state = snapshot(c, "a", Some("analysis-old".into()))?;
         assert_eq!(state.analyses[0].id, "analysis-old");
         assert_eq!(state.analyses[0].included_n, 1);
