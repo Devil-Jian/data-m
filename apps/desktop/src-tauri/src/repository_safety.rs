@@ -327,13 +327,9 @@ fn open_recognized(path: &Path) -> Result<Connection, TreeError> {
         .map_err(|_| failure("UNKNOWN_DATABASE"))?;
     c.busy_timeout(Duration::from_secs(5)).map_err(map_read)?;
     recognized(&c).map_err(|_| failure("UNKNOWN_DATABASE"))?;
-    if c.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
-        .map_err(map_read)?
-        != 2
-        && c.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
-            .map_err(map_read)?
-            != 3
-    {
+    let version:i64=c.pragma_query_value(None, "user_version", |row| row.get(0))
+        .map_err(map_read)?;
+    if !matches!(version,2|3|4) {
         return Err(failure("UNKNOWN_DATABASE"));
     }
     Ok(c)
