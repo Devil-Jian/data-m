@@ -19,6 +19,8 @@ pub struct ImportTarget {
     assay_id: String,
     stage: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    project_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     group_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     replicate_id: Option<String>,
@@ -321,6 +323,18 @@ fn execute(
 }
 
 fn target(connection: &Connection, input: &ImportTarget) -> Result<ImportTarget, TreeError> {
+    if matches!(input.stage.as_str(), "paper" | "figure") {
+        if !input.assay_id.is_empty() || input.group_id.is_some() || input.replicate_id.is_some() {
+            return Err(failure("INVALID_TARGET"));
+        }
+        let project = required(input.project_id.as_deref(), 128)
+            .map_err(|_|failure("INVALID_TARGET"))?;
+        let active:bool=connection.query_row(
+            "SELECT EXISTS(SELECT 1 FROM projects WHERE id=?1 AND deleted_at IS NULL)",
+            [project],|r|r.get(0))?;
+        return if active {Ok(input.clone())} else {Err(failure("INVALID_TARGET"))};
+    }
+    if input.project_id.is_some() {return Err(failure("INVALID_TARGET"))}
     required(Some(&input.assay_id), 128).map_err(|_| failure("INVALID_TARGET"))?;
     let active:bool=connection.query_row("SELECT EXISTS(SELECT 1 FROM assays a JOIN themes t ON t.id=a.theme_id JOIN projects p ON p.id=t.project_id WHERE a.id=?1 AND a.deleted_at IS NULL AND t.deleted_at IS NULL AND p.deleted_at IS NULL)",[&input.assay_id],|r|r.get(0))?;
     if !active {
