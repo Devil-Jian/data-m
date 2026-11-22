@@ -118,7 +118,7 @@ describe('S14 346-file multi-scope durable S3 import pipeline',()=>{
           const jobId=`job-${++sequence}`;
           jobs.set(jobId,{id:jobId,target:request.target!,status:'prepared',
             totalBytes:0,copiedBytes:0,completedCount:0,errorCode:null,
-            files:(request.aliases??[]).map((alias,index)=>({
+            files:(request.aliases??[]).map((alias:string,index:number)=>({
               id:`file-${sequence}-${index}`,name:alias,sizeBytes:
                 entries.find(e=>e.sourcePath===request.paths![index])!.sizeBytes,
               sha256:null,status:'queued',assetVersionId:null,errorCode:null
