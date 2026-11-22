@@ -338,8 +338,15 @@ fn scan(con:&mut Connection,request:&ArchiveRequest,repo_path:&Path)->Result<Str
     if root.starts_with(&repo_root) || repo_root.starts_with(&root){
         return Err(invalid("SOURCE_IN_REPOSITORY"));
     }
-    let layout=required(request.layout.as_deref())?;
-    if !layout_ok(layout){return Err(invalid("INVALID_LAYOUT"))}
+    let requested_layout=required(request.layout.as_deref())?;
+    if !layout_ok(requested_layout){return Err(invalid("INVALID_LAYOUT"))}
+    // Recognize a controlled S14 research root regardless of a saved S13
+    // layout preference. In particular, project-level paper/figure cannot be
+    // safely mapped using the old four-level layout. The scan records the
+    // effective layout and the UI displays it for confirmation.
+    let layout=if root.join("exp_data").is_dir() {
+        "project_exp_data_experiment_assay_group"
+    }else{requested_layout};
     if let Some(project)=request.target_project_id.as_deref(){
         if !name(project){return Err(invalid("INVALID_REQUEST"))}
     }else if layout!="project_theme_assay_group" && layout!="project_exp_data_experiment_assay_group"{return Err(invalid("TARGET_PROJECT_REQUIRED"))}
