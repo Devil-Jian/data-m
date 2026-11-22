@@ -91,7 +91,12 @@ export function ArchiveImportWizard({registerImportDrop,projects,onClose,onImpor
     try{
       const response=await api({action:'scan',rootPath:path,layout,targetProjectId:projectId||undefined,
         targetThemeName:themeName,fallbackGroup});
-      if(mounted.current)apply(response,true);
+      if(mounted.current){
+        // Reflect the native auto-detected layout so the selector never
+        // contradicts the actual persisted scan interpretation.
+        if(response.current)setLayout(response.current.layout);
+        apply(response,true);
+      }
     }catch(e){if(mounted.current)setError(archiveError(e))}
     finally{if(mounted.current)setBusy(false);}
   },[api,busy,running,layout,projectId,themeName,fallbackGroup]);
@@ -280,6 +285,9 @@ export function ArchiveImportWizard({registerImportDrop,projects,onClose,onImpor
               <small>任务 ID：{task.id}</small>
               <p role="status">{task.total} 个文件 · {task.imported} 已验证 · {task.skipped} 跳过 · {task.review} 待确认 · {task.failed} 失败</p>
               <p>目录映射：{layouts.find(x=>x.value===task.layout)?.label} · 当前 {task.status}</p>
+              {task.review>0&&<p className="dm-s13-warning">
+                当前有 {task.review} 项无法自动分类。请优先检查目录层级规则；若文件夹包含 exp_data、paper、figure，请重新选择根目录扫描，项目级论文/组图无需指定实验阶段。
+              </p>}
               <div className="dm-s13-summary-actions">
                 <UI.Button small disabled={busy||running} onClick={()=>void preflight()}>检查冲突与源文件</UI.Button>
                 <UI.Button small variant="ghost" disabled={busy||running}
