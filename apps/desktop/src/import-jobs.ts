@@ -1,7 +1,7 @@
 import {invoke,isTauri} from '@tauri-apps/api/core';
 
-export type ImportStage='raw'|'processed'|'statistics'|'display';
-export interface ImportTarget {assayId:string;stage:ImportStage;groupId?:string;replicateId?:string}
+export type ImportStage='raw'|'processed'|'statistics'|'display'|'paper'|'figure';
+export interface ImportTarget {assayId:string;stage:ImportStage;groupId?:string;replicateId?:string;projectId?:string}
 export type ImportJobStatus='prepared'|'running'|'completed'|'failed'|'cancelled'|'interrupted'|'integrity_failed';
 export type ImportFileStatus='queued'|'copying'|'staged'|'blob_published'|'committed'|'failed'|'cancelled'|'interrupted';
 export interface ImportFile {id:string;name:string;sizeBytes:number;sha256:string|null;status:ImportFileStatus;assetVersionId:string|null;errorCode:string|null}
@@ -49,7 +49,12 @@ function bytes(value:unknown):value is number{return typeof value==='number'&&Nu
 function errorCode(value:unknown){return typeof value==='string'?(Object.hasOwn(messages,value)?value:'UNKNOWN'):null;}
 const fail=():never=>{throw new ImportError('INVALID_RESPONSE');};
 function target(value:unknown):ImportTarget {
-  if(!record(value)||!opaque(value.assayId)||!['raw','processed','statistics','display'].includes(String(value.stage)))return fail();
+  if(!record(value)||!['raw','processed','statistics','display','paper','figure'].includes(String(value.stage)))return fail();
+  if(value.stage==='paper'||value.stage==='figure'){
+    if(value.assayId!==''||!opaque(value.projectId)||value.groupId!=null||value.replicateId!=null)return fail();
+    return {assayId:'',stage:value.stage as ImportStage,projectId:value.projectId};
+  }
+  if(!opaque(value.assayId)||value.projectId!=null)return fail();
   const result:ImportTarget={assayId:value.assayId,stage:value.stage as ImportStage};
   if(result.stage==='raw'||result.stage==='processed'){
     if(!opaque(value.replicateId))return fail();
