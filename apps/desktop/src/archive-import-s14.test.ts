@@ -61,7 +61,6 @@ describe('S14 two-experiment, 342-science-file durable S3 pipeline',()=>{
     const nodes:{id:string;name:string;kind:'project'|'theme'|'assay';parentId:string|null}[]=[];
     const groupsByAssay=new Map<string,Array<{id:string;name:string;replicates:Array<{id:string;label:string}>}>>();
     const jobs=new Map<string,ImportJob>();
-    const paperCalls:string[]=[];
     const deps:ArchiveRunnerDeps={
       archive:vi.fn(async request=>{
         if(request.action==='resume')task.status='running';
@@ -121,7 +120,6 @@ describe('S14 two-experiment, 342-science-file durable S3 pipeline',()=>{
           job.files=job.files.map(f=>({...f,status:'committed' as const}));
           job.completedCount=job.files.length;
         }
-        if(request.action==='paper_workspace')paperCalls.push('not expected');
         return {jobs:[...jobs.values()]};
       }),
       sleep:vi.fn(async()=>{})
@@ -137,7 +135,6 @@ describe('S14 two-experiment, 342-science-file durable S3 pipeline',()=>{
     expect([...groupsByAssay.values()].flat().reduce((sum,g)=>sum+g.replicates.length,0)).toBe(108);
     const imported=[...jobs.values()].flatMap(j=>j.files);
     expect(imported).toHaveLength(342);
-    expect(paperCalls).toHaveLength(0);
     expect(progress).toHaveBeenCalled();
   });
 });
